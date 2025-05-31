@@ -7,19 +7,13 @@ use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
+use App\Enums\StatusPembayaran; // Ensure this is the correct namespace for StatusPembayaran
+use Filament\Resources\Components\Tab;
 
 
 class ListPendaftaranEpts extends ListRecords
 {
-    // public Collection $orderByStatuses;
-
-    // public function __construct()
-    // {
-    //     $this->orderByStatuses = Order::select('status', \DB::raw('count(*) as order_count'))
-    //         ->groupBy('status')
-    //         ->pluck('order_count', 'status');
-    // }
-    
+   
     protected static string $resource = PendaftaranEptResource::class;
 
     protected function getHeaderActions(): array
@@ -44,15 +38,38 @@ class ListPendaftaranEpts extends ListRecords
         return $query->where('user_id', Auth::id());
     }
 
-    // public function getTabs(): array
-    // {
-    //     return [
-    //         'pending' => Tab::make('Pending')
-    //             ->modifyQueryUsing(function ($query) {
-    //                 return $query->where('status', StatusPembayaran::PENDING->value);
-    //             }),
-    //     ];
-    // }
+    public function getTabs(): array
+    {
+        $user = Auth::user();
+        if (!($user->hasRole('Admin') || $user->hasRole('Staf Administrasi'))) {
+            return [];
+        }
+
+        return [
+            'all' => Tab::make('Semua')
+                ->badge(fn () => $this->getModel()::count()),
+
+            'today' => Tab::make('Hari Ini')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', today()))
+                ->badge(fn () => $this->getModel()::whereDate('created_at', today())->count())
+                ->badgeColor('info'),
+
+            'pending' => Tab::make('Menunggu')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'pending'))
+                ->badge(fn () => $this->getModel()::where('status_pembayaran', 'pending')->count())
+                ->badgeColor('warning'),
+
+            'approved' => Tab::make('Disetujui')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'approved'))
+                ->badge(fn () => $this->getModel()::where('status_pembayaran', 'approved')->count())
+                ->badgeColor('success'),
+
+            'rejected' => Tab::make('Ditolak')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'rejected'))
+                ->badge(fn () => $this->getModel()::where('status_pembayaran', 'rejected')->count())
+                ->badgeColor('danger'),
+        ];
+    }
 
     protected function canCreate(): bool
     {

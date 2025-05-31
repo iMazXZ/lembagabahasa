@@ -32,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->maxContentWidth('full')
             ->id('admin')
-            ->path('admin')
+            ->path('dashboard')
             ->login()
             ->registration(Register::class)
             ->passwordReset(RequestPasswordReset::class)
@@ -48,7 +48,8 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 WelcomeWidget::class,
             ])
-            ->brandLogo(fn () => view('filament.logo'))
+            // ->brandLogo(fn () => view('filament.logo'))
+            ->brandName('Lembaga Bahasa UM Metro')
             ->navigationGroups([
                 'Layanan Lembaga Bahasa',
                 'Manajemen EPT',

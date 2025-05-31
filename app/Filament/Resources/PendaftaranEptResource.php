@@ -33,6 +33,7 @@ class PendaftaranEptResource extends Resource
                 Forms\Components\FileUpload::make('bukti_pembayaran')
                     ->label('Upload Struk Pembayaran')
                     ->image()
+                    ->required()
                     ->default(null),
                 Forms\Components\Select::make('status_pembayaran')
                     ->options([
@@ -40,7 +41,6 @@ class PendaftaranEptResource extends Resource
                         'approved' => 'Approved',
                         'rejected' => 'Rejected',
                     ])
-                    ->disabled()
                     ->default('pending'),
             ]);
     }
@@ -58,20 +58,21 @@ class PendaftaranEptResource extends Resource
                     ->url(fn ($record) => asset('storage/' . $record->bukti_pembayaran))
                     ->openUrlInNewTab()
                     ->icon('heroicon-o-photo')
-                    ->color('success'),
+                    ->color('info'),
                 Tables\Columns\BadgeColumn::make('status_pembayaran')
                     ->label('Status Pembayaran')
-                    ->colors([
-                        'pending' => 'warning',
-                        'approved' => 'success',
-                        'rejected' => 'danger',
-                    ])
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'pending' => 'Menunggu',
-                        'approved' => 'Disetujui',
+                        'approved' => 'Disetujui', 
                         'rejected' => 'Ditolak - Bukti Tidak Valid',
-                        default => ucfirst($state),
-                    }),
+                        default => 'Tidak Diketahui',
+                    })
+                    ->colors([
+                        'warning' => 'pending',    // Format: 'color' => 'value'
+                        'success' => 'approved',
+                        'danger' => 'rejected',
+                        'secondary' => fn ($state) => empty($state), // untuk null/empty
+                    ]),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Daftar Pada')
                     ->dateTime()
@@ -95,15 +96,35 @@ class PendaftaranEptResource extends Resource
                     ->label('Approve')
                     ->color('success')
                     ->icon('heroicon-o-check-circle')
-                    ->visible(fn () => auth()->user()->hasRole('Admin'))
-                    ->action(fn ($record) => $record->update(['status_pembayaran' => 'approved'])),
+                    ->visible(fn ($record) =>
+                        auth()->user()->hasRole('Admin') &&
+                        in_array($record->status_pembayaran, ['pending', 'rejected'])
+                    )
+                    ->action(function ($record) {
+                        $record->update(['status_pembayaran' => 'approved']);
+
+                        Notification::make()
+                            ->title('Pembayaran disetujui.')
+                            ->success()
+                            ->send();
+                    }),
 
                 Tables\Actions\Action::make('reject')
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn () => auth()->user()->hasRole('Admin'))
-                    ->action(fn ($record) => $record->update(['status_pembayaran' => 'rejected'])),
+                    ->visible(fn ($record) =>
+                        auth()->user()->hasRole('Admin') &&
+                        in_array($record->status_pembayaran, ['approved', 'pending'])
+                    )
+                    ->action(function ($record) {
+                        $record->update(['status_pembayaran' => 'rejected']);
+
+                        Notification::make()
+                            ->title('Pembayaran ditolak.')
+                            ->danger()
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -167,6 +188,34 @@ class PendaftaranEptResource extends Resource
                                 throw new \Exception('Maksimal hanya bisa memilih 20 peserta.');
                             }
                         }),
+                    Tables\Actions\BulkAction::make('validasiPembayaran')
+                        ->label('Validasi Pembayaran')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->color('primary')
+                        ->form([
+                            Forms\Components\Select::make('status')
+                                ->label('Set Status Pembayaran')
+                                ->options([
+                                    'pending' => 'Pending',
+                                    'approved' => 'Disetujui',
+                                    'rejected' => 'Ditolak',
+                                ])
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            foreach ($records as $record) {
+                                $record->update([
+                                    'status_pembayaran' => $data['status'],
+                                ]);
+                            }
+
+                            Notification::make()
+                                ->title('Status pembayaran berhasil diperbarui.')
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn () => auth()->user()->hasRole('Admin'))
+                        ->deselectRecordsAfterCompletion(),
                 ])
             ])
                 ->groups([
@@ -182,6 +231,20 @@ class PendaftaranEptResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (!auth()->user()->hasRole('Admin')) {
+            return null;
+        }
+        $count = static::getModel()::where('status_pembayaran', 'pending')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Pemohon Perlu ditinjau';
     }
 
     public static function getPages(): array

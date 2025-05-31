@@ -64,12 +64,12 @@ class PendaftaranGrupTesResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('masterGrupTes.group_number')->label('Nomor Grup')->sortable(),
-                Tables\Columns\TextColumn::make('masterGrupTes.tanggal_tes')->label('Tanggal Tes')->date()->sortable(),
-                Tables\Columns\TextColumn::make('masterGrupTes.ruangan_tes')->label('Ruangan Tes'),
                 Tables\Columns\TextColumn::make('pendaftaranEpt.users.name')->label('Nama Peserta'),
                 Tables\Columns\TextColumn::make('pendaftaranEpt.users.srn')->label('NIM'),
                 Tables\Columns\TextColumn::make('pendaftaranEpt.users.prody.name')->label('Prodi'),
+                Tables\Columns\TextColumn::make('masterGrupTes.group_number')->label('Nomor Grup')->sortable(),
+                Tables\Columns\TextColumn::make('masterGrupTes.tanggal_tes')->label('Tanggal Tes')->date()->sortable(),
+                Tables\Columns\TextColumn::make('masterGrupTes.ruangan_tes')->label('Ruangan Tes'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

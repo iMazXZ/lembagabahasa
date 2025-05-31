@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage; // TAMBAHAN: Import Storage
 
 class PenerjemahanResource extends Resource
 {
@@ -24,7 +25,8 @@ class PenerjemahanResource extends Resource
 
     public static ?string $label = 'Penerjemahan Dokumen Abstrak';
 
-    public function getTitle(): string
+    // PERBAIKAN: Method ini harus static
+    public static function getTitle(): string
     {
         return 'Penerjemahan Dokumen Abstrak';
     }
@@ -36,7 +38,6 @@ class PenerjemahanResource extends Resource
         $user = auth()->user();
 
         return $form->schema([
-
             Forms\Components\Hidden::make('user_id')
                 ->default(fn () => auth()->id()),
 
@@ -45,31 +46,45 @@ class PenerjemahanResource extends Resource
                 ->directory('bukti-pembayaran')
                 ->downloadable()
                 ->image()
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg'])
+                ->maxSize(5120)
                 ->required($user->hasAnyRole(['Admin', 'pendaftar']))
                 ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
-                ->preserveFilenames(),
+                ->preserveFilenames()
+                ->helperText('Format: JPG, PNG. Maksimal 5MB'),
 
             Forms\Components\FileUpload::make('dokumen_asli')
                 ->label('Upload Dokumen Asli')
+                ->directory('dokumen-asli')
                 ->downloadable()
-                ->required($user->hasAnyRole(['Admin', 'pendaftar'])) // wajib bagi admin & user biasa
-                ->visible($user->hasAnyRole(['Admin', 'pendaftar'])),
+                ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                ->maxSize(10240)
+                ->required($user->hasAnyRole(['Admin', 'pendaftar']))
+                ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
+                ->helperText('Format: PDF, DOC, DOCX. Maksimal 10MB'),
 
             Forms\Components\FileUpload::make('dokumen_terjemahan')
                 ->label('Upload Hasil Terjemahan')
                 ->directory('terjemahan')
+                ->downloadable()
+                ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                ->maxSize(10240)
                 ->visible($user->hasRole('Penerjemah'))
+                ->reactive()
                 ->afterStateUpdated(function ($state, $set) {
                     if ($state) {
                         $set('completion_date', now());
                     }
-                }),
+                })
+                ->helperText('Format: PDF, DOC, DOCX. Maksimal 10MB'),
 
             Forms\Components\DateTimePicker::make('submission_date')
+                ->label('Tanggal Pengajuan')
                 ->default(now())
                 ->disabled()
                 ->dehydrated(),
 
+            // FIELD UNTUK ADMIN - HANYA ASSIGN PENERJEMAH (TANPA STATUS)
             Forms\Components\Select::make('translator_id')
                 ->label('Pilih Penerjemah')
                 ->options(function () {
@@ -77,17 +92,12 @@ class PenerjemahanResource extends Resource
                         $query->where('name', 'Penerjemah');
                     })->pluck('name', 'id');
                 })
-                ->visible($user->hasRole('Admin')),
-
-            Forms\Components\Select::make('status')
-                ->options([
-                    'Menunggu' => 'Menunggu',
-                    'Diproses' => 'Diproses',
-                    'Selesai' => 'Selesai',
-                ])
+                ->searchable()
+                ->placeholder('Pilih penerjemah...')
                 ->visible($user->hasRole('Admin')),
 
             Forms\Components\DateTimePicker::make('completion_date')
+                ->label('Tanggal Selesai')
                 ->disabled()
                 ->dehydrated()
                 ->visible($user->hasRole('Penerjemah')),
@@ -99,51 +109,220 @@ class PenerjemahanResource extends Resource
         return $table->columns([
             Tables\Columns\TextColumn::make('users.name')
                 ->label('Nama Pendaftar')
-                ->searchable(),
-            Tables\Columns\TextColumn::make('bukti_pembayaran')
-                ->label('Bukti Pembayaran')
-                ->formatStateUsing(fn ($state) => 'Bukti Bayar')
-                ->url(fn ($record) => \Storage::url($record->bukti_pembayaran), true)
-                ->openUrlInNewTab()
-                ->limit(20)
-                ->icon('heroicon-o-photo')
-                ->color('danger')
-                ->placeholder('-'),
-            Tables\Columns\TextColumn::make('status')
-                ->badge()
+                ->searchable()
                 ->sortable(),
+
+            Tables\Columns\ImageColumn::make('bukti_pembayaran')
+                ->label('Bukti Pembayaran')
+                ->disk('public')
+                ->size(40)
+                ->placeholder('-'),
+
+            Tables\Columns\BadgeColumn::make('status')
+                ->label('Status')
+                ->colors([
+                    'warning' => 'Menunggu',
+                    'info' => 'Diproses', 
+                    'success' => 'Selesai',
+                ])
+                ->sortable(),
+
             Tables\Columns\TextColumn::make('dokumen_asli')
                 ->label('Dokumen Asli')
-                ->formatStateUsing(fn ($state) => 'Asli')
-                ->url(fn ($record) => \Storage::url($record->dokumen_asli), true)
+                ->formatStateUsing(fn ($state) => $state ? 'Lihat Dokumen' : '-')
+                ->url(fn ($record) => $record->dokumen_asli ? Storage::url($record->dokumen_asli) : null, true)
                 ->openUrlInNewTab()
-                ->limit(20)
-                ->icon('heroicon-o-arrow-down-circle')
-                ->color('danger'),
-            Tables\Columns\TextColumn::make('submission_date')->dateTime(),
-            Tables\Columns\TextColumn::make('translator.name')->label('Penerjemah'),
+                ->icon('heroicon-o-document')
+                ->color('primary')
+                ->placeholder('-'),
+
+            Tables\Columns\TextColumn::make('submission_date')
+                ->label('Tanggal Pengajuan')
+                ->dateTime('d/m/Y H:i')
+                ->sortable(),
+
+            Tables\Columns\TextColumn::make('translator.name')
+                ->label('Penerjemah')
+                ->placeholder('Belum ditentukan')
+                ->sortable(),
+
             Tables\Columns\TextColumn::make('dokumen_terjemahan')
                 ->label('Hasil Terjemahan')
-                ->formatStateUsing(fn ($state) => 'Terjemahan')
-                ->url(fn ($record) => $record->dokumen_terjemahan ? \Storage::url($record->dokumen_terjemahan) : null, true)
+                ->formatStateUsing(fn ($state) => $state ? 'Download' : 'Belum tersedia')
+                ->url(fn ($record) => $record->dokumen_terjemahan ? Storage::url($record->dokumen_terjemahan) : null, true)
                 ->openUrlInNewTab()
-                ->limit(20)
-                ->placeholder('-')
-                ->icon('heroicon-o-arrow-down-circle')
+                ->placeholder('Belum tersedia')
+                ->icon('heroicon-o-arrow-down-tray')
                 ->color('success'),
-            Tables\Columns\TextColumn::make('completion_date')->dateTime(),
+
+            Tables\Columns\TextColumn::make('completion_date')
+                ->label('Tanggal Selesai')
+                ->dateTime('d/m/Y H:i')
+                ->placeholder('-')
+                ->sortable(),
         ])
         
         ->actions([
+        // ACTION GROUP UNTUK ADMIN - UBAH STATUS
+        Tables\Actions\ActionGroup::make([
             Tables\Actions\EditAction::make(),
+            Tables\Actions\Action::make('set_menunggu')
+                ->label('Set Menunggu')
+                ->icon('heroicon-o-clock')
+                ->color('warning')
+                ->action(function ($record) {
+                    $record->update(['status' => 'Menunggu']);
+                })
+                ->requiresConfirmation()
+                ->visible(fn () => auth()->user()->hasRole('Admin')),
+                
+            Tables\Actions\Action::make('set_diproses')
+                ->label('Set Diproses')
+                ->icon('heroicon-o-cog-6-tooth')
+                ->color('info')
+                ->form([
+                    Forms\Components\Select::make('translator_id')
+                        ->label('Pilih Penerjemah')
+                        ->options(function () {
+                            return \App\Models\User::whereHas('roles', function ($query) {
+                                $query->where('name', 'Penerjemah');
+                            })->pluck('name', 'id');
+                        })
+                        ->required()
+                        ->searchable()
+                        ->placeholder('Pilih penerjemah...'),
+                ])
+                ->action(function ($record, array $data) {
+                    $record->update([
+                        'status' => 'Diproses',
+                        'translator_id' => $data['translator_id']
+                    ]);
+                })
+                ->visible(fn () => auth()->user()->hasRole('Admin')),
+                
+            Tables\Actions\Action::make('set_selesai')
+                ->label('Set Selesai')
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->action(function ($record) {
+                    $record->update([
+                        'status' => 'Selesai',
+                        'completion_date' => now()
+                    ]);
+                })
+                ->requiresConfirmation()
+                ->visible(fn ($record) => $record->dokumen_terjemahan !== null && auth()->user()->hasRole('Admin')),
+                
+        ])
+        ->label('Ubah Status')
+        ->icon('heroicon-s-cog-6-tooth')
+        ->visible(fn () => auth()->user()->hasRole('Admin')),
+        
+        // ACTION GROUP UNTUK PENERJEMAH - HANYA EDIT
+        Tables\Actions\ActionGroup::make([
+            Tables\Actions\EditAction::make()
+                ->label('Upload Hasil')
+                ->icon('heroicon-o-arrow-up-tray'),
+        ])
+        ->label('Aksi Penerjemah')
+        ->icon('heroicon-s-academic-cap')
+        ->visible(fn ($record) => auth()->user()->hasRole('Penerjemah') && $record->translator_id === auth()->id()),
+        
+        // ACTION STANDALONE EDIT UNTUK ROLE LAIN
+        Tables\Actions\EditAction::make()
+            ->visible(fn () => !auth()->user()->hasAnyRole(['Admin', 'Penerjemah'])),
+        
+        // ACTION DOWNLOAD HASIL
+        Tables\Actions\Action::make('download_hasil')
+            ->label('Download Hasil')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->url(fn ($record) => $record->dokumen_terjemahan ? Storage::url($record->dokumen_terjemahan) : null)
+            ->openUrlInNewTab()
+            ->visible(fn ($record) => $record->dokumen_terjemahan !== null)
+            ->color('success'),
+    ])
+
+        // TAMBAHAN: Bulk actions
+        ->bulkActions([
+            Tables\Actions\BulkActionGroup::make([
+                Tables\Actions\DeleteBulkAction::make(),
+            ]),
+        ])
+
+        // TAMBAHAN: Filters
+        ->filters([
+            Tables\Filters\SelectFilter::make('status')
+                ->options([
+                    'Menunggu' => 'Menunggu',
+                    'Diproses' => 'Diproses', 
+                    'Selesai' => 'Selesai',
+                ]),
+            Tables\Filters\Filter::make('created_at')
+                ->form([
+                    Forms\Components\DatePicker::make('created_from')
+                        ->label('Dari Tanggal'),
+                    Forms\Components\DatePicker::make('created_until')
+                        ->label('Sampai Tanggal'),
+                ])
+                ->query(function (Builder $query, array $data): Builder {
+                    return $query
+                        ->when(
+                            $data['created_from'],
+                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                        )
+                        ->when(
+                            $data['created_until'],
+                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                        );
+                }),
         ])
 
         ->groups([
-                Tables\Grouping\Group::make('created_at')
-                    ->label('Tanggal Pendaftaran')
-                    ->date()
-                    ->collapsible(),
-        ]);
+            Tables\Grouping\Group::make('status')
+                ->label('Status')
+                ->collapsible(),
+            Tables\Grouping\Group::make('created_at')
+                ->label('Tanggal Pendaftaran')
+                ->date()
+                ->collapsible(),
+        ])
+
+        // TAMBAHAN: Default sorting
+        ->defaultSort('created_at', 'desc');
+    }
+
+    // TAMBAHAN: Query scoping berdasarkan role
+    public static function getEloquentQuery(): Builder
+    {
+        $user = auth()->user();
+        
+        if ($user->hasRole('pendaftar')) {
+            return parent::getEloquentQuery()->where('user_id', $user->id);
+        }
+        
+        if ($user->hasRole('Penerjemah')) {
+            return parent::getEloquentQuery()->where('translator_id', $user->id);
+        }
+        
+        // Admin bisa lihat semua
+        return parent::getEloquentQuery();
+    }
+
+    // TAMBAHAN: Navigation badge untuk admin
+    public static function getNavigationBadge(): ?string
+    {
+        $user = auth()->user();
+        
+        if ($user->hasRole('Admin')) {
+            return static::getModel()::where('status', null)->count();
+        }
+        
+        return null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
     }
 
     public static function getRelations(): array

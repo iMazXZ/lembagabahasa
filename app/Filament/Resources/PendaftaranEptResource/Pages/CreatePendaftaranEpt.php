@@ -13,6 +13,11 @@ class CreatePendaftaranEpt extends CreateRecord
 {
     protected static string $resource = PendaftaranEptResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     public function mount(): void
     {
         parent::mount();
