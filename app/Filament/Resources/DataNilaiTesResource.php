@@ -116,15 +116,24 @@ class DataNilaiTesResource extends Resource
             Tables\Columns\TextColumn::make('pendaftaranGrupTes.masterGrupTes.group_number')
                 ->label('Grup')
                 ->sortable(),
-            Tables\Columns\TextColumn::make('listening_comprehension')->label('Listening'),
-            Tables\Columns\TextColumn::make('structure_written_expr')->label('Structure'),
-            Tables\Columns\TextColumn::make('reading_comprehension')->label('Reading'),
-            Tables\Columns\TextColumn::make('total_score')->label('Total'),
-            Tables\Columns\TextColumn::make('rank'),
-            Tables\Columns\TextColumn::make('selesai_pada')->dateTime('d M Y H:i'),
+            Tables\Columns\BadgeColumn::make('listening_comprehension')->label('Listening'),
+            Tables\Columns\BadgeColumn::make('structure_written_expr')->label('Structure'),
+            Tables\Columns\BadgeColumn::make('reading_comprehension')->label('Reading'),
+            Tables\Columns\BadgeColumn::make('total_score')->label('Total'),
+            Tables\Columns\BadgeColumn::make('rank')
+                ->label('Status')
+                ->color(fn ($state) => match ($state) {
+                    'Fail' => 'danger',
+                    'Pass' => 'success',
+                    default => null,
+                }),
+            Tables\Columns\TextColumn::make('selesai_pada')
+                ->label('Input Pada')
+                ->dateTime('d M Y H:i'),
         ])
         ->actions([
-            Tables\Actions\EditAction::make(),
+            Tables\Actions\EditAction::make()
+                ->label('Edit'),
         ])
         ->bulkActions([
             Tables\Actions\BulkActionGroup::make([

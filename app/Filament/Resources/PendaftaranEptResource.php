@@ -60,7 +60,7 @@ class PendaftaranEptResource extends Resource
                     ->icon('heroicon-o-photo')
                     ->color('info'),
                 Tables\Columns\BadgeColumn::make('status_pembayaran')
-                    ->label('Status Pembayaran')
+                    ->label('Status')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'pending' => 'Menunggu',
                         'approved' => 'Disetujui', 
@@ -73,10 +73,30 @@ class PendaftaranEptResource extends Resource
                         'danger' => 'rejected',
                         'secondary' => fn ($state) => empty($state), // untuk null/empty
                     ]),
+                ...(
+                    auth()->user()->hasRole('pendaftar')
+                        ? [
+                            Tables\Columns\TextColumn::make('pendaftaranGrupTes.masterGrupTes.group_number')->label('Grup'),
+                            Tables\Columns\TextColumn::make('pendaftaranGrupTes.masterGrupTes.tanggal_tes')->label('Jadwal Tes')->dateTime('d M Y H:i'),
+                            Tables\Columns\BadgeColumn::make('listening_comprehension')->label('Listening'),
+                            Tables\Columns\BadgeColumn::make('structure_written_expr')->label('Structure'),
+                            Tables\Columns\BadgeColumn::make('reading_comprehension')->label('Reading'),
+                            Tables\Columns\BadgeColumn::make('total_score')->label('Total Skor'),
+                            Tables\Columns\BadgeColumn::make('rank')
+                                ->label('Status')
+                                ->color(fn ($state) => match ($state) {
+                                    'Fail' => 'danger',
+                                    'Pass' => 'success',
+                                    default => null,
+                                }),
+                        ]
+                        : []
+                ),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Daftar Pada')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
@@ -229,7 +249,7 @@ class PendaftaranEptResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            PendaftaranEptResource\RelationManagers\PendaftaranGrupTesRelationManager::class,
         ];
     }
 

@@ -23,6 +23,10 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-s-users';
 
+    protected static ?string $navigationLabel = 'Manajemen User';
+
+    public static ?string $label = 'Manajemen User';
+
     public static function form(Form $form): Form
     {
         return $form
@@ -91,7 +95,15 @@ class UserResource extends Resource
                     ->numeric(),
                 Tables\Columns\ImageColumn::make('image')
                     ->label('Foto Profil'),
-                Tables\Columns\TextColumn::make('roles.name')
+                Tables\Columns\BadgeColumn::make('roles.name')
+                    ->label('Role')
+                    ->colors([
+                        'gray' => 'pendaftar',
+                        'success' => 'Admin',
+                        'warning' => 'Staf Administrasi',
+                        'info' => 'Penerjemah',
+                        'danger' => 'Kepala Lembaga',
+                    ])
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

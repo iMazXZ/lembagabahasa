@@ -50,7 +50,6 @@ class PenerjemahanResource extends Resource
                 ->maxSize(5120)
                 ->required($user->hasAnyRole(['Admin', 'pendaftar']))
                 ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
-                ->preserveFilenames()
                 ->helperText('Format: JPG, PNG. Maksimal 5MB'),
 
             Forms\Components\FileUpload::make('dokumen_asli')
@@ -112,10 +111,13 @@ class PenerjemahanResource extends Resource
                 ->searchable()
                 ->sortable(),
 
-            Tables\Columns\ImageColumn::make('bukti_pembayaran')
+            Tables\Columns\TextColumn::make('bukti_pembayaran')
                 ->label('Bukti Pembayaran')
-                ->disk('public')
-                ->size(40)
+                ->formatStateUsing(fn ($state) => $state ? 'Bukti Bayar' : '-')
+                ->url(fn ($record) => $record->bukti_pembayaran ? Storage::url($record->bukti_pembayaran) : null, true)
+                ->openUrlInNewTab()
+                ->icon('heroicon-o-photo')
+                ->color('info')
                 ->placeholder('-'),
 
             Tables\Columns\BadgeColumn::make('status')
@@ -146,15 +148,6 @@ class PenerjemahanResource extends Resource
                 ->placeholder('Belum ditentukan')
                 ->sortable(),
 
-            Tables\Columns\TextColumn::make('dokumen_terjemahan')
-                ->label('Hasil Terjemahan')
-                ->formatStateUsing(fn ($state) => $state ? 'Download' : 'Belum tersedia')
-                ->url(fn ($record) => $record->dokumen_terjemahan ? Storage::url($record->dokumen_terjemahan) : null, true)
-                ->openUrlInNewTab()
-                ->placeholder('Belum tersedia')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('success'),
-
             Tables\Columns\TextColumn::make('completion_date')
                 ->label('Tanggal Selesai')
                 ->dateTime('d/m/Y H:i')
@@ -163,6 +156,14 @@ class PenerjemahanResource extends Resource
         ])
         
         ->actions([
+        // ACTION DOWNLOAD HASIL
+        Tables\Actions\Action::make('download_hasil')
+            ->label('Download')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->url(fn ($record) => $record->dokumen_terjemahan ? Storage::url($record->dokumen_terjemahan) : null)
+            ->openUrlInNewTab()
+            ->visible(fn ($record) => $record->dokumen_terjemahan !== null)
+            ->color('success'),
         // ACTION GROUP UNTUK ADMIN - UBAH STATUS
         Tables\Actions\ActionGroup::make([
             Tables\Actions\EditAction::make(),
@@ -232,14 +233,6 @@ class PenerjemahanResource extends Resource
         Tables\Actions\EditAction::make()
             ->visible(fn () => !auth()->user()->hasAnyRole(['Admin', 'Penerjemah'])),
         
-        // ACTION DOWNLOAD HASIL
-        Tables\Actions\Action::make('download_hasil')
-            ->label('Download Hasil')
-            ->icon('heroicon-o-arrow-down-tray')
-            ->url(fn ($record) => $record->dokumen_terjemahan ? Storage::url($record->dokumen_terjemahan) : null)
-            ->openUrlInNewTab()
-            ->visible(fn ($record) => $record->dokumen_terjemahan !== null)
-            ->color('success'),
     ])
 
         // TAMBAHAN: Bulk actions
@@ -314,10 +307,18 @@ class PenerjemahanResource extends Resource
         $user = auth()->user();
         
         if ($user->hasRole('Admin')) {
-            return static::getModel()::where('status', null)->count();
+            return static::getModel()::where(function ($query) {
+            $query->whereNull('status')
+                  ->orWhere('status', 'Menunggu');
+            })->count();
         }
         
         return null;
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Pemohon Perlu ditinjau';
     }
 
     public static function getNavigationBadgeColor(): ?string

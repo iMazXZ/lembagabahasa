@@ -67,7 +67,7 @@ class PendaftaranGrupTesResource extends Resource
                 Tables\Columns\TextColumn::make('pendaftaranEpt.users.name')->label('Nama Peserta'),
                 Tables\Columns\TextColumn::make('pendaftaranEpt.users.srn')->label('NIM'),
                 Tables\Columns\TextColumn::make('pendaftaranEpt.users.prody.name')->label('Prodi'),
-                Tables\Columns\TextColumn::make('masterGrupTes.group_number')->label('Nomor Grup')->sortable(),
+                Tables\Columns\BadgeColumn::make('masterGrupTes.group_number')->label('Nomor Grup')->color('success')->sortable(),
                 Tables\Columns\TextColumn::make('masterGrupTes.tanggal_tes')->label('Tanggal Tes')->date()->sortable(),
                 Tables\Columns\TextColumn::make('masterGrupTes.ruangan_tes')->label('Ruangan Tes'),
             ])

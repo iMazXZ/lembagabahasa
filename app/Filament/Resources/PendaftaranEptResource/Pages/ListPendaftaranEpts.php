@@ -46,18 +46,16 @@ class ListPendaftaranEpts extends ListRecords
         }
 
         return [
-            'all' => Tab::make('Semua')
-                ->badge(fn () => $this->getModel()::count()),
+                        
+            'pending' => Tab::make('Menunggu')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'pending'))
+                ->badge(fn () => $this->getModel()::where('status_pembayaran', 'pending')->count())
+                ->badgeColor('warning'),
 
             'today' => Tab::make('Hari Ini')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', today()))
                 ->badge(fn () => $this->getModel()::whereDate('created_at', today())->count())
                 ->badgeColor('info'),
-
-            'pending' => Tab::make('Menunggu')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'pending'))
-                ->badge(fn () => $this->getModel()::where('status_pembayaran', 'pending')->count())
-                ->badgeColor('warning'),
 
             'approved' => Tab::make('Disetujui')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'approved'))
@@ -68,6 +66,9 @@ class ListPendaftaranEpts extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'rejected'))
                 ->badge(fn () => $this->getModel()::where('status_pembayaran', 'rejected')->count())
                 ->badgeColor('danger'),
+
+            'all' => Tab::make('Semua')
+                ->badge(fn () => $this->getModel()::count()),
         ];
     }
 

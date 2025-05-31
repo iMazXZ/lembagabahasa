@@ -2,7 +2,6 @@
 
 namespace App\Filament\Auth;
 
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Auth\Register as AuthRegister;
 use Illuminate\Database\Eloquent\Model;
@@ -19,8 +18,14 @@ class Register extends AuthRegister
                         $this->getNameFormComponent(),
                         $this->getEmailFormComponent(),
                         TextInput::make('srn')
-                            ->label('Nomor Pokok Mahasiswa')
-                            ->placeholder('21430057'),
+                            ->label('Nomor Pokok Mahasiswa (NPM)')
+                            ->placeholder('Contoh: 21430057')
+                            ->numeric()
+                            ->minLength(8)
+                            ->maxLength(10)
+                            ->unique(table: 'users', column: 'srn')
+                            ->prefixIcon('heroicon-o-identification')
+                            ->columnSpanFull(),
                         $this->getPasswordFormComponent(),
                         $this->getPasswordConfirmationFormComponent(),
                     ])
