@@ -46,7 +46,9 @@ class ListPendaftaranEpts extends ListRecords
         }
 
         return [
-                        
+            'all' => Tab::make('Semua')
+                ->badge(fn () => $this->getModel()::count()),    
+
             'pending' => Tab::make('Menunggu')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'pending'))
                 ->badge(fn () => $this->getModel()::where('status_pembayaran', 'pending')->count())
@@ -61,14 +63,11 @@ class ListPendaftaranEpts extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'approved'))
                 ->badge(fn () => $this->getModel()::where('status_pembayaran', 'approved')->count())
                 ->badgeColor('success'),
-
+                
             'rejected' => Tab::make('Ditolak')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status_pembayaran', 'rejected'))
                 ->badge(fn () => $this->getModel()::where('status_pembayaran', 'rejected')->count())
                 ->badgeColor('danger'),
-
-            'all' => Tab::make('Semua')
-                ->badge(fn () => $this->getModel()::count()),
         ];
     }
 

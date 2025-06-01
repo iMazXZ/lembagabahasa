@@ -89,11 +89,6 @@ class PendaftaranEptResource extends Resource
                     ->label('Pada')
                     ->dateTime(fn () => request()->header('User-Agent') && preg_match('/Mobile|Android|iPhone|iPad|iPod/i', request()->header('User-Agent')) ? 'd/m' : 'd/m/Y H:i')
                     ->sortable(),
-                    // ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status_pembayaran')
@@ -103,6 +98,22 @@ class PendaftaranEptResource extends Resource
                         'rejected' => 'Ditolak',
                     ])
                     ->label('Filter Status Pembayaran'),
+                Tables\Filters\SelectFilter::make('grup_tes_id')
+                    ->label('Filter Nomor Grup')
+                    ->options(
+                        \App\Models\MasterGrupTes::all()->pluck('group_number', 'id')->mapWithKeys(function ($groupNumber, $id) {
+                            return [$id => 'Grup ' . $groupNumber];
+                        })
+                    )
+                    ->query(function ($query, $state) {
+                        // Hanya jalankan whereHas jika ada value yang dipilih
+                        if (!empty($state['value'])) {
+                            $query->whereHas('pendaftaranGrupTes', function ($q) use ($state) {
+                                $q->where('grup_tes_id', $state['value']);
+                            });
+                        }
+                        // Jika kosong, biarkan query tetap normal tanpa whereHas
+                    }),
             ])
             ->actions([
                 Tables\Actions\Action::make('view')
