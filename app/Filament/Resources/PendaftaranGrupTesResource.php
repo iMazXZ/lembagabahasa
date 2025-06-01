@@ -46,11 +46,14 @@ class PendaftaranGrupTesResource extends Resource
                 Forms\Components\Select::make('grup_tes_id')
                     ->label('Grup Tes')
                     ->options(
-                        MasterGrupTes::all()->mapWithKeys(fn ($grup) => [
-                            $grup->id => 'Grup ' . $grup->group_number . ' - ' .
-                                \Carbon\Carbon::parse($grup->tanggal_tes)->translatedFormat('d M Y'),
-                                
-                        ])
+                        MasterGrupTes::all()->mapWithKeys(function ($grup) {
+                            $count = \App\Models\PendaftaranGrupTes::where('grup_tes_id', $grup->id)->count();
+                            return [
+                                $grup->id => 'Grup ' . $grup->group_number . ' - ' .
+                                    \Carbon\Carbon::parse($grup->tanggal_tes)->translatedFormat('d M Y') .
+                                    ' (' . $count . ' Peserta)',
+                            ];
+                        })
                     )
                     ->searchable()
                     ->required()
@@ -71,6 +74,7 @@ class PendaftaranGrupTesResource extends Resource
                 Tables\Columns\TextColumn::make('masterGrupTes.tanggal_tes')->label('Tanggal Tes')->date()->sortable(),
                 Tables\Columns\TextColumn::make('masterGrupTes.ruangan_tes')->label('Ruangan Tes'),
             ])
+            ->defaultSort('updated_at', 'desc')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

@@ -107,9 +107,10 @@ class PenerjemahanResource extends Resource
     {
         return $table->columns([
             Tables\Columns\TextColumn::make('users.name')
-                ->label('Nama Pendaftar')
+                ->label('Nama Pemohon')
                 ->searchable()
-                ->sortable(),
+                ->sortable()
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah'])),
 
             Tables\Columns\TextColumn::make('bukti_pembayaran')
                 ->label('Bukti Pembayaran')
@@ -118,7 +119,8 @@ class PenerjemahanResource extends Resource
                 ->openUrlInNewTab()
                 ->icon('heroicon-o-photo')
                 ->color('info')
-                ->placeholder('-'),
+                ->placeholder('-')
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
 
             Tables\Columns\BadgeColumn::make('status')
                 ->label('Status')
@@ -136,21 +138,23 @@ class PenerjemahanResource extends Resource
                 ->openUrlInNewTab()
                 ->icon('heroicon-o-document')
                 ->color('primary')
-                ->placeholder('-'),
+                ->placeholder('-')
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah'])),
 
             Tables\Columns\TextColumn::make('submission_date')
-                ->label('Tanggal Pengajuan')
-                ->dateTime('d/m/Y H:i')
+                ->label('Pengajuan')
+                ->dateTime(fn () => request()->header('User-Agent') && preg_match('/Mobile|Android|iPhone|iPad|iPod/i', request()->header('User-Agent')) ? 'd/m' : 'd/m/Y H:i')
                 ->sortable(),
 
             Tables\Columns\TextColumn::make('translator.name')
                 ->label('Penerjemah')
                 ->placeholder('Belum ditentukan')
-                ->sortable(),
+                ->sortable()
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah'])),
 
             Tables\Columns\TextColumn::make('completion_date')
-                ->label('Tanggal Selesai')
-                ->dateTime('d/m/Y H:i')
+                ->label('Selesai')
+                ->dateTime(fn () => request()->header('User-Agent') && preg_match('/Mobile|Android|iPhone|iPad|iPod/i', request()->header('User-Agent')) ? 'd/m' : 'd/m/Y H:i')
                 ->placeholder('-')
                 ->sortable(),
         ])
@@ -304,16 +308,11 @@ class PenerjemahanResource extends Resource
     // TAMBAHAN: Navigation badge untuk admin
     public static function getNavigationBadge(): ?string
     {
-        $user = auth()->user();
-        
-        if ($user->hasRole('Admin')) {
-            return static::getModel()::where(function ($query) {
-            $query->whereNull('status')
-                  ->orWhere('status', 'Menunggu');
-            })->count();
+        if (!auth()->user()->hasRole('Admin')) {
+            return null;
         }
-        
-        return null;
+        $count = static::getModel()::where('status', 'Menunggu')->count();
+        return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeTooltip(): ?string
@@ -323,7 +322,7 @@ class PenerjemahanResource extends Resource
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return 'warning';
+        return 'success';
     }
 
     public static function getRelations(): array

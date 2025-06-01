@@ -48,15 +48,18 @@ class InputNilaiGrup extends Page implements Forms\Contracts\HasForms
     public function save(): void
     {
         foreach ($this->nilai as $data) {
-            $total = (int) $data['listening'] + (int) $data['structure'] + (int) $data['reading'];
+            $listening = is_numeric($data['listening']) ? (int) $data['listening'] : null;
+            $structure = is_numeric($data['structure']) ? (int) $data['structure'] : null;
+            $reading = is_numeric($data['reading']) ? (int) $data['reading'] : null;
+            $total = (int) $listening + (int) $structure + (int) $reading;
             $rank = $total >= 400 ? 'Pass' : 'Fail';
 
             DataNilaiTes::updateOrCreate(
                 ['pendaftaran_grup_tes_id' => $data['id']],
                 [
-                    'listening_comprehension' => $data['listening'],
-                    'structure_written_expr' => $data['structure'],
-                    'reading_comprehension' => $data['reading'],
+                    'listening_comprehension' => $listening,
+                    'structure_written_expr' => $structure,
+                    'reading_comprehension' => $reading,
                     'total_score' => $total,
                     'rank' => $rank,
                     'selesai_pada' => now(),

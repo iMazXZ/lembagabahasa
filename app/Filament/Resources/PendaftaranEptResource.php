@@ -13,6 +13,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use Filament\Notifications\Notification;
+use Filament\Support\Exceptions\Halt;
+use Filament\Tables\Actions\Action;
+use App\Filament\Resources\PendaftaranEptResource\Pages\CreatePendaftaranEpt;
+
 
 class PendaftaranEptResource extends Resource
 {
@@ -22,7 +26,7 @@ class PendaftaranEptResource extends Resource
 
     protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
 
-    public static ?string $label = 'Pendaftaran EPT / TOEFL';
+    public static ?string $label = 'Pendaftaran EPT';
     
     public static function form(Form $form): Form
     {
@@ -41,7 +45,8 @@ class PendaftaranEptResource extends Resource
                         'approved' => 'Approved',
                         'rejected' => 'Rejected',
                     ])
-                    ->default('pending'),
+                    ->default('pending')
+                    ->visible(fn () => auth()->user()->hasRole('Admin', 'Staf Administrasi')),
             ]);
     }
 
@@ -51,14 +56,21 @@ class PendaftaranEptResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('users.name')
                     ->label('Nama Pendaftar')
-                    ->searchable(),
+                    ->searchable()
+                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                Tables\Columns\BadgeColumn::make('pendaftaranGrupTes.masterGrupTes.group_number')
+                    ->label('Grup')
+                    ->color('success')
+                    ->sortable()
+                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
                 Tables\Columns\TextColumn::make('bukti_pembayaran')
                     ->label('Bukti Pembayaran')
                     ->formatStateUsing(fn ($state) => 'Bukti Bayar')
                     ->url(fn ($record) => asset('storage/' . $record->bukti_pembayaran))
                     ->openUrlInNewTab()
                     ->icon('heroicon-o-photo')
-                    ->color('info'),
+                    ->color('info')
+                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
                 Tables\Columns\BadgeColumn::make('status_pembayaran')
                     ->label('Status')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
@@ -73,32 +85,13 @@ class PendaftaranEptResource extends Resource
                         'danger' => 'rejected',
                         'secondary' => fn ($state) => empty($state), // untuk null/empty
                     ]),
-                ...(
-                    auth()->user()->hasRole('pendaftar')
-                        ? [
-                            Tables\Columns\TextColumn::make('pendaftaranGrupTes.masterGrupTes.group_number')->label('Grup'),
-                            Tables\Columns\TextColumn::make('pendaftaranGrupTes.masterGrupTes.tanggal_tes')->label('Jadwal Tes')->dateTime('d M Y H:i'),
-                            Tables\Columns\BadgeColumn::make('listening_comprehension')->label('Listening'),
-                            Tables\Columns\BadgeColumn::make('structure_written_expr')->label('Structure'),
-                            Tables\Columns\BadgeColumn::make('reading_comprehension')->label('Reading'),
-                            Tables\Columns\BadgeColumn::make('total_score')->label('Total Skor'),
-                            Tables\Columns\BadgeColumn::make('rank')
-                                ->label('Status')
-                                ->color(fn ($state) => match ($state) {
-                                    'Fail' => 'danger',
-                                    'Pass' => 'success',
-                                    default => null,
-                                }),
-                        ]
-                        : []
-                ),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Daftar Pada')
-                    ->dateTime()
-                    ->sortable()
-                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                    ->label('Pada')
+                    ->dateTime(fn () => request()->header('User-Agent') && preg_match('/Mobile|Android|iPhone|iPad|iPod/i', request()->header('User-Agent')) ? 'd/m' : 'd/m/Y H:i')
+                    ->sortable(),
+                    // ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -112,6 +105,16 @@ class PendaftaranEptResource extends Resource
                     ->label('Filter Status Pembayaran'),
             ])
             ->actions([
+                Tables\Actions\Action::make('view')
+                    ->label('Jadwal')
+                    ->tooltip('Lihat Jadwal & Nilai Tes')
+                    ->url(fn ($record) => PendaftaranEptResource::getUrl('view', ['record' => $record]))
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('success')
+                    ->visible(fn ($record) =>
+                        $record->status_pembayaran === 'approved' &&
+                        auth()->user()->hasRole('pendaftar')
+                    ),
                 Tables\Actions\Action::make('approve')
                     ->label('Approve')
                     ->color('success')
@@ -128,7 +131,6 @@ class PendaftaranEptResource extends Resource
                             ->success()
                             ->send();
                     }),
-
                 Tables\Actions\Action::make('reject')
                     ->label('Reject')
                     ->color('danger')
@@ -145,7 +147,16 @@ class PendaftaranEptResource extends Resource
                             ->danger()
                             ->send();
                     }),
+                Tables\Actions\EditAction::make()
+                    ->label('')
+                    ->icon('heroicon-s-pencil-square')
+                    ->tooltip('Edit'),
             ])
+            ->defaultSort('updated_at', 'desc')
+            ->emptyStateHeading('Belum ada data pendaftaran')
+            ->emptyStateDescription('Silakan buat pendaftaran EPT pertama.')
+            ->emptyStateHeading('Belum ada data pendaftaran')
+            ->emptyStateDescription('Silakan buat pendaftaran EPT pertama.')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
@@ -183,8 +194,11 @@ class PendaftaranEptResource extends Resource
                                 ]);
                             }
 
+                            $jumlahPesertaSekarang = \App\Models\PendaftaranGrupTes::where('grup_tes_id', $data['grup_tes_id'])->count();
+                            $namaGrup = \App\Models\MasterGrupTes::find($data['grup_tes_id']);
                             Notification::make()
-                                ->title('Berhasil menambahkan peserta ke grup tes.')
+                                ->title("Berhasil menambahkan peserta ke grup tes {$namaGrup->group_number}.")
+                                ->body("Total peserta di grup ini sekarang: {$jumlahPesertaSekarang}.")
                                 ->success()
                                 ->send();
                         })
@@ -193,8 +207,9 @@ class PendaftaranEptResource extends Resource
                                 ->label('Pilih Grup Tes')
                                 ->options(
                                     \App\Models\MasterGrupTes::all()->mapWithKeys(function ($item) {
+                                        $jumlahPeserta = \App\Models\PendaftaranGrupTes::where('grup_tes_id', $item->id)->count();
                                         return [
-                                            $item->id => 'Grup ' . $item->nomor_grup . ' - ' . \Carbon\Carbon::parse($item->tanggal_tes)->translatedFormat('d M Y'),
+                                            $item->id => 'Grup ' . $item->group_number . ' - ' . \Carbon\Carbon::parse($item->tanggal_tes)->translatedFormat('d M Y') . " ({$jumlahPeserta} Peserta)",
                                         ];
                                     })
                                 )
@@ -204,8 +219,13 @@ class PendaftaranEptResource extends Resource
                         ->requiresConfirmation()
                         ->visible(fn () => auth()->user()->hasRole('Admin'))
                         ->before(function (Collection $records, array $data) {
-                            if ($records->count() > 20) {
-                                throw new \Exception('Maksimal hanya bisa memilih 20 peserta.');
+                            $jumlahPesertaGrup = \App\Models\PendaftaranGrupTes::where('grup_tes_id', $data['grup_tes_id'])->count();
+                            if ($jumlahPesertaGrup + $records->count() > 20) {
+                                Notification::make()
+                                    ->title('Peserta dalam grup ini sudah mencapai batas maksimal 20 orang.')
+                                    ->danger()
+                                    ->send();
+                                throw new Halt();
                             }
                         }),
                     Tables\Actions\BulkAction::make('validasiPembayaran')
@@ -238,12 +258,12 @@ class PendaftaranEptResource extends Resource
                         ->deselectRecordsAfterCompletion(),
                 ])
             ])
-                ->groups([
-                    Tables\Grouping\Group::make('created_at')
-                        ->label('Tanggal Pendaftaran')
-                        ->date()
-                        ->collapsible(),
-            ]);
+            ->groups([
+                Tables\Grouping\Group::make('created_at')
+                    ->label('Tanggal Pendaftaran')
+                    ->date()
+                    ->collapsible(),
+        ]);
     }
 
     public static function getRelations(): array
@@ -267,11 +287,17 @@ class PendaftaranEptResource extends Resource
         return 'Pemohon Perlu ditinjau';
     }
 
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'success';
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListPendaftaranEpts::route('/'),
             'create' => Pages\CreatePendaftaranEpt::route('/create'),
+            'view' => Pages\ViewPendaftaranPage::route('/{record}'),
             'edit' => Pages\EditPendaftaranEpt::route('/{record}/edit'),
         ];
     }
