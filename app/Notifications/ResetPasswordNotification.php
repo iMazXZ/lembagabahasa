@@ -24,12 +24,12 @@ class ResetPasswordNotification extends Notixfication
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(Lang::get('Lembaga Bahasa - Reset Password Notification'))
-            ->greeting(Lang::get('Hello') . " {$notifiable->name},")
-            ->line(Lang::get('You are receiving this email because we received a password reset request for your account.'))
-            ->action(Lang::get('Reset Password'), $this->resetUrl($notifiable))
-            ->line(Lang::get('This password reset link will expire in :count minutes.', ['count' => config('auth.passwords.'.config('auth.defaults.passwords').'.expire')]))
-            ->line(Lang::get('If you did not request a password reset, no further action is required.'));
+            ->subject('Account Security Update - Lembaga Bahasa')
+            ->greeting("Hi {$notifiable->name}")
+            ->line('A request was made to update your account password.')
+            ->action('Update Password', $this->resetUrl($notifiable))
+            ->line("This secure link is valid for the next " . config('auth.passwords.'.config('auth.defaults.passwords').'.expire') . " minutes")
+            ->line('If you didn\'t initiate this request, please ignore this message.');
     }
  
     protected function resetUrl(mixed $notifiable): string
