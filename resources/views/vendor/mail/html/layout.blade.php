@@ -95,7 +95,7 @@
                     <!-- Header -->
                     <tr>
                         <td class="header">
-                            <h1 style="color: #ffffff; margin: 0; font-size: 22px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 21px; text-align: center;">
                                 Lembaga Bahasa UM Metro
                             </h1>
                         </td>
