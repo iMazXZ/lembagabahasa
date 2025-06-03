@@ -95,7 +95,7 @@
                     <!-- Header -->
                     <tr>
                         <td class="header">
-                            <h1 style="color: inherit; margin: 0; font-size: 22px;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 22px; text-align: center;">
                                 Lembaga Bahasa UM Metro
                             </h1>
                         </td>
@@ -109,7 +109,6 @@
                                 <tr>
                                     <td class="content-cell">
                                         {!! Illuminate\Mail\Markdown::parse($slot) !!}
-                                        {!! $subcopy ?? '' !!}
                                     </td>
                                 </tr>
                             </table>
