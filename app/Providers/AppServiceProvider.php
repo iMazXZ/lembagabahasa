@@ -5,6 +5,8 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Filament\Http\Responses\Auth\Contracts\LogoutResponse;
 use App\Http\Responses\LogoutResponse as CustomLogoutResponse;
+use App\Models\PendaftaranEpt;
+use App\Observers\PendaftaranEptObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Carbon\Carbon::setLocale('id');
+        PendaftaranEpt::observe(PendaftaranEptObserver::class);
     }
     
 }

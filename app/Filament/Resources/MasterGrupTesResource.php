@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class MasterGrupTesResource extends Resource
 {
@@ -29,14 +30,44 @@ class MasterGrupTesResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('group_number')
+                    ->label('Nomor Grup Tes')
                     ->numeric()
-                    ->required(),
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->rules(['min:1'])
+                    ->validationMessages([
+                        'unique' => 'Nomor Grup Tes ini Sudah Dibuat. Silakan Buat Nomor Lainnya.',
+                    ]),
                 Forms\Components\TextInput::make('instructional_year')
                     ->maxLength(255)
                     ->required(),
-                Forms\Components\DateTimePicker::make('tanggal_tes')
-                    ->required(),
+               Forms\Components\DateTimePicker::make('tanggal_tes')
+                    ->label('Jadwal Tes')
+                    ->helperText('Pastikan Tanggal Tes tidak bentrok dengan jadwal lainnya.')
+                    ->required()
+                    ->withoutSeconds()
+                    ->native(false)
+                    ->minutesStep(10)
+                    ->default(Carbon::today()->setTime(13, 20))
+                    ->rules([
+                        function () {
+                            return function (string $attribute, $value, Closure $fail) {
+                                // Asumsikan model Anda adalah JadwalTes
+                                $exists = JadwalTes::where('tanggal_tes', $value)
+                                    ->when($this->record, function ($query) {
+                                        $query->where('id', '!=', $this->record->id);
+                                    })
+                                    ->exists();
+                                
+                                if ($exists) {
+                                    $fail('Jadwal Tes dengan tanggal dan waktu ini sudah ada. Silakan pilih waktu lain.');
+                                }
+                            };
+                        }
+                    ]),
                 Forms\Components\TextInput::make('ruangan_tes')
+                    ->label('Ruangan Tes')
+                    ->default('Cambridge Room')
                     ->maxLength(255)
                     ->required(),
             ]);
@@ -49,52 +80,58 @@ class MasterGrupTesResource extends Resource
                 Tables\Columns\TextColumn::make('group_number')
                     ->numeric()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('tanggal_tes')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('instructional_year')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('tanggal_tes')
-                    ->dateTime()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('ruangan_tes')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('pendaftaran_grup_tes_count')
+                Tables\Columns\BadgeColumn::make('pendaftaran_grup_tes_count')
                     ->label('Jumlah Peserta')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('tanggal_tes', 'desc')
             ->filters([
                 //
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->label('Edit'),
-                Tables\Actions\Action::make('Cetak')
-                    ->url(fn ($record) => route('grup.cetak', $record->id))
-                    ->openUrlInNewTab()
-                    ->icon('heroicon-s-printer')
-                    ->color('danger')
-                    ->label('Data PDF'),
+                    ->label('Edit')
+                    ->icon('heroicon-s-pencil')
+                    ->button(),
                 Tables\Actions\Action::make('Input Nilai')
                     ->label('Input Nilai')
                     ->icon('heroicon-s-pencil-square')
+                    ->button()
                     ->url(fn ($record) => MasterGrupTesResource::getUrl('input-nilai-grup', ['record' => $record])),
-                Tables\Actions\Action::make('Cetak Nilai')
-                    ->url(fn ($record) => route('grup.cetak-nilai', $record->id))
-                    ->openUrlInNewTab()
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('Cetak')
+                        ->url(fn ($record) => route('grup.cetak', $record->id))
+                        ->openUrlInNewTab()
+                        ->icon('heroicon-s-printer')
+                        ->color('danger')
+                        ->label('Data Grup Tes PDF'),
+                    Tables\Actions\Action::make('Cetak Nilai')
+                        ->url(fn ($record) => route('grup.cetak-nilai', $record->id))
+                        ->openUrlInNewTab()
+                        ->icon('heroicon-s-printer')
+                        ->color('danger')
+                        ->label('Data Nilai Tes PDF'),
+                ])->label('Cetak PDF')
                     ->icon('heroicon-s-printer')
                     ->color('danger')
-                    ->label('Nilai PDF'),
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->groups([
+                Tables\Grouping\Group::make('instructional_year')
+                    ->label('Tahun Ajaran')
+                    ->collapsible(),
             ]);
     }
 

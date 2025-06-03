@@ -26,48 +26,48 @@ class DataNilaiTesResource extends Resource
     {
         return $form->schema([
             Forms\Components\Select::make('pendaftaran_grup_tes_id')
-                ->label('Peserta Tes')
+                ->label('Nama Peserta')
                 ->relationship('pendaftaranGrupTes', 'id', function ($query) {
-                    $query->with(['pendaftaranEpt.users', 'masterGrupTes']);
+                    $query->with(['pendaftaranEpt.users', 'masterGrupTes', 'dataNilaiTes']);
                 })
                 ->getOptionLabelFromRecordUsing(fn ($record) =>
                     $record->pendaftaranEpt->users->name . ' - ' .
                     $record->pendaftaranEpt->users->srn . ' - ' .
-                    'Grup ' . $record->masterGrupTes->group_number
+                    'Grup ' . $record->masterGrupTes->group_number .
+                    ($record->dataNilaiTes ? ' (Score: ' . $record->dataNilaiTes->total_score . ')' : '')
                 )
                 ->required(),
 
             Forms\Components\TextInput::make('listening_comprehension')
+                ->label('Listening Comprehension')
                 ->numeric()
                 ->required()
-                ->minValue(0)
-                ->maxValue(200)
-                ->live()
+                ->live(onBlur: true)
                 ->afterStateUpdated(function (callable $get, callable $set) {
                     self::updateScoreAndRank($get, $set);
                 }),
 
             Forms\Components\TextInput::make('structure_written_expr')
+                ->label('Structure and Written Expression')
                 ->numeric()
                 ->required()
-                ->minValue(0)
-                ->maxValue(200)
-                ->live()
+                ->live(onBlur: true)
                 ->afterStateUpdated(function (callable $get, callable $set) {
                     self::updateScoreAndRank($get, $set);
                 }),
 
             Forms\Components\TextInput::make('reading_comprehension')
+                ->label('Reading Comprehension')
                 ->numeric()
                 ->required()
-                ->minValue(0)
-                ->maxValue(200)
-                ->live()
+                ->live(onBlur: true)
                 ->afterStateUpdated(function (callable $get, callable $set) {
                     self::updateScoreAndRank($get, $set);
                 }),
 
             Forms\Components\TextInput::make('total_score')
+                ->label('Total Score')
+                ->helperText('Akan dihitung otomatis')
                 ->numeric()
                 ->disabled()
                 ->dehydrated()
@@ -78,6 +78,7 @@ class DataNilaiTesResource extends Resource
                 ->helperText('Akan dihitung otomatis'),
 
             Forms\Components\TextInput::make('rank')
+                ->label('Rank')
                 ->disabled()
                 ->dehydrated()
                 ->afterStateHydrated(function ($component, $state) {

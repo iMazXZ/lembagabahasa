@@ -34,13 +34,22 @@ class PendaftaranGrupTesResource extends Resource
             ->schema([
                 Forms\Components\Select::make('pendaftaran_ept_id')
                     ->label('Pendaftar')
-                    ->options(
-                        PendaftaranEpt::with('users')
+                    ->options(function () {
+                        return PendaftaranEpt::with(['users', 'pendaftaranGrupTes.masterGrupTes'])
                             ->where('status_pembayaran', 'approved')
                             ->get()
-                            ->pluck('users.name', 'id')
-                    )
-                    ->searchable()
+                            ->filter(function ($pendaftaran) {
+                                return $pendaftaran->pendaftaranGrupTes->count() < 3;
+                            })
+                            ->mapWithKeys(function ($pendaftaran) {
+                                $grupInfo = $pendaftaran->pendaftaranGrupTes->map(function ($grupTes) {
+                                    return "Grup " . $grupTes->masterGrupTes->group_number;
+                                })->join(', ');
+                                
+                                $grupText = $grupInfo ? " ($grupInfo)" : " (Tidak Masuk Grup Tes)";
+                                return [$pendaftaran->id => $pendaftaran->users->name . $grupText];
+                            });
+                    })
                     ->required(),
 
                 Forms\Components\Select::make('grup_tes_id')
@@ -67,10 +76,10 @@ class PendaftaranGrupTesResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('pendaftaranEpt.users.name')->label('Nama Peserta'),
-                Tables\Columns\TextColumn::make('pendaftaranEpt.users.srn')->label('NIM'),
-                Tables\Columns\TextColumn::make('pendaftaranEpt.users.prody.name')->label('Prodi'),
-                Tables\Columns\BadgeColumn::make('masterGrupTes.group_number')->label('Nomor Grup')->color('success')->sortable(),
+                Tables\Columns\TextColumn::make('pendaftaranEpt.users.name')->label('Nama Peserta')->searchable(),
+                Tables\Columns\TextColumn::make('pendaftaranEpt.users.srn')->label('NPM')->searchable(),
+                Tables\Columns\TextColumn::make('pendaftaranEpt.users.prody.name')->label('Prodi')->searchable(),
+                Tables\Columns\BadgeColumn::make('masterGrupTes.group_number')->label('Nomor Grup')->searchable()->color('success')->sortable(),
                 Tables\Columns\TextColumn::make('masterGrupTes.tanggal_tes')->label('Tanggal Tes')->date()->sortable(),
                 Tables\Columns\TextColumn::make('masterGrupTes.ruangan_tes')->label('Ruangan Tes'),
             ])
@@ -78,7 +87,35 @@ class PendaftaranGrupTesResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                ]),                
+            ])
+            ->actions([
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make()
+                ])
+                ->icon('heroicon-s-cog-6-tooth'),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('grup_tes_id')
+                    ->label('Grup Tes')
+                    ->options(
+                        MasterGrupTes::orderBy('tanggal_tes', 'desc')
+                            ->get()
+                            ->mapWithKeys(function ($grup) {
+                                return [
+                                    $grup->id => 'Grup ' . $grup->group_number . ' - ' .
+                                        \Carbon\Carbon::parse($grup->tanggal_tes)->translatedFormat('d M Y'),
+                                ];
+                            })
+                    )
+                    ->searchable(),
+            ])
+            ->groups([
+                Tables\Grouping\Group::make('created_at')
+                    ->label('Tanggal Mendaftarkan Grup Tes')
+                    ->date()
+                    ->collapsible(),
             ]);
     }
 

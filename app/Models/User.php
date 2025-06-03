@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Notifications\DatabaseNotification;
 
 class User extends Authenticatable
 {
@@ -55,6 +56,12 @@ class User extends Authenticatable
     public function prody()
     {
         return $this->belongsTo(\App\Models\Prody::class);
+    }
+
+    // Relationship untuk database notifications
+    public function notifications()
+    {
+        return $this->morphMany(DatabaseNotification::class, 'notifiable')->orderBy('created_at', 'desc');
     }
 
 }

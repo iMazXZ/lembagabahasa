@@ -21,7 +21,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Auth\Register;
 use Filament\Facades\Filament;
 
-use App\Filament\Widgets\WelcomeWidget;
+use App\Filament\Widgets\StatsWidget;
 use App\Filament\Pages\Auth\RequestPasswordReset;
 
 class AdminPanelProvider extends PanelProvider
@@ -48,7 +48,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                WelcomeWidget::class,
+                Widgets\AccountWidget::class,
+                StatsWidget::class,
             ])
             // ->brandLogo(fn () => view('filament.logo'))
             ->brandName('Lembaga Bahasa UM Metro')
@@ -72,7 +73,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
-            ]);
+            ])
+            ->databaseNotifications();
     }
 
 }

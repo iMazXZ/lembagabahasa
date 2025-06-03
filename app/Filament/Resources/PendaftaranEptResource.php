@@ -16,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Actions\Action;
 use App\Filament\Resources\PendaftaranEptResource\Pages\CreatePendaftaranEpt;
+use Filament\Forms\Components\TextInput;
 
 
 class PendaftaranEptResource extends Resource
@@ -26,19 +27,46 @@ class PendaftaranEptResource extends Resource
 
     protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
 
+    public static ?string $slug = 'ept';
+
     public static ?string $label = 'Pendaftaran EPT';
     
     public static function form(Form $form): Form
     {
+        $user = auth()->user();
+
         return $form
             ->schema([
+                Forms\Components\Placeholder::make('name')
+                    ->label('Nama')
+                    ->content($user?->name),
+
+                Forms\Components\Placeholder::make('srn')
+                    ->label('NIM')
+                    ->content($user?->srn),
+
+                Forms\Components\Placeholder::make('prody.nama_prodi')
+                    ->label('Program Studi')
+                    ->content($user?->prody?->name),
+
                 Forms\Components\Hidden::make('user_id')
                     ->default(fn () => Auth::id()),
+
                 Forms\Components\FileUpload::make('bukti_pembayaran')
                     ->label('Upload Struk Pembayaran')
                     ->image()
                     ->required()
-                    ->default(null),
+                    ->default(null)
+                    ->afterStateUpdated(function ($state, $set) {
+                        if ($state) {
+                            $set('status_pembayaran', 'pending');
+                        }
+                    }),
+
+                Forms\Components\Hidden::make('status_pembayaran')
+                    ->default('pending')
+                    ->visible(fn () => !auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+
                 Forms\Components\Select::make('status_pembayaran')
                     ->options([
                         'pending' => 'Pending',
@@ -46,7 +74,7 @@ class PendaftaranEptResource extends Resource
                         'rejected' => 'Rejected',
                     ])
                     ->default('pending')
-                    ->visible(fn () => auth()->user()->hasRole('Admin', 'Staf Administrasi')),
+                    ->hidden(fn () => !auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
             ]);
     }
 
@@ -76,8 +104,14 @@ class PendaftaranEptResource extends Resource
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'pending' => 'Menunggu',
                         'approved' => 'Disetujui', 
-                        'rejected' => 'Ditolak - Bukti Tidak Valid',
+                        'rejected' => 'Ditolak',
                         default => 'Tidak Diketahui',
+                    })
+                    ->tooltip(fn ($record) => match ($record->status_pembayaran) {
+                        'pending' => 'Menunggu verifikasi pembayaran',
+                        'approved' => 'Pembayaran telah diverifikasi', 
+                        'rejected' => 'Pembayaran ditolak, silakan upload ulang',
+                        default => 'Status tidak valid',
                     })
                     ->colors([
                         'warning' => 'pending',    // Format: 'color' => 'value'
@@ -117,18 +151,21 @@ class PendaftaranEptResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('view')
-                    ->label('Jadwal')
-                    ->tooltip('Lihat Jadwal & Nilai Tes')
+                    ->label(fn ($record) => $record->status_pembayaran === 'pending' ? 'Available Soon' : 'Jadwal')
+                    ->tooltip(fn ($record) => $record->status_pembayaran === 'pending' ? 'Menunggu Verifikasi Pembayaran' : 'Lihat Jadwal & Nilai Tes')
                     ->url(fn ($record) => PendaftaranEptResource::getUrl('view', ['record' => $record]))
                     ->icon('heroicon-o-calendar-days')
-                    ->color('success')
+                    ->color(fn ($record) => $record->status_pembayaran === 'pending' ? 'gray' : 'success')
+                    ->button()
+                    ->disabled(fn ($record) => $record->status_pembayaran === 'pending')
                     ->visible(fn ($record) =>
-                        $record->status_pembayaran === 'approved' &&
+                        ($record->status_pembayaran === 'approved' || $record->status_pembayaran === 'pending') &&
                         auth()->user()->hasRole('pendaftar')
                     ),
                 Tables\Actions\Action::make('approve')
                     ->label('Approve')
                     ->color('success')
+                    ->button()
                     ->icon('heroicon-o-check-circle')
                     ->visible(fn ($record) =>
                         auth()->user()->hasRole('Admin') &&
@@ -138,13 +175,14 @@ class PendaftaranEptResource extends Resource
                         $record->update(['status_pembayaran' => 'approved']);
 
                         Notification::make()
-                            ->title('Pembayaran disetujui.')
+                            ->title("Pembayaran {$record->users->name} disetujui.")
                             ->success()
                             ->send();
                     }),
                 Tables\Actions\Action::make('reject')
                     ->label('Reject')
                     ->color('danger')
+                    ->button()
                     ->icon('heroicon-o-x-circle')
                     ->visible(fn ($record) =>
                         auth()->user()->hasRole('Admin') &&
@@ -154,13 +192,13 @@ class PendaftaranEptResource extends Resource
                         $record->update(['status_pembayaran' => 'rejected']);
 
                         Notification::make()
-                            ->title('Pembayaran ditolak.')
+                            ->title("Pembayaran {$record->users->name} ditolak.")
                             ->danger()
                             ->send();
                     }),
                 Tables\Actions\EditAction::make()
                     ->label('')
-                    ->icon('heroicon-s-pencil-square')
+                    ->icon('heroicon-m-pencil-square')
                     ->tooltip('Edit'),
             ])
             ->defaultSort('updated_at', 'desc')
@@ -174,7 +212,8 @@ class PendaftaranEptResource extends Resource
 
                     Tables\Actions\BulkAction::make('assignToGroup')
                         ->label('Masukkan ke Grup Tes')
-                        ->icon('heroicon-o-user-group')
+                        ->color('success')
+                        ->icon('heroicon-s-book-open')
                         ->action(function (Collection $records, array $data) {
                             foreach ($records as $record) {
                                 $sudahMasukGrupIni = \App\Models\PendaftaranGrupTes::where('pendaftaran_ept_id', $record->id)
@@ -240,8 +279,8 @@ class PendaftaranEptResource extends Resource
                             }
                         }),
                     Tables\Actions\BulkAction::make('validasiPembayaran')
-                        ->label('Validasi Pembayaran')
-                        ->icon('heroicon-o-currency-dollar')
+                        ->label('Status Pembayaran')
+                        ->icon('heroicon-s-check-circle')
                         ->color('primary')
                         ->form([
                             Forms\Components\Select::make('status')
@@ -274,7 +313,7 @@ class PendaftaranEptResource extends Resource
                     ->label('Tanggal Pendaftaran')
                     ->date()
                     ->collapsible(),
-        ]);
+            ]);
     }
 
     public static function getRelations(): array
