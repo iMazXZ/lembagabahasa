@@ -95,10 +95,9 @@
                     <!-- Header -->
                     <tr>
                         <td class="header">
-                            <a href="{{ $url }}">
-                                {{-- Ganti dengan logo jika perlu --}}
+                            <h1 style="color: inherit; margin: 0; font-size: 22px;">
                                 Lembaga Bahasa UM Metro
-                            </a>
+                            </h1>
                         </td>
                     </tr>
 
