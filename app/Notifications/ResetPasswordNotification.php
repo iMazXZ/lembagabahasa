@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Lang;
 
-class ResetPasswordNotification extends Notixfication
+class ResetPasswordNotification extends Notification
 {
     use Queueable;
  
