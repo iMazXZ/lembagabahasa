@@ -24,12 +24,12 @@ class ResetPasswordNotification extends Notixfication
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Account Security Update - Lembaga Bahasa')
-            ->greeting("Hi {$notifiable->name}")
-            ->line('A request was made to update your account password.')
-            ->action('Update Password', $this->resetUrl($notifiable))
-            ->line("This secure link is valid for the next " . config('auth.passwords.'.config('auth.defaults.passwords').'.expire') . " minutes")
-            ->line('If you didn\'t initiate this request, please ignore this message.');
+            ->subject('Pembaruan Keamanan Akun - Lembaga Bahasa')
+            ->greeting("Halo {$notifiable->name}")
+            ->line('Permintaan untuk mengubah kata sandi akun Anda telah diterima.')
+            ->action('Ubah Kata Sandi', $this->resetUrl($notifiable))
+            ->line("Tautan aman ini berlaku selama " . config('auth.passwords.'.config('auth.defaults.passwords').'.expire') . " menit ke depan.")
+            ->line('Jika Anda tidak meminta perubahan ini, abaikan pesan ini.');
     }
  
     protected function resetUrl(mixed $notifiable): string
