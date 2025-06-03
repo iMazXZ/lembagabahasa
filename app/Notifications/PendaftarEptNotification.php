@@ -38,8 +38,6 @@ class PendaftarEptNotification extends Notification implements ShouldQueue
         return FilamentNotification::make()
             ->title('Pendaftar EPT Baru')
             ->body("Pendaftar baru dengan nama {$this->pendaftaranEpt->name} telah mendaftar EPT")
-            ->icon('heroicon-o-user-plus')
-            ->color('success')
             ->actions([
                 \Filament\Notifications\Actions\Action::make('view')
                     ->label('Lihat Pendaftar')

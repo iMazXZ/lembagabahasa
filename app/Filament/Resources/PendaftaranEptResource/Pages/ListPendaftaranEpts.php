@@ -24,17 +24,6 @@ class ListPendaftaranEpts extends ListRecords
         return $isComplete
             ? [Actions\CreateAction::make()]
             : [];
-
-        return [
-            Actions\CreateAction::make()
-                ->after(function ($record) {
-                    Notification::make()
-                        ->title('Pendaftaran Berhasil!')
-                        ->body("Pesanan #{$record->id} telah dibuat dengan sukses")
-                        ->success()
-                        ->sendToDatabase(auth()->user());
-                }),
-        ];
     }
 
     protected function getTableQuery(): Builder
