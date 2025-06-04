@@ -10,78 +10,243 @@
 
     <style>
         body {
-            background-color: #f4f4f4;
-            color: #2c3e50;
-            font-family: Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #374151;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             width: 100% !important;
             height: 100% !important;
+            line-height: 1.6;
         }
 
         a {
-            color: #005aab;
+            color: #3b82f6;
             text-decoration: none;
+        }
+
+        a:hover {
+            color: #1d4ed8;
+            text-decoration: underline;
         }
 
         .wrapper {
             width: 100%;
-            padding: 30px 0;
-            background-color: #f4f4f4;
+            padding: 40px 20px;
+            background-color: #f8fafc;
         }
 
         .content {
             width: 100%;
             max-width: 600px;
+            margin: 0 auto;
             background-color: #ffffff;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e5e7eb;
         }
 
         .header {
-            background-color: #005aab;
-            padding: 20px;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            padding: 30px 20px;
             text-align: center;
+            position: relative;
         }
 
-        .header a {
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="30" r="1.5" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+            opacity: 0.3;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo {
+            height: 50px;
+            max-width: 200px;
+            width: auto;
+            display: block;
+            margin: 0 auto 10px;
+        }
+
+        .header-title {
             color: #ffffff;
-            font-size: 22px;
-            font-weight: bold;
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header-subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            margin: 5px 0 0;
+            font-weight: 400;
         }
 
         .inner-body {
             width: 100%;
-            padding: 30px;
+            padding: 40px 30px;
+            background-color: #ffffff;
+        }
+
+        .content-cell h1 {
+            color: #1f2937;
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 20px;
+            line-height: 1.3;
+        }
+
+        .content-cell h2 {
+            color: #374151;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 25px 0 15px;
+        }
+
+        .content-cell p {
+            color: #4b5563;
+            font-size: 16px;
+            line-height: 1.7;
+            margin: 0 0 16px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
+            border: none;
+        }
+
+        .button:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.4);
         }
 
         .footer {
             text-align: center;
-            font-size: 12px;
-            color: #777777;
-            padding: 20px;
-            background-color: #f4f4f4;
+            font-size: 13px;
+            color: #6b7280;
+            padding: 30px 20px;
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
         }
 
         .footer a {
-            color: #005aab;
+            color: #3b82f6;
         }
 
+        .footer-divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #e5e7eb, transparent);
+            margin: 15px 0;
+        }
+
+        .social-links {
+            margin: 20px 0 10px;
+        }
+
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #6b7280;
+            font-size: 12px;
+            text-decoration: none;
+        }
+
+        /* Responsive Design */
         @media only screen and (max-width: 600px) {
+            .wrapper {
+                padding: 20px 10px !important;
+            }
+            
             .inner-body {
-                padding: 15px !important;
+                padding: 25px 20px !important;
+            }
+
+            .header {
+                padding: 25px 15px !important;
+            }
+
+            .header-title {
+                font-size: 20px !important;
+            }
+
+            .content-cell h1 {
+                font-size: 20px !important;
+            }
+
+            .button {
                 width: 100% !important;
+                padding: 16px 20px !important;
+                font-size: 16px !important;
             }
 
             .footer {
-                width: 100% !important;
+                padding: 25px 15px !important;
             }
         }
 
-        @media only screen and (max-width: 500px) {
-            .button {
-                width: 100% !important;
+        @media only screen and (max-width: 480px) {
+            .content {
+                border-radius: 8px !important;
+            }
+            
+            .logo {
+                height: 40px !important;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .wrapper {
+                background-color: #111827 !important;
+            }
+            
+            .content {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            
+            .inner-body {
+                background-color: #1f2937 !important;
+            }
+            
+            .content-cell h1 {
+                color: #f9fafb !important;
+            }
+            
+            .content-cell h2 {
+                color: #e5e7eb !important;
+            }
+            
+            .content-cell p {
+                color: #d1d5db !important;
+            }
+            
+            .footer {
+                background-color: #111827 !important;
+                border-color: #374151 !important;
+                color: #9ca3af !important;
             }
         }
     </style>
@@ -95,7 +260,13 @@
                     <!-- Header -->
                     <tr>
                         <td class="header">
-                            <img src="{{ url('assets/LogoHeader.svg') }}" alt="Lembaga Bahasa UM Metro Logo" style="height:40px;">
+                            <div class="header-content">
+                                <!-- Option 1: Use absolute URL (Recommended) -->
+                                <img src="https://lembagabahasa.site/assets/LogoHeader.svg" 
+                                     alt="Lembaga Bahasa UM Metro" 
+                                     class="logo"
+                                     style="display: block; margin: 0 auto;">
+                            </div>
                         </td>
                     </tr>
 
@@ -103,11 +274,16 @@
                     <tr>
                         <td class="body" width="100%" cellpadding="0" cellspacing="0">
                             <table class="inner-body" align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                                <!-- Body content -->
                                 <tr>
                                     <td class="content-cell">
                                         {!! Illuminate\Mail\Markdown::parse($slot) !!}
-                                        {!! $subcopy ?? '' !!}
+                                        <!-- Custom footer content -->
+                                        <div style="margin-top: 30px; text-align: center; font-size: 14px; color: #6b7280;">
+                                            <p>Jika Anda memiliki pertanyaan, silakan hubungi kami di 
+                                            <a href="mailto:info@lembagabahasa.site">info@lembagabahasa.site</a>
+                                            </p>
+                                            <p><em>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</em></p>
+                                        </div>
                                     </td>
                                 </tr>
                             </table>
@@ -120,9 +296,21 @@
                             <table class="footer" align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
                                 <tr>
                                     <td class="content-cell" align="center">
-                                        &copy; {{ date('Y') }} Lembaga Bahasa UM Metro.<br>
-                                        Jl. Ki Hajar Dewantara No.116, Metro Barat, Kota Metro<br>
-                                        <a href="{{ config('app.url') }}">{{ config('app.url') }}</a>
+                                        <strong>Lembaga Bahasa UM Metro</strong><br>
+                                        Jl. Ki Hajar Dewantara No.116, Metro Barat<br>
+                                        Kota Metro, Lampung<br><br>
+                                        
+                                        <div class="footer-divider"></div>
+                                        
+                                        <div class="social-links">
+                                            <a href="mailto:info@ummetro.ac.id">Email</a> |
+                                            <a href="tel:+62725-42445">Telepon</a> |
+                                            <a href="{{ config('app.url') }}">Website</a>
+                                        </div>
+                                        
+                                        <p style="margin: 10px 0 0; font-size: 12px; color: #9ca3af;">
+                                            &copy; {{ date('Y') }} Lembaga Bahasa UM Metro. All rights reserved.
+                                        </p>
                                     </td>
                                 </tr>
                             </table>
