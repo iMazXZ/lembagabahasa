@@ -95,9 +95,7 @@
                     <!-- Header -->
                     <tr>
                         <td class="header">
-                            <h1 style="color: #ffffff; margin: 0; font-size: 21px; text-align: center;">
-                                Lembaga Bahasa UM Metro
-                            </h1>
+                            <img src="{{ asset('assets/LogoHeader.svg') }}" alt="Lembaga Bahasa UM Metro Logo" class="h-10">
                         </td>
                     </tr>
 

@@ -51,7 +51,7 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 StatsWidget::class,
             ])
-            // ->brandLogo(fn () => view('filament.logo'))
+            ->brandLogo(fn () => view('filament.logo'))
             ->brandName('Lembaga Bahasa UM Metro')
             ->navigationGroups([
                 'Layanan Lembaga Bahasa',
