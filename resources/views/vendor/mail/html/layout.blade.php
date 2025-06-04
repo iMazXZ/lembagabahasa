@@ -65,34 +65,6 @@
             opacity: 0.3;
         }
 
-        .header-content {
-            position: relative;
-            z-index: 1;
-        }
-
-        .logo {
-            height: 50px;
-            max-width: 200px;
-            width: auto;
-            display: block;
-            margin: 0 auto 10px;
-        }
-
-        .header-title {
-            color: #ffffff;
-            font-size: 24px;
-            font-weight: 700;
-            margin: 0;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .header-subtitle {
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 14px;
-            margin: 5px 0 0;
-            font-weight: 400;
-        }
-
         .inner-body {
             width: 100%;
             padding: 40px 30px;
@@ -239,18 +211,12 @@
                     <!-- Header -->
                     <tr>
                         <td class="header">
-                            <div class="header-content">
-                                <!-- Text-based logo - Always works -->
-                                <div style="text-align: center;">
-                                    <h1 style="margin: 0; font-size: 32px; font-weight: 800; color: #ffffff; text-shadow: 0 3px 6px rgba(0,0,0,0.2); letter-spacing: 1px;">
-                                        LEMBAGA BAHASA
-                                    </h1>
-                                    <div style="width: 60px; height: 3px; background: rgba(255,255,255,0.8); margin: 10px auto; border-radius: 2px;"></div>
-                                    <p style="margin: 8px 0 0; font-size: 16px; color: rgba(255,255,255,0.95); font-weight: 400; letter-spacing: 0.5px;">
-                                        Universitas Muhammadiyah Metro
-                                    </p>
-                                </div>
-                            </div>
+                            <h1 style="color: #ffffff; margin: 0; font-size: 21px; text-align: center;">
+                                LEMBAGA BAHASA
+                            </h1>
+                            <p style="color: #ffffff; margin: 0; font-size: 12px; text-align: center;">
+                                Universitas Muhammadiyah Metro
+                            </p>
                         </td>
                     </tr>
 
@@ -292,10 +258,6 @@
                                             <a href="https://wa.me/6282373271109">WhatsApp</a> |
                                             <a href="{{ config('app.url') }}">Website</a>
                                         </div>
-                                        
-                                        <p style="margin: 10px 0 0; font-size: 12px; color: #9ca3af;">
-                                            &copy; {{ date('Y') }} Lembaga Bahasa UM Metro. All rights reserved.
-                                        </p>
                                     </td>
                                 </tr>
                             </table>
