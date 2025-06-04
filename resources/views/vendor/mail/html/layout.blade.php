@@ -95,7 +95,7 @@
                     <!-- Header -->
                     <tr>
                         <td class="header">
-                            <img src="{{ asset('assets/LogoHeader.svg') }}" alt="Lembaga Bahasa UM Metro Logo" class="h-10">
+                            <img src="{{ url('assets/LogoHeader.svg') }}" alt="Lembaga Bahasa UM Metro Logo" style="height:40px;">
                         </td>
                     </tr>
 
