@@ -53,7 +53,6 @@
                     </a>
                     @endguest
                 </div>
-                </div>
 
                 <!-- Mobile Menu Button -->
                 <button id="menuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100">
