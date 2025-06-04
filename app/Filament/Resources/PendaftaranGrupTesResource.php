@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Tables\Actions\Action;
+use App\Notifications\JadwalTesNotification;
 
 class PendaftaranGrupTesResource extends Resource
 {
@@ -87,12 +89,37 @@ class PendaftaranGrupTesResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                ]),                
+
+                    Tables\Actions\BulkAction::make('kirim_email_jadwal')
+                        ->label('Kirim Email Jadwal Tes')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function ($records) {
+                            foreach ($records as $record) {
+                                if (! $record->email_jadwal_terkirim) {
+                                    $record->pendaftaranEpt->users->notify(new JadwalTesNotification($record));
+                                    $record->update(['email_jadwal_terkirim' => true]);
+                                }
+                            }
+                        }),
+                ])
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make(),
-                    Tables\Actions\DeleteAction::make()
+                    Tables\Actions\DeleteAction::make(),
+                    Action::make('kirim_jadwal_email')
+                        ->label('Kirim Email Jadwal')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->visible(fn ($record) => !$record->email_jadwal_terkirim)
+                        ->action(function ($record) {
+                            $record->pendaftaranEpt->users->notify(new JadwalTesNotification($record));
+                            $record->update(['email_jadwal_terkirim' => true]);
+                        }),
                 ])
                 ->icon('heroicon-s-cog-6-tooth'),
             ])

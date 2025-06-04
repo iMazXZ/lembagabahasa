@@ -73,7 +73,7 @@
 
         .content-cell h1 {
             color: #1f2937;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 600;
             margin: 0 0 20px;
             line-height: 1.3;
@@ -81,21 +81,21 @@
 
         .content-cell h2 {
             color: #374151;
-            font-size: 20px;
+            font-size: 15px;
             font-weight: 600;
             margin: 25px 0 15px;
         }
 
         .content-cell p {
             color: #4b5563;
-            font-size: 16px;
-            line-height: 1.7;
-            margin: 0 0 16px;
+            font-size: 12px;
+            line-height: 2;
+            margin: 0 0 5px;
         }
 
         .footer {
             text-align: center;
-            font-size: 13px;
+            font-size: 10px;
             color: #6b7280;
             padding: 30px 20px;
             background-color: #f9fafb;
@@ -166,40 +166,6 @@
                 height: 40px !important;
             }
         }
-
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-            .wrapper {
-                background-color: #111827 !important;
-            }
-            
-            .content {
-                background-color: #1f2937 !important;
-                border-color: #374151 !important;
-            }
-            
-            .inner-body {
-                background-color: #1f2937 !important;
-            }
-            
-            .content-cell h1 {
-                color: #f9fafb !important;
-            }
-            
-            .content-cell h2 {
-                color: #e5e7eb !important;
-            }
-            
-            .content-cell p {
-                color: #d1d5db !important;
-            }
-            
-            .footer {
-                background-color: #111827 !important;
-                border-color: #374151 !important;
-                color: #9ca3af !important;
-            }
-        }
     </style>
 </head>
 <body>
@@ -229,9 +195,9 @@
                                         {!! Illuminate\Mail\Markdown::parse($slot) !!}
                                         
                                         <!-- Custom footer content -->
-                                        <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #6b7280;">
-                                            <p>Jika Anda memiliki pertanyaan, silakan hubungi kami di 
-                                            <a href="mailto:info@ummetro.ac.id">info@ummetro.ac.id</a>
+                                        <div style="margin-top: 30px; text-align: center; font-size: 5px; color: #6b7280;">
+                                            <p>Jika memiliki pertanyaan, silakan hubungi kami di 
+                                            <a href="mailto:lembagabahasa.site">info@lembagabahasa.site</a>
                                             </p>
                                             <p><em>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</em></p>
                                         </div>

@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Closure;
+use Filament\Forms\Get;
+use Illuminate\Validation\ValidationException;
 
 class MasterGrupTesResource extends Resource
 {
@@ -49,22 +52,19 @@ class MasterGrupTesResource extends Resource
                     ->native(false)
                     ->minutesStep(10)
                     ->default(Carbon::today()->setTime(13, 20))
-                    ->rules([
-                        function () {
-                            return function (string $attribute, $value, Closure $fail) {
-                                // Asumsikan model Anda adalah JadwalTes
-                                $exists = JadwalTes::where('tanggal_tes', $value)
-                                    ->when($this->record, function ($query) {
-                                        $query->where('id', '!=', $this->record->id);
-                                    })
-                                    ->exists();
-                                
-                                if ($exists) {
-                                    $fail('Jadwal Tes dengan tanggal dan waktu ini sudah ada. Silakan pilih waktu lain.');
-                                }
-                            };
-                        }
-                    ]),
+                    ->rule(function (Get $get, ?MasterGrupTes $record) {
+                        return function (string $attribute, $value, Closure $fail) use ($record) {
+                            $exists = MasterGrupTes::where('tanggal_tes', $value)
+                                ->when($record, function ($query) use ($record) {
+                                    $query->where('id', '!=', $record->id);
+                                })
+                                ->exists();
+
+                            if ($exists) {
+                                $fail('Tanggal dan jam ini sudah dipakai untuk grup tes lain. Silakan pilih waktu lain.');
+                            }
+                        };
+                    }),
                 Forms\Components\TextInput::make('ruangan_tes')
                     ->label('Ruangan Tes')
                     ->default('Cambridge Room')

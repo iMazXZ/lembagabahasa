@@ -13,6 +13,11 @@ class CreatePendaftaranGrupTes extends CreateRecord
 {
     protected static string $resource = PendaftaranGrupTesResource::class;
     
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+    
     protected function beforeCreate(): void
     {
         $pendaftaranEptId = $this->data['pendaftaran_ept_id'];
