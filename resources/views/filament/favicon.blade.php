@@ -1,1 +1,0 @@
-<img src="{{ asset('assets/favicon.svg') }}" alt="Lembaga Bahasa UM Metro Logo" class="h-10">

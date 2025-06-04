@@ -20,50 +20,28 @@
         }
     </script>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen overflow-x-hidden">
+<body class="bg-white text-gray-900">
 
-    <!-- Animated Background -->
-    <div class="fixed inset-0 z-0">
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-500/5 to-teal-500/10"></div>
-        <div class="floating-shapes">
-            <div class="shape shape-1"></div>
-            <div class="shape shape-2"></div>
-            <div class="shape shape-3"></div>
-            <div class="shape shape-4"></div>
-            <div class="shape shape-5"></div>
-        </div>
-    </div>
-
-    <!-- Navbar -->
-    <nav class="relative z-50 bg-white/80 backdrop-blur-md shadow-lg border-b border-white/20">
-        <div class="max-w-7xl mx-auto px-6 py-4">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gradient-to-br from-um-blue to-purple-600 rounded-xl flex items-center justify-center transform hover:scale-110 transition-all duration-300">
-                        <i class="fas fa-language text-white text-xl"></i>
+    <!-- Desktop/Mobile Navbar -->
+    <nav class="bg-white shadow-sm border-b sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+            <div class="flex justify-between items-center py-3 lg:py-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-um-blue rounded-lg flex items-center justify-center">
+                        <i class="fas fa-language text-white text-lg lg:text-xl"></i>
                     </div>
                     <div>
-                        <div class="text-xl font-bold bg-gradient-to-r from-um-blue to-purple-600 bg-clip-text text-transparent">
-                            Lembaga Bahasa
-                        </div>
-                        <div class="text-xs text-gray-500 font-medium">UM Metro</div>
+                        <div class="text-lg lg:text-xl font-bold text-um-blue">Lembaga Bahasa</div>
+                        <div class="text-xs lg:text-sm text-gray-500">UM Metro</div>
                     </div>
                 </div>
-                <div class="flex items-center space-x-6">
-                    <div class="hidden md:flex space-x-6 text-sm font-medium">
-                        <a href="#" class="text-gray-700 hover:text-um-blue transition-colors duration-300 relative group">
-                            Beranda
-                            <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-um-blue transition-all duration-300 group-hover:w-full"></span>
-                        </a>
-                        <a href="#layanan" class="text-gray-700 hover:text-um-blue transition-colors duration-300 relative group">
-                            Layanan
-                            <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-um-blue transition-all duration-300 group-hover:w-full"></span>
-                        </a>
-                        <a href="#tentang" class="text-gray-700 hover:text-um-blue transition-colors duration-300 relative group">
-                            Tentang
-                            <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-um-blue transition-all duration-300 group-hover:w-full"></span>
-                        </a>
-                    </div>
+                
+                <!-- Desktop Menu -->
+                <div class="hidden lg:flex items-center space-x-8">
+                    <a href="#beranda" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Beranda</a>
+                    <a href="#layanan" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Layanan</a>
+                    <a href="#tentang" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Tentang</a>
+                    <a href="#kontak" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Kontak</a>
                     @guest
                     <a href="{{ route('filament.admin.auth.login') }}" class="bg-gradient-to-r from-um-blue to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
                         <i class="fas fa-sign-in-alt mr-2"></i>Login
@@ -75,392 +53,489 @@
                     </a>
                     @endguest
                 </div>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <button id="menuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100">
+                    <i class="fas fa-bars text-gray-600"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobileMenu" class="lg:hidden hidden bg-white border-t px-4 py-3">
+            <div class="space-y-3">
+                <a href="#beranda" class="block py-2 text-gray-700 hover:text-um-blue">Beranda</a>
+                <a href="#layanan" class="block py-2 text-gray-700 hover:text-um-blue">Layanan</a>
+                <a href="#tentang" class="block py-2 text-gray-700 hover:text-um-blue">Tentang</a>
+                <a href="#kontak" class="block py-2 text-gray-700 hover:text-um-blue">Kontak</a>
+                @guest
+                <a href="{{ route('filament.admin.auth.login') }}" class="bg-gradient-to-r from-um-blue to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Login
+                </a>
+                @else
+                <a href="{{ route('filament.admin.pages.dashboard') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                    <i class="fas fa-user-circle"></i>
+                     <span>{{ Auth::user()->name }}</span>
+                </a>
+                @endguest
             </div>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="relative z-10 min-h-screen flex items-center justify-center px-4 pt-20">
-        <div class="max-w-6xl mx-auto text-center">
-            <div class="hero-content">
-                <div class="mb-8">
-                    <div class="inline-block p-4 bg-white/10 backdrop-blur-sm rounded-2xl mb-6 animate-float">
-                        <i class="fas fa-university text-6xl text-um-blue"></i>
-                    </div>
-                </div>
-                
-                <h1 class="text-5xl md:text-7xl font-black mb-6 leading-tight">
-                    <span class="bg-gradient-to-r from-um-blue via-purple-600 to-teal-500 bg-clip-text text-transparent animate-gradient">
-                        Lembaga Bahasa
-                    </span>
-                    <br>
-                    <span class="text-3xl md:text-4xl font-semibold text-gray-700">
-                        Universitas Muhammadiyah Metro
-                    </span>
-                </h1>
-                
-                <p class="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-                    Pusat unggulan untuk <span class="font-semibold text-um-blue">English Proficiency Test (EPT)</span>, 
-                    layanan penerjemahan profesional, dan pengembangan kemampuan bahasa
-                </p>
+    <!-- Breadcrumbs - Large for Desktop -->
+    <div class="bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 py-16 lg:py-32">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8 text-center text-white">
+            <h1 class="text-4xl lg:text-7xl font-bold mb-6 lg:mb-8 leading-tight">
+                LEMBAGA BAHASA<br>
+                <span class="text-2xl lg:text-5xl text-blue-200">UNIVERSITAS MUHAMMADIYAH METRO</span>
+            </h1>
+            
+            <div class="mb-8 lg:mb-12">
+                @guest
+                    <a href="{{ route('filament.admin.auth.login') }}" class="inline-block bg-um-gold hover:bg-yellow-500 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
+                        <i class="fas fa-tachometer-alt mr-3"></i>Registrasi Sekarang
+                    </a>
+                @else
+                    <a href="{{ route('filament.admin.pages.dashboard') }}" class="inline-block bg-um-green hover:bg-green-600 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
+                        <i class="fas fa-arrow-down mr-3"></i>Dashboard Saya
+                    </a>
+                @endguest
+            </div>
 
-                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-                    @guest
-                    <a href="{{ route('filament.admin.auth.login') }}" class="group bg-gradient-to-r from-um-blue to-purple-600 text-white px-8 py-4 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 font-semibold text-lg flex items-center space-x-3">
-                        <i class="fas fa-rocket group-hover:animate-bounce"></i>
-                        <span>Mulai Sekarang</span>
-                        <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
-                    </a>
-                    <a href="#layanan" class="group bg-white/80 backdrop-blur-sm text-um-blue px-8 py-4 rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold text-lg border border-um-blue/20 flex items-center space-x-3">
-                        <i class="fas fa-info-circle"></i>
-                        <span>Pelajari Lebih Lanjut</span>
-                    </a>
-                    @else
-                    <a href="{{ route('filament.admin.pages.dashboard') }}" class="group bg-gradient-to-r from-um-green to-teal-600 text-white px-8 py-4 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 font-semibold text-lg flex items-center space-x-3">
-                        <i class="fas fa-tachometer-alt group-hover:animate-pulse"></i>
-                        <span>Dashboard Saya</span>
-                        <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
-                    </a>
-                    @endguest
+            <!-- Service Info Cards -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mt-12 lg:mt-20">
+                <!-- Waktu Pelayanan -->
+                <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
+                    <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-clock text-2xl lg:text-3xl text-white"></i>
+                    </div>
+                    <h3 class="text-lg lg:text-xl font-bold text-um-gold mb-2">Waktu Pelayanan</h3>
+                    <p class="text-sm lg:text-base text-blue-100 mb-1">Senin-Ahad, Pukul 08:00-16:00 WIB</p>
+                    <p class="text-xs lg:text-sm text-blue-200">Pendaftaran Online Buka 24 Jam</p>
                 </div>
 
-                <!-- Stats -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                    <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/30 transition-all duration-300 border border-white/30">
-                        <div class="text-3xl font-bold text-um-blue mb-2">1000+</div>
-                        <div class="text-gray-600 font-medium">Peserta EPT</div>
+                <!-- Pendaftaran On Desk -->
+                <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
+                    <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-trophy text-2xl lg:text-3xl text-white"></i>
                     </div>
-                    <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/30 transition-all duration-300 border border-white/30">
-                        <div class="text-3xl font-bold text-purple-600 mb-2">500+</div>
-                        <div class="text-gray-600 font-medium">Dokumen Diterjemahkan</div>
+                    <h3 class="text-lg lg:text-xl font-bold text-um-gold mb-2">Pendaftaran On Desk</h3>
+                    <p class="text-sm lg:text-base text-blue-100 mb-1">Kampus 3 UM Metro</p>
+                    <p class="text-xs lg:text-sm text-blue-200">Jalan Gatot Subroto No. 100 Yosodadi Kota Metro</p>
+                </div>
+
+                <!-- Bantuan Layanan -->
+                <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
+                    <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-headset text-2xl lg:text-3xl text-white"></i>
                     </div>
-                    <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/30 transition-all duration-300 border border-white/30">
-                        <div class="text-3xl font-bold text-teal-600 mb-2">98%</div>
-                        <div class="text-gray-600 font-medium">Tingkat Kepuasan</div>
-                    </div>
+                    <h3 class="text-lg lg:text-xl font-bold text-um-gold mb-2">Bantuan Layanan</h3>
+                    <p class="text-sm lg:text-base text-blue-100 mb-1">Whatsapp : 085269813879</p>
+                    <p class="text-xs lg:text-sm text-blue-200">Email: lembagabahasa@ummetro.ac.id</p>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
 
-    <!-- Services Section -->
-    <section id="layanan" class="relative z-10 py-20 px-4">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl md:text-5xl font-bold mb-6">
-                    <span class="bg-gradient-to-r from-um-blue to-purple-600 bg-clip-text text-transparent">
-                        Layanan Kami
-                    </span>
+    <!-- Hero Section - Redesigned -->
+    <section id="beranda" class="py-12 lg:py-20 bg-gradient-to-br from-blue-50 to-purple-50">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+            <div class="text-center max-w-4xl mx-auto">
+                <div class="w-16 h-16 lg:w-24 lg:h-24 bg-um-blue rounded-2xl flex items-center justify-center mx-auto mb-6 lg:mb-8">
+                    <i class="fas fa-university text-white text-2xl lg:text-4xl"></i>
+                </div>
+                
+                <h2 class="text-2xl lg:text-4xl font-bold mb-4 lg:mb-6 leading-tight">
+                    <span class="text-um-blue">Pusat Unggulan</span><br>
+                    <span class="text-xl lg:text-3xl text-gray-600">English Proficiency Test & Penerjemahan</span>
                 </h2>
-                <p class="text-xl text-gray-600 max-w-2xl mx-auto">
-                    Solusi terpadu untuk kebutuhan bahasa dan sertifikasi Anda
+                
+                <p class="text-gray-600 mb-8 lg:mb-12 text-lg lg:text-xl leading-relaxed max-w-3xl mx-auto">
+                    Lembaga Bahasa Universitas Muhammadiyah Metro menyediakan layanan 
+                    <span class="font-semibold text-um-blue">English Proficiency Test (EPT)</span> 
+                    terakreditasi dan layanan penerjemahan profesional dengan standar internasional.
+                </p>
+
+                <!-- Enhanced Stats -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8 mb-8 lg:mb-12">
+                    <div class="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-sm">
+                        <div class="text-2xl lg:text-3xl font-bold text-um-blue">1500+</div>
+                        <div class="text-sm lg:text-base text-gray-600">Peserta EPT</div>
+                    </div>
+                    <div class="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-sm">
+                        <div class="text-2xl lg:text-3xl font-bold text-purple-600">800+</div>
+                        <div class="text-sm lg:text-base text-gray-600">Dokumen Terjemah</div>
+                    </div>
+                    <div class="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-sm">
+                        <div class="text-2xl lg:text-3xl font-bold text-teal-600">15+</div>
+                        <div class="text-sm lg:text-base text-gray-600">Tahun Pengalaman</div>
+                    </div>
+                    <div class="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-sm">
+                        <div class="text-2xl lg:text-3xl font-bold text-um-gold">A+</div>
+                        <div class="text-sm lg:text-base text-gray-600">Akreditasi</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 justify-center items-center">
+                    <a href="#" class="w-full lg:w-auto bg-um-blue text-white px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
+                        <i class="fas fa-rocket mr-2"></i>Mulai Sekarang
+                    </a>
+                    <a href="#layanan" class="w-full lg:w-auto border-2 border-um-blue text-um-blue px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-um-blue hover:text-white transition-colors text-lg">
+                        <i class="fas fa-info-circle mr-2"></i>Pelajari Lebih Lanjut
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section - Enhanced -->
+    <section id="layanan" class="py-12 lg:py-20">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+            <div class="text-center mb-12 lg:mb-16">
+                <h2 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-4 lg:mb-6">Layanan Unggulan Kami</h2>
+                <p class="text-gray-600 text-lg lg:text-xl max-w-2xl mx-auto">Dua layanan utama yang telah terpercaya melayani ribuan klien dengan standar internasional</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                <!-- EPT Service -->
+                <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
+                    <div class="flex items-start space-x-6">
+                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-um-blue rounded-2xl flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-clipboard-check text-white text-2xl lg:text-3xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">English Proficiency Test</h3>
+                            <p class="text-gray-600 mb-6 lg:mb-8 leading-relaxed">
+                                Uji kemampuan bahasa Inggris dengan standar internasional. 
+                                Dapatkan sertifikat resmi untuk keperluan akademik dan profesional.
+                            </p>
+                            <div class="space-y-3 mb-6 lg:mb-8">
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-um-blue mr-3"></i>
+                                    <span>Sertifikat resmi terakreditasi</span>
+                                </div>
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-um-blue mr-3"></i>
+                                    <span>Tes berbasis komputer modern</span>
+                                </div>
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-um-blue mr-3"></i>
+                                    <span>Hasil cepat dan akurat</span>
+                                </div>
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-um-blue mr-3"></i>
+                                    <span>Standar internasional TOEFL/IELTS</span>
+                                </div>
+                            </div>
+                            <a href="#" class="inline-flex items-center bg-um-blue text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
+                                <i class="fas fa-user-plus mr-2"></i>Daftar EPT Sekarang
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Translation Service -->
+                <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
+                    <div class="flex items-start space-x-6">
+                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-language text-white text-2xl lg:text-3xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">Penerjemahan Dokumen</h3>
+                            <p class="text-gray-600 mb-6 lg:mb-8 leading-relaxed">
+                                Layanan penerjemahan profesional dengan akurasi tinggi. 
+                                Didukung tim translator berpengalaman dan bersertifikat.
+                            </p>
+                            <div class="space-y-3 mb-6 lg:mb-8">
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-purple-600 mr-3"></i>
+                                    <span>Translator tersertifikasi internasional</span>
+                                </div>
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-purple-600 mr-3"></i>
+                                    <span>Berbagai jenis dokumen</span>
+                                </div>
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-purple-600 mr-3"></i>
+                                    <span>Garansi akurasi tinggi</span>
+                                </div>
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-check text-purple-600 mr-3"></i>
+                                    <span>Pengerjaan cepat & tepat waktu</span>
+                                </div>
+                            </div>
+                            <a href="#" class="inline-flex items-center bg-purple-600 text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-purple-700 transition-colors text-lg">
+                                <i class="fas fa-file-alt mr-2"></i>Mulai Terjemahkan
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Why Choose Us - Enhanced -->
+            <div class="mt-16 lg:mt-24 bg-gray-50 rounded-2xl lg:rounded-3xl p-8 lg:p-12">
+                <h3 class="text-2xl lg:text-3xl font-bold text-center mb-8 lg:mb-12">Mengapa Memilih Lembaga Bahasa UM Metro?</h3>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+                    <div class="text-center">
+                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-um-blue rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-award text-white text-xl lg:text-2xl"></i>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2">Terakreditasi</h4>
+                        <p class="text-gray-600">Standar internasional dengan sertifikasi resmi</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-users text-white text-xl lg:text-2xl"></i>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2">Tim Ahli</h4>
+                        <p class="text-gray-600">Profesional berpengalaman 15+ tahun</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-clock text-white text-xl lg:text-2xl"></i>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2">Cepat & Tepat</h4>
+                        <p class="text-gray-600">Layanan efisien dengan hasil berkualitas</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-um-gold rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-star text-white text-xl lg:text-2xl"></i>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2">Terpercaya</h4>
+                        <p class="text-gray-600">Ribuan klien puas dengan layanan kami</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section - Enhanced -->
+    <section id="tentang" class="py-12 lg:py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+            <div class="text-center mb-12 lg:mb-16">
+                <div class="w-20 h-20 lg:w-24 lg:h-24 bg-um-blue rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-university text-white text-3xl lg:text-4xl"></i>
+                </div>
+                <h2 class="text-3xl lg:text-4xl font-bold mb-4 lg:mb-6">Tentang Lembaga Bahasa UM Metro</h2>
+                <p class="text-gray-600 leading-relaxed max-w-4xl mx-auto text-lg lg:text-xl">
+                    Lembaga Bahasa Universitas Muhammadiyah Metro adalah pusat unggulan 
+                    yang berkomitmen memberikan layanan bahasa berkualitas tinggi dengan standar internasional.
+                    Dengan pengalaman lebih dari 15 tahun, kami telah melayani ribuan klien dari berbagai kalangan.
                 </p>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div class="group bg-white/80 backdrop-blur-sm rounded-3xl p-8 hover:shadow-2xl hover:scale-105 transition-all duration-500 border border-white/30 hover:border-um-blue/30">
-                    <div class="w-16 h-16 bg-gradient-to-br from-um-blue to-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                        <i class="fas fa-clipboard-check text-white text-2xl"></i>
+            
+            <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-12 shadow-lg">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 mb-8 lg:mb-12">
+                    <div class="text-center p-6 bg-um-blue/10 rounded-2xl">
+                        <div class="text-3xl lg:text-4xl font-bold text-um-blue mb-2">15+</div>
+                        <div class="text-gray-600 font-medium">Tahun Pengalaman</div>
                     </div>
-                    <h3 class="text-2xl font-bold mb-4 text-gray-800">English Proficiency Test</h3>
-                    <p class="text-gray-600 mb-6 leading-relaxed">
-                        Uji kemampuan bahasa Inggris Anda dengan standar internasional yang diakui secara luas.
-                    </p>
-                    <a href="#" class="inline-flex items-center text-um-blue font-semibold group-hover:text-purple-600 transition-colors">
-                        Daftar Sekarang
-                        <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                    </a>
+                    <div class="text-center p-6 bg-purple-100 rounded-2xl">
+                        <div class="text-3xl lg:text-4xl font-bold text-purple-600 mb-2">25+</div>
+                        <div class="text-gray-600 font-medium">Instruktur Ahli</div>
+                    </div>
+                    <div class="text-center p-6 bg-teal-100 rounded-2xl">
+                        <div class="text-3xl lg:text-4xl font-bold text-teal-600 mb-2">5K+</div>
+                        <div class="text-gray-600 font-medium">Alumni Sukses</div>
+                    </div>
+                    <div class="text-center p-6 bg-yellow-100 rounded-2xl">
+                        <div class="text-3xl lg:text-4xl font-bold text-um-gold mb-2">A+</div>
+                        <div class="text-gray-600 font-medium">Akreditasi</div>
+                    </div>
                 </div>
-
-                <div class="group bg-white/80 backdrop-blur-sm rounded-3xl p-8 hover:shadow-2xl hover:scale-105 transition-all duration-500 border border-white/30 hover:border-purple-600/30">
-                    <div class="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                        <i class="fas fa-language text-white text-2xl"></i>
-                    </div>
-                    <h3 class="text-2xl font-bold mb-4 text-gray-800">Penerjemahan Dokumen</h3>
-                    <p class="text-gray-600 mb-6 leading-relaxed">
-                        Layanan penerjemahan profesional dengan akurasi tinggi untuk berbagai jenis dokumen.
-                    </p>
-                    <a href="#" class="inline-flex items-center text-purple-600 font-semibold group-hover:text-pink-500 transition-colors">
-                        Mulai Terjemahkan
-                        <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                    </a>
+                
+                <div class="flex flex-wrap gap-3 lg:gap-4 justify-center">
+                    <span class="bg-um-blue/10 text-um-blue px-4 py-2 lg:px-6 lg:py-3 rounded-full font-medium">
+                        <i class="fas fa-certificate mr-2"></i>Tersertifikasi Internasional
+                    </span>
+                    <span class="bg-purple-100 text-purple-600 px-4 py-2 lg:px-6 lg:py-3 rounded-full font-medium">
+                        <i class="fas fa-users mr-2"></i>Tim Profesional
+                    </span>
+                    <span class="bg-teal-100 text-teal-600 px-4 py-2 lg:px-6 lg:py-3 rounded-full font-medium">
+                        <i class="fas fa-clock mr-2"></i>Layanan 24/7 Online
+                    </span>
                 </div>
+            </div>
+        </div>
+    </section>
 
-                <div class="group bg-white/80 backdrop-blur-sm rounded-3xl p-8 hover:shadow-2xl hover:scale-105 transition-all duration-500 border border-white/30 hover:border-teal-500/30">
-                    <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                        <i class="fas fa-chalkboard-teacher text-white text-2xl"></i>
+    <!-- Registration Section -->
+    <section id="registrasi" class="py-12 lg:py-20 bg-gradient-to-r from-um-blue to-purple-600">
+        <div class="max-w-4xl mx-auto px-4 lg:px-8 text-center text-white">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-6 lg:mb-8">Siap Memulai Perjalanan Bahasa Anda?</h2>
+            <p class="text-lg lg:text-xl mb-8 lg:mb-12 text-blue-100">
+                Bergabunglah dengan ribuan peserta yang telah merasakan pengalaman belajar dan uji bahasa terbaik
+            </p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                <a href="#" class="bg-white text-um-blue px-8 py-6 rounded-2xl font-bold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center">
+                    <i class="fas fa-clipboard-check mr-3 text-xl"></i>
+                    Daftar EPT Sekarang
+                </a>
+                <a href="#" class="bg-um-gold text-white px-8 py-6 rounded-2xl font-bold text-lg hover:bg-yellow-500 transition-colors flex items-center justify-center">
+                    <i class="fas fa-language mr-3 text-xl"></i>
+                    Konsultasi Penerjemahan
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section - Enhanced -->
+    <section id="kontak" class="py-12 lg:py-20">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+            <div class="text-center mb-12 lg:mb-16">
+                <h2 class="text-3xl lg:text-4xl font-bold mb-4 lg:mb-6">Hubungi Kami</h2>
+                <p class="text-gray-600 text-lg lg:text-xl">Siap membantu Anda dengan layanan terbaik</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-12 lg:mb-16">
+                <div class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+                    <div class="w-16 h-16 bg-um-blue rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-map-marker-alt text-white text-xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold mb-4 text-gray-800">Kursus Bahasa</h3>
-                    <p class="text-gray-600 mb-6 leading-relaxed">
-                        Program pembelajaran bahasa yang dirancang khusus untuk meningkatkan kemampuan komunikasi Anda.
-                    </p>
-                    <a href="#" class="inline-flex items-center text-teal-500 font-semibold group-hover:text-cyan-500 transition-colors">
-                        Lihat Kursus
-                        <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+                    <h3 class="font-bold text-lg mb-2">Alamat Kampus</h3>
+                    <p class="text-gray-600">Jalan Gatot Subroto No. 100 Yosodadi Kota Metro</p>
+                    <p class="text-gray-600">Lampung, Indonesia</p>
+                    <p class="text-sm text-um-blue mt-2 font-medium">Kampus 3 UM Metro</p>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+                    <div class="w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-phone text-white text-xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Telepon & WhatsApp</h3>
+                    <p class="text-gray-600">(0725) 42445</p>
+                    <p class="text-gray-600">WhatsApp: 085269813879</p>
+                    <p class="text-sm text-green-600 mt-2 font-medium">Layanan 08:00-16:00 WIB</p>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+                    <div class="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-envelope text-white text-xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Email</h3>
+                    <p class="text-gray-600">info@ummetro.ac.id</p>
+                    <p class="text-gray-600">lembagabahasa@ummetro.ac.id</p>
+                    <p class="text-sm text-purple-600 mt-2 font-medium">Respon dalam 24 jam</p>
+                </div>
+            </div>
+            
+            <div class="text-center">
+                <h3 class="text-xl lg:text-2xl font-bold mb-6">Ikuti Media Sosial Kami</h3>
+                <div class="flex justify-center space-x-4 lg:space-x-6">
+                    <a href="#" class="w-12 h-12 lg:w-16 lg:h-16 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg">
+                        <i class="fab fa-facebook-f text-xl lg:text-2xl"></i>
+                    </a>
+                    <a href="#" class="w-12 h-12 lg:w-16 lg:h-16 bg-pink-500 text-white rounded-xl flex items-center justify-center hover:bg-pink-600 transition-colors shadow-lg">
+                        <i class="fab fa-instagram text-xl lg:text-2xl"></i>
+                    </a>
+                    <a href="#" class="w-12 h-12 lg:w-16 lg:h-16 bg-green-500 text-white rounded-xl flex items-center justify-center hover:bg-green-600 transition-colors shadow-lg">
+                        <i class="fab fa-whatsapp text-xl lg:text-2xl"></i>
+                    </a>
+                    <a href="#" class="w-12 h-12 lg:w-16 lg:h-16 bg-blue-400 text-white rounded-xl flex items-center justify-center hover:bg-blue-500 transition-colors shadow-lg">
+                        <i class="fab fa-twitter text-xl lg:text-2xl"></i>
+                    </a>
+                    <a href="#" class="w-12 h-12 lg:w-16 lg:h-16 bg-red-600 text-white rounded-xl flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
+                        <i class="fab fa-youtube text-xl lg:text-2xl"></i>
                     </a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- About Section -->
-    <section id="tentang" class="relative z-10 py-20 px-4 bg-gradient-to-r from-um-blue/5 to-purple-600/5">
-        <div class="max-w-6xl mx-auto">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                <div class="order-2 lg:order-1">
-                    <div class="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-white/30">
-                        <div class="w-20 h-20 bg-gradient-to-br from-um-blue to-purple-600 rounded-3xl flex items-center justify-center mb-8 mx-auto lg:mx-0">
-                            <i class="fas fa-university text-white text-3xl"></i>
-                        </div>
-                        <h2 class="text-4xl font-bold mb-6 text-center lg:text-left">
-                            <span class="bg-gradient-to-r from-um-blue to-purple-600 bg-clip-text text-transparent">
-                                Tentang Kami
-                            </span>
-                        </h2>
-                        <p class="text-gray-600 text-lg leading-relaxed mb-6">
-                            Lembaga Bahasa Universitas Muhammadiyah Metro adalah pusat unggulan yang berkomitmen 
-                            untuk memberikan layanan bahasa berkualitas tinggi dengan standar internasional.
-                        </p>
-                        <p class="text-gray-600 text-lg leading-relaxed mb-8">
-                            Dengan tim profesional berpengalaman dan teknologi terdepan, kami siap membantu 
-                            Anda mencapai tujuan akademik dan profesional melalui penguasaan bahasa yang optimal.
-                        </p>
-                        <div class="flex flex-wrap gap-4">
-                            <div class="flex items-center space-x-2 bg-um-blue/10 px-4 py-2 rounded-full">
-                                <i class="fas fa-certificate text-um-blue"></i>
-                                <span class="text-sm font-medium text-gray-700">Tersertifikasi</span>
-                            </div>
-                            <div class="flex items-center space-x-2 bg-purple-100 px-4 py-2 rounded-full">
-                                <i class="fas fa-users text-purple-600"></i>
-                                <span class="text-sm font-medium text-gray-700">Tim Profesional</span>
-                            </div>
-                            <div class="flex items-center space-x-2 bg-teal-100 px-4 py-2 rounded-full">
-                                <i class="fas fa-clock text-teal-600"></i>
-                                <span class="text-sm font-medium text-gray-700">Layanan 24/7</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="order-1 lg:order-2">
-                    <div class="relative">
-                        <div class="absolute inset-0 bg-gradient-to-br from-um-blue/20 to-purple-600/20 rounded-3xl transform rotate-6"></div>
-                        <div class="relative bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/50">
-                            <div class="grid grid-cols-2 gap-6">
-                                <div class="text-center p-4 bg-gradient-to-br from-um-blue/10 to-purple-600/10 rounded-2xl">
-                                    <div class="text-3xl font-bold text-um-blue mb-2">15+</div>
-                                    <div class="text-sm text-gray-600 font-medium">Tahun Pengalaman</div>
-                                </div>
-                                <div class="text-center p-4 bg-gradient-to-br from-purple-600/10 to-pink-500/10 rounded-2xl">
-                                    <div class="text-3xl font-bold text-purple-600 mb-2">50+</div>
-                                    <div class="text-sm text-gray-600 font-medium">Instruktur Ahli</div>
-                                </div>
-                                <div class="text-center p-4 bg-gradient-to-br from-teal-500/10 to-cyan-500/10 rounded-2xl">
-                                    <div class="text-3xl font-bold text-teal-500 mb-2">10k+</div>
-                                    <div class="text-sm text-gray-600 font-medium">Alumni Sukses</div>
-                                </div>
-                                <div class="text-center p-4 bg-gradient-to-br from-um-gold/10 to-orange-500/10 rounded-2xl">
-                                    <div class="text-3xl font-bold text-um-gold mb-2">A+</div>
-                                    <div class="text-sm text-gray-600 font-medium">Akreditasi</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="relative z-10 bg-gradient-to-br from-gray-900 to-gray-800 text-white py-16">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-                <div class="col-span-1 md:col-span-2">
-                    <div class="flex items-center space-x-4 mb-6">
-                        <div class="w-12 h-12 bg-gradient-to-br from-um-blue to-purple-600 rounded-xl flex items-center justify-center">
-                            <i class="fas fa-language text-white text-xl"></i>
+    <!-- Footer Section -->
+    <footer class="bg-gradient-to-r from-blue-900 to-purple-900 text-white py-12 lg:py-16">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+                <!-- About -->
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                            <i class="fas fa-language text-um-blue text-lg"></i>
                         </div>
                         <div>
-                            <div class="text-xl font-bold">Lembaga Bahasa</div>
-                            <div class="text-sm text-gray-400">Universitas Muhammadiyah Metro</div>
+                            <div class="text-lg font-bold">Lembaga Bahasa</div>
+                            <div class="text-sm text-blue-200">UM Metro</div>
                         </div>
                     </div>
-                    <p class="text-gray-300 leading-relaxed mb-6">
-                        Membangun masa depan yang lebih baik melalui penguasaan bahasa dan komunikasi global yang efektif.
+                    <p class="text-blue-100 text-sm leading-relaxed">
+                        Membangun masa depan melalui penguasaan bahasa dan komunikasi global. Kami berkomitmen memberikan layanan terbaik dengan standar internasional.
                     </p>
-                    <div class="flex space-x-4">
-                        <a href="#" class="w-10 h-10 bg-white/10 hover:bg-um-blue transition-colors duration-300 rounded-lg flex items-center justify-center">
-                            <i class="fab fa-facebook-f"></i>
-                        </a>
-                        <a href="#" class="w-10 h-10 bg-white/10 hover:bg-um-blue transition-colors duration-300 rounded-lg flex items-center justify-center">
-                            <i class="fab fa-twitter"></i>
-                        </a>
-                        <a href="#" class="w-10 h-10 bg-white/10 hover:bg-um-blue transition-colors duration-300 rounded-lg flex items-center justify-center">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                        <a href="#" class="w-10 h-10 bg-white/10 hover:bg-um-blue transition-colors duration-300 rounded-lg flex items-center justify-center">
-                            <i class="fab fa-linkedin-in"></i>
-                        </a>
-                    </div>
                 </div>
+
+                <!-- Quick Links -->
                 <div>
-                    <h4 class="text-lg font-semibold mb-4">Layanan</h4>
-                    <ul class="space-y-2 text-gray-300">
-                        <li><a href="#" class="hover:text-white transition-colors">English Proficiency Test</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Penerjemahan Dokumen</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Kursus Bahasa</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Konsultasi Bahasa</a></li>
+                    <h4 class="text-lg font-bold mb-4">Tautan Cepat</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#beranda" class="text-blue-100 hover:text-um-gold transition-colors">Beranda</a></li>
+                        <li><a href="#layanan" class="text-blue-100 hover:text-um-gold transition-colors">Layanan</a></li>
+                        <li><a href="#tentang" class="text-blue-100 hover:text-um-gold transition-colors">Tentang</a></li>
+                        <li><a href="#kontak" class="text-blue-100 hover:text-um-gold transition-colors">Kontak</a></li>
                     </ul>
                 </div>
+
+                <!-- Service Hours -->
                 <div>
-                    <h4 class="text-lg font-semibold mb-4">Kontak</h4>
-                    <ul class="space-y-3 text-gray-300">
-                        <li class="flex items-center space-x-3">
-                            <i class="fas fa-map-marker-alt text-um-blue"></i>
-                            <span>Jl. Ki Hajar Dewantara No. 116, Metro</span>
-                        </li>
-                        <li class="flex items-center space-x-3">
-                            <i class="fas fa-phone text-um-blue"></i>
-                            <span>(0725) 42445</span>
-                        </li>
-                        <li class="flex items-center space-x-3">
-                            <i class="fas fa-envelope text-um-blue"></i>
-                            <span>info@ummetro.ac.id</span>
-                        </li>
-                    </ul>
+                    <h4 class="text-lg font-bold mb-4">Jam Pelayanan</h4>
+                    <p class="text-blue-100 text-sm mb-2">Senin-Ahad: 08:00-16:00 WIB</p>
+                    <p class="text-blue-100 text-sm">Pendaftaran Online: 24 Jam</p>
+                </div>
+
+                <!-- Contact Info -->
+                <div>
+                    <h4 class="text-lg font-bold mb-4">Kontak Kami</h4>
+                    <p class="text-blue-100 text-sm mb-2">Jalan Gatot Subroto No. 100 Yosodadi Kota Metro</p>
+                    <p class="text-blue-100 text-sm mb-2">WhatsApp: 085269813879</p>
+                    <p class="text-blue-100 text-sm">Email: lembagabahasa@ummetro.ac.id</p>
                 </div>
             </div>
-            <div class="border-t border-gray-700 pt-8 text-center text-gray-400">
-                <p>&copy; {{ date('Y') }} Lembaga Bahasa Universitas Muhammadiyah Metro. Hak cipta dilindungi.</p>
+            <div class="border-t border-blue-800 mt-8 pt-6 text-center">
+                <p class="text-blue-200 text-sm">
+                    © 2025 Lembaga Bahasa UM Metro. Hak cipta dilindungi.
+                </p>
             </div>
         </div>
     </footer>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    <!-- Floating Action Button -->
+    <a href="https://wa.me/085269813879" target="_blank" class="fixed bottom-6 right-6 w-14 h-14 lg:w-16 lg:h-16 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors z-50">
+        <i class="fab fa-whatsapp text-xl lg:text-2xl"></i>
+    </a>
+
+    <!-- JavaScript for Interactivity -->
+    <script>
+        // Mobile menu toggle
+        const menuToggle = document.getElementById('menuToggle');
+        const mobileMenu = document.getElementById('mobileMenu');
         
-        * {
-            font-family: 'Inter', sans-serif;
-        }
+        menuToggle.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
 
-        .floating-shapes {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const target = document.querySelector(targetId);
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    // Close mobile menu if open
+                    mobileMenu.classList.add('hidden');
+                }
+            });
+        });
 
-        .shape {
-            position: absolute;
-            background: linear-gradient(45deg, rgba(30, 64, 175, 0.1), rgba(147, 51, 234, 0.1));
-            border-radius: 50%;
-            animation: float 20s infinite linear;
-        }
-
-        .shape-1 {
-            width: 80px;
-            height: 80px;
-            top: 20%;
-            left: 10%;
-            animation-delay: 0s;
-        }
-
-        .shape-2 {
-            width: 120px;
-            height: 120px;
-            top: 60%;
-            right: 10%;
-            animation-delay: -5s;
-        }
-
-        .shape-3 {
-            width: 60px;
-            height: 60px;
-            top: 80%;
-            left: 20%;
-            animation-delay: -10s;
-        }
-
-        .shape-4 {
-            width: 100px;
-            height: 100px;
-            top: 10%;
-            right: 30%;
-            animation-delay: -15s;
-        }
-
-        .shape-5 {
-            width: 140px;
-            height: 140px;
-            top: 70%;
-            left: 70%;
-            animation-delay: -7s;
-        }
-
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(0px) rotate(0deg);
-                opacity: 0.1;
+        // Hide mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!menuToggle.contains(e.target) && !mobileMenu.contains(e.target)) {
+                mobileMenu.classList.add('hidden');
             }
-            50% {
-                transform: translateY(-20px) rotate(180deg);
-                opacity: 0.3;
-            }
-        }
-
-        .animate-float {
-            animation: float-simple 3s ease-in-out infinite;
-        }
-
-        @keyframes float-simple {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .animate-gradient {
-            background-size: 200% 200%;
-            animation: gradient-shift 3s ease infinite;
-        }
-
-        @keyframes gradient-shift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        .hero-content {
-            animation: hero-fade-in 1.2s ease-out forwards;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        @keyframes hero-fade-in {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(to bottom, #1e40af, #9333ea);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(to bottom, #1d4ed8, #a855f7);
-        }
-    </style>
+        });
+    </script>
 
 </body>
 </html>
