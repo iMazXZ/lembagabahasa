@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <div class="space-y-6">
         <!-- Profile Picture and Basic Info -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="">
             <!-- Profile Picture Section -->
             <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800">
                 <div class="flex flex-col items-center">
@@ -25,19 +25,8 @@
                     <p class="text-gray-600 dark:text-gray-400">
                         NPM. {{ $data['srn'] ?? '' }}
                     </p>
-                    <p class="text-gray-600 dark:text-gray-400">
-                        {{ $data['prody'] ?? '' }} - {{ $data['year'] ?? '' }}
-                    </p>
-                </div>
-            </div>
-
-            <!-- Basic Info Section -->
-            <div class="md:col-span-2 bg-white rounded-lg shadow p-6 dark:bg-gray-800 space-y-4">
-                <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Keamanan Akun</h3>
-                <div class="max-w-md space-y-4">
-                    {{ $this->form->getComponent('password') }}
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Biarkan kosong jika tidak ingin mengubah password
+                   <p class="text-gray-600 dark:text-gray-400">
+                        {{ $user->prody->name }} - {{ $data['year'] ?? 'Tahun' }}
                     </p>
                 </div>
             </div>

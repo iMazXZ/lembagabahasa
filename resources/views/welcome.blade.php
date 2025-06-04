@@ -27,12 +27,12 @@
         <div class="max-w-7xl mx-auto px-4 lg:px-8">
             <div class="flex justify-between items-center py-3 lg:py-4">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-um-blue rounded-lg flex items-center justify-center">
+                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-um-gold rounded-lg flex items-center justify-center">
                         <i class="fas fa-language text-white text-lg lg:text-xl"></i>
                     </div>
                     <div>
-                        <div class="text-lg lg:text-xl font-bold text-um-blue">Lembaga Bahasa</div>
-                        <div class="text-xs lg:text-sm text-gray-500">UM Metro</div>
+                        <div class="text-lg lg:text-xl font-bold text-um-gold">Lembaga Bahasa</div>
+                        <div class="text-xs lg:text-sm text-gray-500">Universitas Muhammadiyah Metro</div>
                     </div>
                 </div>
                 
@@ -43,7 +43,7 @@
                     <a href="#tentang" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Tentang</a>
                     <a href="#kontak" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Kontak</a>
                     @guest
-                    <a href="{{ route('filament.admin.auth.login') }}" class="bg-gradient-to-r from-um-blue to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                    <a href="{{ route('filament.admin.auth.login') }}" class="bg-gradient-to-r from-um-gold to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
                         <i class="fas fa-sign-in-alt mr-2"></i>Login
                     </a>
                     @else
@@ -87,7 +87,7 @@
         <div class="max-w-7xl mx-auto px-4 lg:px-8 text-center text-white">
             <h1 class="text-4xl lg:text-7xl font-bold mb-6 lg:mb-8 leading-tight">
                 LEMBAGA BAHASA<br>
-                <span class="text-2xl lg:text-5xl text-blue-200">UNIVERSITAS MUHAMMADIYAH METRO</span>
+                <span class="text-sm lg:text-2xl text-blue-200">UNIVERSITAS MUHAMMADIYAH METRO</span>
             </h1>
             
             <div class="mb-8 lg:mb-12">
@@ -131,7 +131,7 @@
                     </div>
                     <h3 class="text-lg lg:text-xl font-bold text-um-gold mb-2">Bantuan Layanan</h3>
                     <p class="text-sm lg:text-base text-blue-100 mb-1">Whatsapp : 085269813879</p>
-                    <p class="text-xs lg:text-sm text-blue-200">Email: lembagabahasa@ummetro.ac.id</p>
+                    <p class="text-xs lg:text-sm text-blue-200">Email: info@lemabagabahasa.site</p>
                 </div>
             </div>
         </div>
@@ -171,13 +171,13 @@
                         <div class="text-sm lg:text-base text-gray-600">Tahun Pengalaman</div>
                     </div>
                     <div class="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-sm">
-                        <div class="text-2xl lg:text-3xl font-bold text-um-gold">A+</div>
+                        <div class="text-2xl lg:text-3xl font-bold text-um-gold">A</div>
                         <div class="text-sm lg:text-base text-gray-600">Akreditasi</div>
                     </div>
                 </div>
 
                 <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 justify-center items-center">
-                    <a href="#" class="w-full lg:w-auto bg-um-blue text-white px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
+                    <a href="{{ route('filament.admin.auth.login') }}" class="w-full lg:w-auto bg-um-blue text-white px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
                         <i class="fas fa-rocket mr-2"></i>Mulai Sekarang
                     </a>
                     <a href="#layanan" class="w-full lg:w-auto border-2 border-um-blue text-um-blue px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-um-blue hover:text-white transition-colors text-lg">
@@ -200,9 +200,6 @@
                 <!-- EPT Service -->
                 <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
                     <div class="flex items-start space-x-6">
-                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-um-blue rounded-2xl flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-clipboard-check text-white text-2xl lg:text-3xl"></i>
-                        </div>
                         <div class="flex-1">
                             <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">English Proficiency Test</h3>
                             <p class="text-gray-600 mb-6 lg:mb-8 leading-relaxed">
@@ -227,7 +224,7 @@
                                     <span>Standar internasional TOEFL/IELTS</span>
                                 </div>
                             </div>
-                            <a href="#" class="inline-flex items-center bg-um-blue text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
+                            <a href="{{ route('filament.admin.resources.ept.index') }}" class="inline-flex items-center bg-um-blue text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
                                 <i class="fas fa-user-plus mr-2"></i>Daftar EPT Sekarang
                             </a>
                         </div>
@@ -237,9 +234,6 @@
                 <!-- Translation Service -->
                 <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
                     <div class="flex items-start space-x-6">
-                        <div class="w-16 h-16 lg:w-20 lg:h-20 bg-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-language text-white text-2xl lg:text-3xl"></i>
-                        </div>
                         <div class="flex-1">
                             <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">Penerjemahan Dokumen</h3>
                             <p class="text-gray-600 mb-6 lg:mb-8 leading-relaxed">
@@ -264,7 +258,7 @@
                                     <span>Pengerjaan cepat & tepat waktu</span>
                                 </div>
                             </div>
-                            <a href="#" class="inline-flex items-center bg-purple-600 text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-purple-700 transition-colors text-lg">
+                            <a href="{{ route('filament.admin.resources.penerjemahan.index') }}" class="inline-flex items-center bg-purple-600 text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-purple-700 transition-colors text-lg">
                                 <i class="fas fa-file-alt mr-2"></i>Mulai Terjemahkan
                             </a>
                         </div>
@@ -367,11 +361,11 @@
                 Bergabunglah dengan ribuan peserta yang telah merasakan pengalaman belajar dan uji bahasa terbaik
             </p>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-                <a href="#" class="bg-white text-um-blue px-8 py-6 rounded-2xl font-bold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center">
+                <a href="{{ route('filament.admin.resources.ept.index') }}" class="bg-white text-um-blue px-8 py-6 rounded-2xl font-bold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center">
                     <i class="fas fa-clipboard-check mr-3 text-xl"></i>
                     Daftar EPT Sekarang
                 </a>
-                <a href="#" class="bg-um-gold text-white px-8 py-6 rounded-2xl font-bold text-lg hover:bg-yellow-500 transition-colors flex items-center justify-center">
+                <a href="{{ route('filament.admin.resources.penerjemahan.index') }}" class="bg-um-gold text-white px-8 py-6 rounded-2xl font-bold text-lg hover:bg-yellow-500 transition-colors flex items-center justify-center">
                     <i class="fas fa-language mr-3 text-xl"></i>
                     Konsultasi Penerjemahan
                 </a>
