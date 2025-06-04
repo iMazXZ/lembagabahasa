@@ -121,27 +121,6 @@
             margin: 0 0 16px;
         }
 
-        .button {
-            display: inline-block;
-            padding: 14px 28px;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-            color: #ffffff !important;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 16px;
-            text-align: center;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
-            border: none;
-        }
-
-        .button:hover {
-            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.4);
-        }
-
         .footer {
             text-align: center;
             font-size: 13px;
@@ -261,11 +240,16 @@
                     <tr>
                         <td class="header">
                             <div class="header-content">
-                                <!-- Option 1: Use absolute URL (Recommended) -->
-                                <img src="https://lembagabahasa.site/assets/LogoHeader.svg" 
-                                     alt="Lembaga Bahasa UM Metro" 
-                                     class="logo"
-                                     style="display: block; margin: 0 auto;">
+                                <!-- Text-based logo - Always works -->
+                                <div style="text-align: center;">
+                                    <h1 style="margin: 0; font-size: 32px; font-weight: 800; color: #ffffff; text-shadow: 0 3px 6px rgba(0,0,0,0.2); letter-spacing: 1px;">
+                                        LEMBAGA BAHASA
+                                    </h1>
+                                    <div style="width: 60px; height: 3px; background: rgba(255,255,255,0.8); margin: 10px auto; border-radius: 2px;"></div>
+                                    <p style="margin: 8px 0 0; font-size: 16px; color: rgba(255,255,255,0.95); font-weight: 400; letter-spacing: 0.5px;">
+                                        Universitas Muhammadiyah Metro
+                                    </p>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -277,10 +261,11 @@
                                 <tr>
                                     <td class="content-cell">
                                         {!! Illuminate\Mail\Markdown::parse($slot) !!}
+                                        
                                         <!-- Custom footer content -->
-                                        <div style="margin-top: 30px; text-align: center; font-size: 14px; color: #6b7280;">
+                                        <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #6b7280;">
                                             <p>Jika Anda memiliki pertanyaan, silakan hubungi kami di 
-                                            <a href="mailto:info@lembagabahasa.site">info@lembagabahasa.site</a>
+                                            <a href="mailto:info@ummetro.ac.id">info@ummetro.ac.id</a>
                                             </p>
                                             <p><em>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</em></p>
                                         </div>
@@ -303,8 +288,8 @@
                                         <div class="footer-divider"></div>
                                         
                                         <div class="social-links">
-                                            <a href="mailto:info@ummetro.ac.id">Email</a> |
-                                            <a href="tel:+62725-42445">Telepon</a> |
+                                            <a href="mailto:info@lembagabahasa.site">Email</a> |
+                                            <a href="https://wa.me/6282373271109">WhatsApp</a> |
                                             <a href="{{ config('app.url') }}">Website</a>
                                         </div>
                                         
