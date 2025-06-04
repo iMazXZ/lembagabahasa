@@ -52,6 +52,7 @@ class AdminPanelProvider extends PanelProvider
                 StatsWidget::class,
             ])
             ->brandLogo(fn () => view('filament.logo'))
+            ->favicon(asset('favicon.ico'))
             ->brandName('Lembaga Bahasa UM Metro')
             ->navigationGroups([
                 'Layanan Lembaga Bahasa',
