@@ -85,7 +85,7 @@ class ListPendaftaranEpts extends ListRecords
 
     protected function canCreate(): bool
     {
-        return true; // Or put your own permission logic here
+        return true;
     }
 }
 

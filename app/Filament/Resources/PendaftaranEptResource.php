@@ -42,7 +42,7 @@ class PendaftaranEptResource extends Resource
                     ->content($user?->name),
 
                 Forms\Components\Placeholder::make('srn')
-                    ->label('NIM')
+                    ->label('Nomor Pokok Mahasiswa')
                     ->content($user?->srn),
 
                 Forms\Components\Placeholder::make('prody.nama_prodi')
@@ -54,9 +54,16 @@ class PendaftaranEptResource extends Resource
 
                 Forms\Components\FileUpload::make('bukti_pembayaran')
                     ->label('Upload Struk Pembayaran')
+                    ->helperText('Upload bukti pembayaran EPT. Pastikan file dalam format gambar (JPG/PNG) dan ukuran tidak lebih dari 2MB.')
+                    ->directory('bukti-ept')
+                    ->downloadable()
                     ->image()
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize(2048)
                     ->required()
+                    ->columnSpanFull()
                     ->default(null)
+                    ->validationAttribute('Upload Bukti Pembayaran')
                     ->afterStateUpdated(function ($state, $set) {
                         if ($state) {
                             $set('status_pembayaran', 'pending');

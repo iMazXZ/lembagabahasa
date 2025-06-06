@@ -45,15 +45,16 @@ class PenerjemahanResource extends Resource
             Forms\Components\Hidden::make('user_id')
                 ->default(fn () => auth()->id()),
 
-            Forms\Components\Hidden::make('status'),
+            Forms\Components\Hidden::make('status')
+                ->default(fn () => 'Menunggu'),
 
             Forms\Components\FileUpload::make('bukti_pembayaran')
                 ->label('Upload Bukti Pembayaran')
-                ->directory('bukti-pembayaran')
+                ->directory('bukti-penerjemahan')
                 ->downloadable()
                 ->image()
                 ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg'])
-                ->maxSize(5120)
+                ->maxSize(2048)
                 ->required($user->hasAnyRole(['Admin', 'pendaftar']))
                 ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
                 ->reactive()
@@ -62,14 +63,13 @@ class PenerjemahanResource extends Resource
                         $set('status', 'Menunggu');
                     }
                 })
-                ->helperText('Format: JPG, PNG. Maksimal 5MB'),
+                ->helperText('Pastikan file dalam format gambar (JPG/PNG) dan ukuran tidak lebih dari 2MB.'),
 
             Forms\Components\FileUpload::make('dokumen_asli')
                 ->label('Upload Dokumen Asli')
                 ->directory('dokumen-asli')
                 ->downloadable()
                 ->acceptedFileTypes([
-                    'application/pdf',
                     'application/msword',
                     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 ])
@@ -82,13 +82,13 @@ class PenerjemahanResource extends Resource
                         $set('status', 'Menunggu');
                     }
                 })
-                ->helperText('Format: PDF, DOC, DOCX. Maksimal 10MB'),
+                ->helperText('Format: DOC atau DOCX. Maksimal 10MB'),
 
             Forms\Components\FileUpload::make('dokumen_terjemahan')
                 ->label('Upload Hasil Terjemahan')
-                ->directory('terjemahan')
+                ->directory('hasil-terjemahan')
                 ->downloadable()
-                ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                ->acceptedFileTypes(['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                 ->maxSize(10240)
                 ->visible($user->hasRole('Penerjemah'))
                 ->reactive()
@@ -97,7 +97,7 @@ class PenerjemahanResource extends Resource
                         $set('completion_date', now());
                     }
                 })
-                ->helperText('Format: PDF, DOC, DOCX. Maksimal 10MB'),
+                ->helperText('Format: DOC atau DOCX. Maksimal 10MB'),
 
             Forms\Components\DateTimePicker::make('submission_date')
                 ->label('Tanggal Pengajuan')
@@ -107,19 +107,7 @@ class PenerjemahanResource extends Resource
 
             Forms\Components\Placeholder::make('status_badge')
                 ->label('Status')
-                ->content(function ($get) {
-                    return $get('status') ?? '-';
-                })
-                ->extraAttributes(fn ($get) => [
-                    'class' => match ($get('status')) {
-                        'Menunggu' => 'inline-block rounded-full bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 font-medium',
-                        'Diproses' => 'inline-block rounded-full bg-blue-100 text-blue-800 text-xs px-2 py-0.5 font-medium',
-                        'Selesai' => 'inline-block rounded-full bg-green-100 text-green-800 text-xs px-2 py-0.5 font-medium',
-                        default => str($get('status'))->contains('Tidak Valid')
-                            ? 'inline-block rounded-full bg-red-100 text-red-800 text-xs px-2 py-0.5 font-medium'
-                            : 'text-gray-500 text-xs',
-                    },
-                ]),
+                ->content(fn ($get) => $get('status') ?? '-'),
 
             // FIELD UNTUK ADMIN - ASSIGN PENERJEMAH
             Forms\Components\Select::make('translator_id')
@@ -325,11 +313,15 @@ class PenerjemahanResource extends Resource
         ])
 
         // BULK ACTIONS
-        ->bulkActions([
-            Tables\Actions\BulkActionGroup::make([
-                Tables\Actions\DeleteBulkAction::make(),
-            ]),
-        ])
+        ->bulkActions(
+            auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])
+                ? [
+                    Tables\Actions\BulkActionGroup::make([
+                        Tables\Actions\DeleteBulkAction::make(),
+                    ]),
+                ]
+                : []
+        )
 
         // FILTERS
         ->filters([

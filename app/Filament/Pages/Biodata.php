@@ -43,32 +43,47 @@ class Biodata extends Page
 
     public function form(Form $form): Form
     {
-        return $form->schema([
-            Section::make()->schema([
-                TextInput::make('name')->required()
-                    ->label('Nama Lengkap'),
-                TextInput::make('email')->required()->email(),
-                TextInput::make('password')
-                    ->password()
-                    ->revealable(filament()->arePasswordsRevealable())
-                    ->nullable(),
-                TextInput::make('srn')
-                    ->label('NPM / Nomor Pokok Mahasiswa'),
+        return $form
+            ->schema([
+                Section::make()->schema([
+                    TextInput::make('name')->required()
+                        ->label('Nama Lengkap')
+                        ->helperText(str('Isi dengan **nama lengkap** disini.')->inlineMarkdown()->toHtmlString()),
+                    TextInput::make('email')->required()->email()->helperText(str('Isi dengan **email** aktif, email ini digunakan untuk mengirim **notifikasi** dan **reset password**.')->inlineMarkdown()->toHtmlString()),
+                    TextInput::make('password')
+                        ->password()
+                        ->revealable(filament()->arePasswordsRevealable())
+                        ->nullable()
+                        ->hint('Lupa Password? Ganti Disini')
+                        ->hintColor('danger'),
+                    TextInput::make('srn')
+                        ->label('Nomor Pokok Mahasiswa')
+                        ->helperText(str('Jika Anda **Mahasiswa** isi NPM disini, jika **Dosen** isi NIDN, jika **Umum** isi dengan NIK.')->inlineMarkdown()->toHtmlString()),
 
-                // Gunakan Select untuk pilih prodi dari tabel `prodies`
-                Select::make('prody_id')
-                    ->label('Program Studi')
-                    ->options(Prody::pluck('name', 'id'))
-                    ->searchable()
-                    ->required(),
+                    // Gunakan Select untuk pilih prodi dari tabel `prodies`
+                    Select::make('prody_id')
+                        ->label('Program Studi')
+                        ->options(Prody::pluck('name', 'id'))
+                        ->searchable()
+                        ->required()
+                        ->helperText(str('Pilih **Dosen** atau **Umum** jika bukan Mahasiswa.')->inlineMarkdown()->toHtmlString()),
 
-                TextInput::make('year')
-                    ->label('Tahun Angkatan'),
-                TextInput::make('nilaibasiclistening')
-                    ->label('Masukan Nilai Basic Listening'),
-                FileUpload::make('image')->image()->columnSpanFull(),
-            ])
-        ])->statePath('data');
+                    TextInput::make('year')
+                        ->label('Tahun Angkatan')
+                        ->helperText('Isi dengan Tahun Sekarang jika bukan Mahasiswa.'),
+
+                    TextInput::make('nilaibasiclistening')
+                        ->label('Masukan Nilai Basic Listening')
+                        ->helperText('Isi dengan angka 0 jika bukan Mahasiswa.'),
+
+                    FileUpload::make('image')->image()
+                        ->label('Foto Profil')
+                        ->helperText(str('Upload foto profil Anda disini. Ukuran maksimal 2MB.')->inlineMarkdown()->toHtmlString())
+                        ->directory('profile_pictures')
+                        ->maxSize(2048)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp']),
+                ])
+            ])->statePath('data');
     }
 
     public function edit(): void
@@ -96,9 +111,9 @@ class Biodata extends Page
         $this->user->save();
 
         Notification::make()
-            ->title('Biodata Updated')
+            ->title('Informasi Terupdate')
             ->success()
-            ->body('Your Biodata Has Been Successfully Updated.')
+            ->body('Informasi akun Anda telah diperbarui.')
             ->send();
     }
 }
