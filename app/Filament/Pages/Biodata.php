@@ -46,10 +46,20 @@ class Biodata extends Page
         return $form
             ->schema([
                 Section::make()->schema([
-                    TextInput::make('name')->required()
+                    TextInput::make('name')
+                        ->required()
                         ->label('Nama Lengkap')
+                        ->validationMessages([
+                            'required' => 'Wajib Diisi.',
+                        ])
                         ->helperText(str('Isi dengan **nama lengkap** disini.')->inlineMarkdown()->toHtmlString()),
-                    TextInput::make('email')->required()->email()->helperText(str('Isi dengan **email** aktif, email ini digunakan untuk mengirim **notifikasi** dan **reset password**.')->inlineMarkdown()->toHtmlString()),
+                    TextInput::make('email')
+                        ->required()
+                        ->email()
+                        ->validationMessages([
+                            'required' => 'Wajib Diisi.',
+                        ])
+                        ->helperText(str('Isi dengan **email** aktif, email ini digunakan untuk mengirim **notifikasi** dan **reset password**.')->inlineMarkdown()->toHtmlString()),
                     TextInput::make('password')
                         ->password()
                         ->revealable(filament()->arePasswordsRevealable())
@@ -60,12 +70,10 @@ class Biodata extends Page
                         ->label('Nomor Pokok Mahasiswa')
                         ->helperText(str('Jika Anda **Mahasiswa** isi NPM disini, jika **Dosen** isi NIDN, jika **Umum** isi dengan NIK.')->inlineMarkdown()->toHtmlString()),
 
-                    // Gunakan Select untuk pilih prodi dari tabel `prodies`
                     Select::make('prody_id')
                         ->label('Program Studi')
                         ->options(Prody::pluck('name', 'id'))
                         ->searchable()
-                        ->required()
                         ->helperText(str('Pilih **Dosen** atau **Umum** jika bukan Mahasiswa.')->inlineMarkdown()->toHtmlString()),
 
                     TextInput::make('year')

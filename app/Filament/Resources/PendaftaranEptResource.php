@@ -63,7 +63,9 @@ class PendaftaranEptResource extends Resource
                     ->required()
                     ->columnSpanFull()
                     ->default(null)
-                    ->validationAttribute('Upload Bukti Pembayaran')
+                    ->validationMessages([
+                            'required' => 'Foto bukti pembayaran wajib diunggah.',
+                        ])
                     ->afterStateUpdated(function ($state, $set) {
                         if ($state) {
                             $set('status_pembayaran', 'pending');

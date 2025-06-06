@@ -50,16 +50,22 @@ class RequestPasswordReset extends BaseRequestPasswordReset
  
         if ($status !== Password::RESET_LINK_SENT) {
             Notification::make()
-                ->title(__($status))
-                ->danger()
+                ->title('Gagal Mengirim Tautan Reset Kata Sandi')
+                ->body(__($status))
+                ->icon('heroicon-o-exclamation-triangle')
+                ->seconds(5)
+                ->color('danger')
                 ->send();
  
             return;
         }
  
         Notification::make()
-            ->title(__($status))
-            ->success()
+            ->title('Tautan Reset Kata Sandi Terkirim')
+            ->body(str('Silakan periksa email Anda, termasuk folder **Spam** atau **Kotak Masuk**')->inlineMarkdown()->toHtmlString())
+            ->icon('heroicon-o-check-circle')
+            ->color('success')
+            ->persistent()
             ->send();
  
         $this->form->fill();
