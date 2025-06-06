@@ -226,7 +226,7 @@ class PenerjemahanResource extends Resource
                 Tables\Actions\EditAction::make(),
                 
                 Tables\Actions\Action::make('set_menunggu')
-                    ->label('Menunggu')
+                    ->label('Pending')
                     ->icon('heroicon-o-clock')
                     ->color('warning')
                     ->action(function ($record) {
@@ -236,7 +236,7 @@ class PenerjemahanResource extends Resource
                     ->visible(fn () => auth()->user()->hasRole('Admin')),
                     
                 Tables\Actions\Action::make('set_diproses')
-                    ->label('Proses - Pilih Penerjemah')
+                    ->label('Approve - Pilih Penerjemah')
                     ->icon('heroicon-o-cog-6-tooth')
                     ->color('info')
                     ->form([
@@ -261,7 +261,7 @@ class PenerjemahanResource extends Resource
 
                 // ACTION UNTUK MENOLAK PEMBAYARAN
                 Tables\Actions\Action::make('tolak_pembayaran')
-                    ->label('Tolak - Pembayaran')
+                    ->label('Reject - Pembayaran')
                     ->icon('heroicon-m-credit-card')
                     ->color('danger')
                     ->action(function ($record) {
@@ -277,7 +277,7 @@ class PenerjemahanResource extends Resource
 
                 // ACTION UNTUK MENOLAK DOKUMEN
                 Tables\Actions\Action::make('tolak_dokumen')
-                    ->label('Tolak - Dokumen')
+                    ->label('Reject - Dokumen')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->action(function ($record) {

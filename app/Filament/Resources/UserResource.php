@@ -34,11 +34,17 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->label('Nama Lengkap')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->validationMessages([
+                        'required' => 'Wajib Diisi',
+                    ]),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->validationMessages([
+                        'required' => 'Wajib Diisi',
+                    ]),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->dehydrateStateUsing(fn (string $state): string => Hash::make($state))
@@ -54,7 +60,10 @@ class UserResource extends Resource
                     ->relationship('prody', 'name')
                     ->searchable()
                     ->preload()
-                    ->required(),
+                    ->required()
+                    ->validationMessages([
+                        'required' => 'Wajib Diisi',
+                    ]),
                 Forms\Components\TextInput::make('year')
                     ->numeric()
                     ->default(null),

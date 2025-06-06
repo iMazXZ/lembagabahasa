@@ -15,9 +15,4 @@ class MasterGrupTes extends Model
     {
         return $this->hasMany(\App\Models\PendaftaranGrupTes::class, 'grup_tes_id');
     }
-
-    public function instructionalYear()
-    {
-        return $this->belongsTo(\App\Models\InstructionalYear::class);
-    }
 }

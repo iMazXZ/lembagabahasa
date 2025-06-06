@@ -17,15 +17,6 @@ class Register extends AuthRegister
                     ->schema([
                         $this->getNameFormComponent(),
                         $this->getEmailFormComponent(),
-                        TextInput::make('srn')
-                            ->label('Nomor Pokok Mahasiswa (NPM)')
-                            ->placeholder('Contoh: 21430057')
-                            ->numeric()
-                            ->minLength(8)
-                            ->maxLength(10)
-                            ->unique(table: 'users', column: 'srn')
-                            ->prefixIcon('heroicon-o-identification')
-                            ->columnSpanFull(),
                         $this->getPasswordFormComponent(),
                         $this->getPasswordConfirmationFormComponent(),
                     ])
@@ -37,8 +28,7 @@ class Register extends AuthRegister
     protected function handleRegistration(array $data): Model
     {
         $user = $this->getUserModel()::create($data);
-
-        // Assign role pendaftar
+        
         $user->assignRole('pendaftar');
 
         return $user;

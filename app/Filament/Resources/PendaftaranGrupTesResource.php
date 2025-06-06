@@ -29,7 +29,7 @@ class PendaftaranGrupTesResource extends Resource
     public static ?string $label = 'Assign Grup Tes';
 
     protected static ?int $navigationSort = 3;
-
+    
     public static function form(Form $form): Form
     {
         return $form
@@ -107,21 +107,22 @@ class PendaftaranGrupTesResource extends Resource
                 ])
             ])
             ->actions([
-                Tables\Actions\ActionGroup::make([
-                    Tables\Actions\EditAction::make(),
-                    Tables\Actions\DeleteAction::make(),
-                    Action::make('kirim_jadwal_email')
-                        ->label('Kirim Email Jadwal')
-                        ->icon('heroicon-o-paper-airplane')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->visible(fn ($record) => !$record->email_jadwal_terkirim)
-                        ->action(function ($record) {
-                            $record->pendaftaranEpt->users->notify(new JadwalTesNotification($record));
-                            $record->update(['email_jadwal_terkirim' => true]);
-                        }),
-                ])
-                ->icon('heroicon-s-cog-6-tooth'),
+                Tables\Actions\EditAction::make()
+                    ->label('Ubah')
+                    ->button()
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('primary'),
+                Action::make('kirim_jadwal_email')
+                    ->label('Kirim Email Jadwal')
+                    ->button()
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->visible(fn ($record) => !$record->email_jadwal_terkirim)
+                    ->action(function ($record) {
+                        $record->pendaftaranEpt->users->notify(new JadwalTesNotification($record));
+                        $record->update(['email_jadwal_terkirim' => true]);
+                    }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('grup_tes_id')

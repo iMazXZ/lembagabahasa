@@ -1,0 +1,11 @@
+.fi-body {
+    background-color: #FFFF !important; /* Ubah warna latar belakang menjadi biru muda */
+    font-family: 'Inter', sans-serif !important; /* Ubah font */
+    color: #1e3a8a !important; /* Ubah warna teks */
+}
+
+/* Untuk mode gelap */
+.dark .fi-body {
+    background-color: #18181b !important; /* Warna latar belakang mode gelap */
+    color: #e5e7eb !important; /* Warna teks mode gelap */
+}
