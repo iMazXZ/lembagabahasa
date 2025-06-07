@@ -11,6 +11,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Actions\Action;
+use App\Notifications\NilaiEptNotification;
 
 class DataNilaiTesResource extends Resource
 {
@@ -135,10 +137,45 @@ class DataNilaiTesResource extends Resource
         ->actions([
             Tables\Actions\EditAction::make()
                 ->label('Edit'),
+
+            Action::make('kirim_nilai_email')
+                ->label('Kirim Email Nilai')
+                ->button()
+                ->icon('heroicon-o-paper-airplane')
+                ->color('success')
+                ->requiresConfirmation()
+                ->visible(fn ($record) => !$record->email_nilai_terkirim)
+                ->action(function ($record) {
+                    $user = $record->pendaftaranGrupTes->pendaftaranEpt->users;
+                    $tanggal = $record->pendaftaranGrupTes->masterGrupTes->tanggal ?? now();
+
+                    if ($user) {
+                        $user->notify(new NilaiEptNotification($record, $tanggal));
+                        $record->update(['email_nilai_terkirim' => true]);
+                    }
+                }),
         ])
         ->bulkActions([
             Tables\Actions\BulkActionGroup::make([
                 Tables\Actions\DeleteBulkAction::make(),
+
+                Tables\Actions\BulkAction::make('kirim_nilai_email')
+                    ->label('Kirim Email Nilai')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function ($records) {
+                        foreach ($records as $record) {
+                            $user = $record->pendaftaranGrupTes->pendaftaranEpt->users;
+                            $tanggal = $record->pendaftaranGrupTes->masterGrupTes->tanggal ?? now();
+
+                            if ($user) {
+                                $user->notify(new NilaiEptNotification($record, $tanggal));
+                                $record->update(['email_nilai_terkirim' => true]);
+                            }
+                        }
+                    }),
             ]),
         ]);
     }

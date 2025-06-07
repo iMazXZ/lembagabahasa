@@ -3,11 +3,12 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\PendaftaranGrupTes;
 
-class JadwalTesNotification extends Notification
+class JadwalTesNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -18,7 +19,7 @@ class JadwalTesNotification extends Notification
         $this->record = $record;
     }
 
-    public function via($notifiable)
+    public function via(object $notifiable): array
     {
         return ['mail'];
     }
@@ -27,13 +28,12 @@ class JadwalTesNotification extends Notification
     {
         $grup = $this->record->masterGrupTes;
 
-        // Ambil semua pendaftaran grup milik user ini, urut berdasarkan ID (atau tanggal tes kalau kamu mau)
         $urutan = \App\Models\PendaftaranGrupTes::whereHas('pendaftaranEpt', function ($query) use ($notifiable) {
                 $query->whereHas('users', function ($q) use ($notifiable) {
                     $q->where('id', $notifiable->id);
                 });
             })
-            ->orderBy('id') // Bisa diganti 'grupTes.tanggal_tes' kalau mau berdasarkan tanggal
+            ->orderBy('id')
             ->pluck('id')
             ->search($this->record->id) + 1;
 

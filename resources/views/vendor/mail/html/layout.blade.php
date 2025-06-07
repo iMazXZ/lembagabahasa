@@ -197,7 +197,7 @@
                                         <!-- Custom footer content -->
                                         <div style="margin-top: 30px; text-align: center; font-size: 5px; color: #6b7280;">
                                             <p>Jika memiliki pertanyaan, silakan hubungi kami di 
-                                            <a href="mailto:lembagabahasa.site">info@lembagabahasa.site</a>
+                                            <a href="mailto:info@lembagabahasa.site">info@lembagabahasa.site</a>
                                             </p>
                                             <p><em>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</em></p>
                                         </div>
