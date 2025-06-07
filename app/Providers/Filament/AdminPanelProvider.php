@@ -24,6 +24,7 @@ use Filament\Facades\Filament;
 use App\Filament\Widgets\StatsWidget;
 use App\Filament\Widgets\DashboardNavigationWidget;
 use App\Filament\Pages\Auth\RequestPasswordReset;
+use App\Filament\Pages\EmailVerificationPrompt;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -37,6 +38,10 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->registration(Register::class)
             ->passwordReset(RequestPasswordReset::class)
+            ->emailVerification(EmailVerificationPrompt::class)
+            ->emailVerificationRoutePrefix('verif')
+            ->emailVerificationPromptRouteSlug('abort')
+            ->emailVerificationRouteSlug('send')
             ->colors([
                 'primary' => Color::Sky,
             ])
