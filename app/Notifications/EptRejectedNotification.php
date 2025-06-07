@@ -11,7 +11,7 @@ class EptRejectedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public string $reason = '')
+    public function __construct()
     {
     }
 

@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Forms\Components\Placeholder;
+use Filament\Notifications\Notification;
 
 class PenerjemahanResource extends Resource
 {
@@ -244,6 +245,15 @@ class PenerjemahanResource extends Resource
                             'status' => 'Diproses',
                             'translator_id' => $data['translator_id']
                         ]);
+
+                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
+                            'Diproses'
+                        ));
+
+                        Notification::make()
+                            ->title("Penerjemahan Diproses dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
+                            ->success()
+                            ->send();
                     })
                     ->visible(fn () => auth()->user()->hasRole('Admin')),
 
@@ -257,6 +267,15 @@ class PenerjemahanResource extends Resource
                             'status' => 'Ditolak - Pembayaran Tidak Valid',
                             'translator_id' => null // Clear translator assignment
                         ]);
+
+                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
+                            'Ditolak - Pembayaran Tidak Valid'
+                        ));
+
+                        Notification::make()
+                            ->title("Ditolak dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
+                            ->danger()
+                            ->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Tolak Pengajuan - Pembayaran Tidak Valid')
@@ -273,6 +292,15 @@ class PenerjemahanResource extends Resource
                             'status' => 'Ditolak - Dokumen Tidak Valid',
                             'translator_id' => null // Clear translator assignment
                         ]);
+
+                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
+                            'Ditolak - Dokumen Tidak Valid'
+                        ));
+
+                        Notification::make()
+                            ->title("Ditolak dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
+                            ->danger()
+                            ->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Tolak Pengajuan - Dokumen Tidak Valid')
@@ -288,6 +316,15 @@ class PenerjemahanResource extends Resource
                             'status' => 'Selesai',
                             'completion_date' => now()
                         ]);
+
+                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
+                            'Selesai'
+                        ));
+
+                        Notification::make()
+                            ->title("Notifikasi Sudah Terkirim ke Email {$record->users->email}")
+                            ->success()
+                            ->send();
                     })
                     ->requiresConfirmation()
                     ->visible(fn ($record) => $record->dokumen_terjemahan !== null && auth()->user()->hasRole('Admin')),
