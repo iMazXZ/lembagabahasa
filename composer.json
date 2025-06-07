@@ -66,6 +66,7 @@
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
+        "plesk/ext-laravel-integration": "*",
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
