@@ -60,7 +60,6 @@ class UserResource extends Resource
                     ->relationship('prody', 'name')
                     ->searchable()
                     ->preload()
-                    ->required()
                     ->validationMessages([
                         'required' => 'Wajib Diisi',
                     ]),
