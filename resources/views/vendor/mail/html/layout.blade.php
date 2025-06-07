@@ -146,12 +146,6 @@
                 font-size: 20px !important;
             }
 
-            .button {
-                width: 100% !important;
-                padding: 16px 20px !important;
-                font-size: 16px !important;
-            }
-
             .footer {
                 padding: 25px 15px !important;
             }

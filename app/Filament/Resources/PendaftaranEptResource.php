@@ -200,6 +200,9 @@ class PendaftaranEptResource extends Resource
                     ->action(function ($record) {
                         $record->update(['status_pembayaran' => 'rejected']);
 
+                        // Kirim notifikasi email
+                        $record->users->notify(new \App\Notifications\EptRejectedNotification());
+
                         Notification::make()
                             ->title("Pembayaran {$record->users->name} ditolak.")
                             ->danger()
