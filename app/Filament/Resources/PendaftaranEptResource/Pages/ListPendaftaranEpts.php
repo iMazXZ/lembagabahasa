@@ -30,11 +30,12 @@ class ListPendaftaranEpts extends ListRecords
     {
         $query = parent::getTableQuery();
 
-        if (Auth::user()->hasRole('Admin', 'Staf Administrasi')) {
-            return $query; // Admin bisa lihat semua
+        $user = Auth::user();
+        if ($user->hasRole('Admin') || $user->hasRole('Staf Administrasi')) {
+            return $query; // Admin dan Staf Administrasi bisa lihat semua
         }
 
-        // Selain admin hanya bisa lihat data sendiri
+        // Selain admin dan staf administrasi hanya bisa lihat data sendiri
         return $query->where('user_id', Auth::id());
     }
 
@@ -74,13 +75,10 @@ class ListPendaftaranEpts extends ListRecords
     public function getSubheading(): ?string
     {
         $user = Auth::user();
-        
-        if ($user->hasRole('pendaftar')) {
-            $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
+        $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
 
-            if (!$isComplete) {
-                return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk melanjutkan proses pendaftaran.';
-            }
+        if (!$isComplete) {
+            return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk melanjutkan proses pendaftaran.';
         }
 
         return '';
