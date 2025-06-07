@@ -26,7 +26,7 @@
                         NPM. {{ $data['srn'] ?? '' }}
                     </p>
                    <p class="text-gray-600 dark:text-gray-400">
-                        {{ $user->prody->name }} - {{ $data['year'] ?? 'Tahun' }}
+                        {{ $user->prody->name ?? '' }} - {{ $data['year'] ?? ' ' }}
                     </p>
                 </div>
             </div>
