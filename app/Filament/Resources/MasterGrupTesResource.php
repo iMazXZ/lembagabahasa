@@ -122,7 +122,8 @@ class MasterGrupTesResource extends Resource
                 ])->label('Cetak PDF')
                     ->icon('heroicon-s-printer')
                     ->color('danger')
-                    ->button(),
+                    ->button()
+                    ->visible(fn ($record) => $record->pendaftaran_grup_tes_count > 0),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
