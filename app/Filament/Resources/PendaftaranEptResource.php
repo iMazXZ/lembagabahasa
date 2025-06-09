@@ -177,7 +177,7 @@ class PendaftaranEptResource extends Resource
                     ->button()
                     ->icon('heroicon-o-check-circle')
                     ->visible(fn ($record) =>
-                        auth()->user()->hasRole('Admin') &&
+                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'] &&
                         in_array($record->status_pembayaran, ['pending', 'rejected'])
                     )
                     ->action(function ($record) {
