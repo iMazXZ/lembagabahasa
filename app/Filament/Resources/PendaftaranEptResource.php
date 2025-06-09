@@ -38,16 +38,16 @@ class PendaftaranEptResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Placeholder::make('name')
-                    ->label('Nama')
-                    ->content($user?->name),
+                    ->label('Keterangan Pemohon')
+                    ->content(function () use ($user) {
+                        $name = $user?->name ?? '-';
+                        $prodi = $user?->prody?->name ?? '-';
+                        return "{$name} - {$prodi}";
+                    }),
 
                 Forms\Components\Placeholder::make('srn')
                     ->label('Nomor Pokok Mahasiswa')
                     ->content($user?->srn),
-
-                Forms\Components\Placeholder::make('prody.nama_prodi')
-                    ->label('Program Studi')
-                    ->content($user?->prody?->name),
 
                 Forms\Components\Hidden::make('user_id')
                     ->default(fn () => Auth::id()),
@@ -194,7 +194,7 @@ class PendaftaranEptResource extends Resource
                     ->button()
                     ->icon('heroicon-o-x-circle')
                     ->visible(fn ($record) =>
-                        auth()->user()->hasRole('Admin') &&
+                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
                         in_array($record->status_pembayaran, ['approved', 'pending'])
                     )
                     ->action(function ($record) {
@@ -279,7 +279,7 @@ class PendaftaranEptResource extends Resource
                         ])
                         ->deselectRecordsAfterCompletion()
                         ->requiresConfirmation()
-                        ->visible(fn () => auth()->user()->hasRole('Admin'))
+                        ->visible(fn () => auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']))
                         ->before(function (Collection $records, array $data) {
                             $jumlahPesertaGrup = \App\Models\PendaftaranGrupTes::where('grup_tes_id', $data['grup_tes_id'])->count();
                             if ($jumlahPesertaGrup + $records->count() > 20) {
@@ -316,7 +316,7 @@ class PendaftaranEptResource extends Resource
                                 ->success()
                                 ->send();
                         })
-                        ->visible(fn () => auth()->user()->hasRole('Admin'))
+                        ->visible(fn () => auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']))
                         ->deselectRecordsAfterCompletion(),
                 ])
             ])
@@ -337,7 +337,7 @@ class PendaftaranEptResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        if (!auth()->user()->hasRole('Admin')) {
+        if (!auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])) {
             return null;
         }
         $count = static::getModel()::where('status_pembayaran', 'pending')->count();
@@ -366,7 +366,7 @@ class PendaftaranEptResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        if (auth()->user()->hasRole('Admin')) {
+        if (auth()->user()->hasRole(['Admin', 'Staf Administrasi'])) {
             return parent::getEloquentQuery();
         }
 

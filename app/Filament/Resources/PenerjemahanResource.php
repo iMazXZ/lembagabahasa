@@ -46,6 +46,20 @@ class PenerjemahanResource extends Resource
             Forms\Components\Hidden::make('user_id')
                 ->default(fn () => auth()->id()),
 
+            Forms\Components\Placeholder::make('name')
+                ->label('Keterangan Pemohon')
+                ->content(function () use ($user) {
+                    $name = $user?->name ?? '-';
+                    $prodi = $user?->prody?->name ?? '-';
+                    return "{$name} - {$prodi}";
+                })
+                ->visible(fn () => auth()->user()->hasRole('pendaftar')),
+
+            Forms\Components\Placeholder::make('srn')
+                ->label('Nomor Pokok Mahasiswa')
+                ->content($user?->srn)
+                ->visible(fn () => auth()->user()->hasRole('pendaftar')),
+
             Forms\Components\Hidden::make('status')
                 ->default(fn () => 'Menunggu'),
 
@@ -56,7 +70,10 @@ class PenerjemahanResource extends Resource
                 ->image()
                 ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg'])
                 ->maxSize(2048)
-                ->required($user->hasAnyRole(['Admin', 'pendaftar']))
+                ->required()
+                ->validationMessages([
+                    'required' => 'Foto bukti pembayaran wajib diunggah.',
+                ])
                 ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
                 ->reactive()
                 ->afterStateUpdated(function ($state, $set, $get) {
@@ -75,7 +92,10 @@ class PenerjemahanResource extends Resource
                     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 ])
                 ->maxSize(10240)
-                ->required($user->hasAnyRole(['Admin', 'pendaftar']))
+                ->required()
+                ->validationMessages([
+                    'required' => 'Dokumen Abstrak Asli wajib diunggah.',
+                ])
                 ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
                 ->reactive()
                 ->afterStateUpdated(function ($state, $set, $get) {
@@ -154,12 +174,14 @@ class PenerjemahanResource extends Resource
                 ->colors([
                     'warning' => fn ($state) => $state === 'Menunggu',
                     'info' => fn ($state) => $state === 'Diproses',
+                    'info' => fn ($state) => $state === 'Disetujui',
                     'success' => fn ($state) => $state === 'Selesai', 
                     'danger' => fn ($state) => str_contains($state, 'Tidak Valid'),
                 ])
                 ->icons([
                     'heroicon-s-clock' => fn ($state) => $state === 'Menunggu',
                     'heroicon-s-cog-6-tooth' => fn ($state) => $state === 'Diproses',
+                    'heroicon-s-check' => fn ($state) => $state === 'Disetujui',
                     'heroicon-s-check-circle' => fn ($state) => $state === 'Selesai',
                     'heroicon-s-x-circle' => fn ($state) => str_contains($state, 'Tidak Valid'),
                 ])
@@ -207,26 +229,48 @@ class PenerjemahanResource extends Resource
                 ->icon('heroicon-o-arrow-down-tray')
                 ->url(fn ($record) => $record->dokumen_terjemahan ? Storage::url($record->dokumen_terjemahan) : null)
                 ->openUrlInNewTab()
-                ->visible(fn ($record) => $record->dokumen_terjemahan !== null)
+                ->visible(fn ($record) =>
+                    $record->dokumen_terjemahan !== null &&
+                    (
+                        // Tampil ke pendaftar hanya jika status sudah 'Selesai'
+                        (auth()->user()->hasRole('pendaftar') && $record->status === 'Selesai')
+                        // Tampil ke admin, staf, penerjemah kapan saja dokumen_terjemahan ada
+                        || auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah'])
+                    )
+                )
                 ->color('success'),
 
             // ACTION GROUP UNTUK ADMIN - UBAH STATUS
             Tables\Actions\ActionGroup::make([
                 Tables\Actions\EditAction::make(),
                 
-                Tables\Actions\Action::make('set_menunggu')
-                    ->label('Pending')
-                    ->icon('heroicon-o-clock')
-                    ->color('warning')
+                Tables\Actions\Action::make('approve_pembayaran')
+                    ->label('Approve')
+                    ->icon('heroicon-o-check')
+                    ->color('success')
                     ->action(function ($record) {
-                        $record->update(['status' => 'Menunggu']);
+                        $record->update(['status' => 'Disetujui']);
+
+                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification('Disetujui'));
+
+                        Notification::make()
+                            ->title("Pembayaran Disetujui dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
+                            ->success()
+                            ->send();
                     })
                     ->requiresConfirmation()
-                    ->visible(fn () => auth()->user()->hasRole('Admin')),
-                    
-                Tables\Actions\Action::make('set_diproses')
-                    ->label('Approve - Pilih Penerjemah')
-                    ->icon('heroicon-o-cog-6-tooth')
+                    ->modalHeading('Setujui Pembayaran')
+                    ->modalDescription('Apakah Anda yakin ingin menyetujui pembayaran ini?')
+                    ->visible(fn ($record) =>
+                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                        $record->status !== 'Disetujui' &&
+                        $record->status !== 'Diproses' &&
+                        $record->status !== 'Selesai'
+                    ),
+
+                Tables\Actions\Action::make('pilih_penerjemah')
+                    ->label('Pilih Penerjemah')
+                    ->icon('heroicon-o-user-plus')
                     ->color('info')
                     ->form([
                         Forms\Components\Select::make('translator_id')
@@ -246,16 +290,15 @@ class PenerjemahanResource extends Resource
                             'translator_id' => $data['translator_id']
                         ]);
 
-                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
-                            'Diproses'
-                        ));
+                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification('Diproses'));
 
                         Notification::make()
                             ->title("Penerjemahan Diproses dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
                             ->success()
                             ->send();
                     })
-                    ->visible(fn () => auth()->user()->hasRole('Admin')),
+                    ->visible(fn ($record) => auth()->user()->hasRole('Admin') && $record->status === 'Disetujui'),
+
 
                 // ACTION UNTUK MENOLAK PEMBAYARAN
                 Tables\Actions\Action::make('tolak_pembayaran')
@@ -280,7 +323,11 @@ class PenerjemahanResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Tolak Pengajuan - Pembayaran Tidak Valid')
                     ->modalDescription('Apakah Anda yakin pembayaran tidak valid dan ingin menolak pengajuan ini?')
-                    ->visible(fn () => auth()->user()->hasRole('Admin')),
+                    ->visible(fn ($record) =>
+                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                        $record->status !== 'Diproses' &&
+                        $record->status !== 'Selesai'
+                    ),
 
                 // ACTION UNTUK MENOLAK DOKUMEN
                 Tables\Actions\Action::make('tolak_dokumen')
@@ -305,7 +352,11 @@ class PenerjemahanResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Tolak Pengajuan - Dokumen Tidak Valid')
                     ->modalDescription('Apakah Anda yakin dokumen tidak valid dan ingin menolak pengajuan ini?')
-                    ->visible(fn () => auth()->user()->hasRole('Admin')),
+                    ->visible(fn ($record) =>
+                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                        $record->status !== 'Diproses' &&
+                        $record->status !== 'Selesai'
+                    ),
                     
                 Tables\Actions\Action::make('set_selesai')
                     ->label('Set Selesai')
@@ -332,7 +383,7 @@ class PenerjemahanResource extends Resource
             ])
             ->label('Ubah Status')
             ->icon('heroicon-s-cog-6-tooth')
-            ->visible(fn () => auth()->user()->hasRole('Admin')),
+            ->visible(fn () => auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])),
             
             // ACTION GROUP UNTUK PENERJEMAH - HANYA EDIT
             Tables\Actions\ActionGroup::make([
@@ -346,7 +397,7 @@ class PenerjemahanResource extends Resource
             
             // ACTION STANDALONE EDIT UNTUK ROLE LAIN
             Tables\Actions\EditAction::make()
-                ->visible(fn () => !auth()->user()->hasAnyRole(['Admin', 'Penerjemah'])),
+                ->visible(fn () => !auth()->user()->hasAnyRole(['Admin', 'Penerjemah', 'Staf Administrasi'])),
         ])
 
         // BULK ACTIONS
@@ -421,10 +472,10 @@ class PenerjemahanResource extends Resource
         return parent::getEloquentQuery();
     }
 
-    // NAVIGATION BADGE UNTUK ADMIN
+    // NAVIGATION BADGE UNTUK ADMIN dan STAF ADMINISTRASI
     public static function getNavigationBadge(): ?string
     {
-        if (!auth()->user()->hasRole('Admin')) {
+        if (!auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])) {
             return null;
         }
         $count = static::getModel()::where('status', 'Menunggu')->count();

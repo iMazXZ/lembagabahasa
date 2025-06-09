@@ -75,18 +75,16 @@ class ListPendaftaranEpts extends ListRecords
     public function getSubheading(): ?string
     {
         $user = Auth::user();
-        $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
+        
+        if ($user->hasRole('pendaftar')) {
+            $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
 
-        if (!$isComplete) {
-            return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk melanjutkan proses pendaftaran.';
+            if (!$isComplete) {
+                return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk melanjutkan proses pendaftaran.';
+            }
         }
 
         return '';
-    }
-
-    protected function canCreate(): bool
-    {
-        return true;
     }
 }
 
