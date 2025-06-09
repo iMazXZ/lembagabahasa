@@ -378,7 +378,10 @@ class PenerjemahanResource extends Resource
                             ->send();
                     })
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => $record->dokumen_terjemahan !== null && auth()->user()->hasRole('Admin')),
+                    ->visible(fn ($record) =>
+                        $record->dokumen_terjemahan !== null &&
+                        auth()->user()->hasRole('Admin')
+                    ),
                     
             ])
             ->label('Ubah Status')
