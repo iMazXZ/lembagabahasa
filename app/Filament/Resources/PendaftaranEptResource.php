@@ -189,7 +189,7 @@ class PendaftaranEptResource extends Resource
                             ->send();
                     }),
                 Tables\Actions\Action::make('reject')
-                    ->label('Reject')
+                    ->label('Rejected')
                     ->color('danger')
                     ->button()
                     ->icon('heroicon-o-x-circle')
