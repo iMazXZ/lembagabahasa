@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
+use Filament\Actions\Action;
 
 class Biodata extends Page
 {
@@ -39,6 +40,17 @@ class Biodata extends Page
             'nilaibasiclistening' => $this->user->nilaibasiclistening,
             'image' => $this->user->image,
         ]);
+    }
+
+    protected function getActions(): array
+    {
+        return [
+            Action::make('dashboard')
+                ->label('Kembali ke Dasbor')
+                ->url(route('filament.admin.home'))
+                ->color('gray')
+                ->icon('heroicon-o-arrow-left'),
+        ];
     }
 
     public function form(Form $form): Form

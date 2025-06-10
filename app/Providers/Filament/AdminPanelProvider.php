@@ -20,6 +20,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Auth\Register;
 use Filament\Facades\Filament;
+use Filament\Navigation\NavigationItem;
 
 use App\Filament\Widgets\StatsWidget;
 use App\Filament\Pages\Auth\RequestPasswordReset;
@@ -60,6 +61,12 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 'Layanan Lembaga Bahasa',
                 'Manajemen EPT',
+            ])
+            ->navigationItems([
+                NavigationItem::make('Halaman Utama')
+                    ->url(url('/'), shouldOpenInNewTab: true)
+                    ->icon('heroicon-o-globe-alt')
+                    ->sort(-3),
             ])
             ->middleware([
                 EncryptCookies::class,
