@@ -22,7 +22,7 @@ class ListPenerjemahans extends ListRecords
         $baseActions = [
             Action::make('dashboard')
                 ->label('Kembali ke Dasbor')
-                ->url(route('filament.admin.home'))
+                ->url(route('filament.admin.pages.2'))
                 ->color('gray')
                 ->icon('heroicon-o-arrow-left'),
         ];
