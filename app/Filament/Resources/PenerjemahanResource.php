@@ -58,7 +58,7 @@ class PenerjemahanResource extends Resource
 
             Forms\Components\Hidden::make('user_id')
                 ->default(fn () => auth()->id()),
-                
+
             Forms\Components\Hidden::make('status')
                 ->default(fn () => 'Menunggu'),
 
@@ -128,6 +128,22 @@ class PenerjemahanResource extends Resource
             Forms\Components\Placeholder::make('status_badge')
                 ->label('Status')
                 ->content(fn ($get) => $get('status') ?? '-'),
+
+            Forms\Components\Placeholder::make('translator_name')
+                ->label('Nama Penerjemah')
+                ->content(function ($get, $record) {
+                    if ($get('translator_id')) {
+                        // Jika sedang edit, ambil dari relasi jika ada
+                        if ($record && $record->translator) {
+                            return $record->translator->name;
+                        }
+                        // Jika create, ambil dari User model
+                        $translator = \App\Models\User::find($get('translator_id'));
+                        return $translator?->name ?? '-';
+                    }
+                    return '-';
+                })
+                ->visible(fn ($get) => !empty($get('translator_id'))),
 
             // FIELD UNTUK ADMIN - ASSIGN PENERJEMAH
             Forms\Components\Select::make('translator_id')
@@ -410,6 +426,55 @@ class PenerjemahanResource extends Resource
                     Tables\Actions\BulkActionGroup::make([
                         Tables\Actions\DeleteBulkAction::make(),
                     ]),
+                    Tables\Actions\BulkAction::make('validasiPembayaran')
+                        ->label('Pilih Status')
+                        ->icon('heroicon-s-check-circle')
+                        ->color('primary')
+                        ->form([
+                            Forms\Components\Select::make('status')
+                                ->label('Set Status Pembayaran')
+                                ->options([
+                                    'Menunggu' => 'Menunggu',
+                                    'Disetujui' => 'Disetujui',
+                                    'Diproses' => 'Diproses',
+                                    'Selesai' => 'Selesai',
+                                    'Ditolak - Pembayaran Tidak Valid' => 'Ditolak - Pembayaran Tidak Valid',
+                                    'Ditolak - Dokumen Tidak Valid' => 'Ditolak - Dokumen Tidak Valid',
+                                ])
+                                ->required()
+                                ->reactive(),
+
+                            Forms\Components\Select::make('translator_id')
+                                ->label('Pilih Penerjemah')
+                                ->options(function () {
+                                    return \App\Models\User::whereHas('roles', function ($query) {
+                                        $query->where('name', 'Penerjemah');
+                                    })->pluck('name', 'id');
+                                })
+                                ->searchable()
+                                ->placeholder('Pilih penerjemah...')
+                                ->visible(fn ($get) => $get('status') === 'Diproses')
+                                ->required(fn ($get) => $get('status') === 'Diproses'),
+                        ])
+                        ->action(function ($records, array $data) {
+                            foreach ($records as $record) {
+                                $updateData = [
+                                    'status' => $data['status'],
+                                ];
+                                if ($data['status'] === 'Diproses' && !empty($data['translator_id'])) {
+                                    $updateData['translator_id'] = $data['translator_id'];
+                                } elseif ($data['status'] !== 'Diproses') {
+                                    $updateData['translator_id'] = null;
+                                }
+                                $record->update($updateData);
+                            }
+
+                            Notification::make()
+                                ->title('Status pembayaran berhasil diperbarui.')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]
                 : []
         )
