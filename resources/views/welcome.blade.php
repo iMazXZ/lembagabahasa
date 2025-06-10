@@ -491,7 +491,7 @@
     </footer>
 
     <!-- Floating Action Button -->
-    <a href="https://wa.me/085269813879" target="_blank" class="fixed bottom-6 right-6 w-14 h-14 lg:w-16 lg:h-16 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors z-50">
+    <a href="https://wa.me/6285269813879" target="_blank" class="fixed bottom-6 right-6 w-14 h-14 lg:w-16 lg:h-16 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors z-50">
         <i class="fab fa-whatsapp text-xl lg:text-2xl"></i>
     </a>
 

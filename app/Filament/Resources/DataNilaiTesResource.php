@@ -134,6 +134,7 @@ class DataNilaiTesResource extends Resource
                 ->label('Input Pada')
                 ->dateTime('d M Y H:i'),
         ])
+        ->defaultSort('updated_at', 'desc')
         ->actions([
             Tables\Actions\EditAction::make()
                 ->label('Edit'),

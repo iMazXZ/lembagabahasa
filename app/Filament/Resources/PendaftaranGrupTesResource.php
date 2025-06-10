@@ -106,6 +106,7 @@ class PendaftaranGrupTesResource extends Resource
                         }),
                 ])
             ])
+            ->defaultSort('updated_at', 'desc')
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->label('Ubah')

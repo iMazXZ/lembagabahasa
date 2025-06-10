@@ -43,23 +43,22 @@ class PenerjemahanResource extends Resource
         $user = auth()->user();
 
         return $form->schema([
-            Forms\Components\Hidden::make('user_id')
-                ->default(fn () => auth()->id()),
-
             Forms\Components\Placeholder::make('name')
                 ->label('Keterangan Pemohon')
-                ->content(function () use ($user) {
-                    $name = $user?->name ?? '-';
-                    $prodi = $user?->prody?->name ?? '-';
-                    return "{$name} - {$prodi}";
-                })
-                ->visible(fn () => auth()->user()->hasRole('pendaftar')),
+                ->content(function ($record) {
+                        $user = $record?->users;
+                        $name = $user?->name ?? '-';
+                        $prodi = $user?->prody?->name ?? '-';
+                        return "{$name} - {$prodi}";
+                    }),
 
             Forms\Components\Placeholder::make('srn')
                 ->label('Nomor Pokok Mahasiswa')
-                ->content($user?->srn)
-                ->visible(fn () => auth()->user()->hasRole('pendaftar')),
+                ->content(fn ($record) => $record?->users?->srn ?? '-'),
 
+            Forms\Components\Hidden::make('user_id')
+                ->default(fn () => auth()->id()),
+                
             Forms\Components\Hidden::make('status')
                 ->default(fn () => 'Menunggu'),
 
@@ -325,6 +324,7 @@ class PenerjemahanResource extends Resource
                     ->modalDescription('Apakah Anda yakin pembayaran tidak valid dan ingin menolak pengajuan ini?')
                     ->visible(fn ($record) =>
                         auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                        $record->status !== 'Disetujui' &&
                         $record->status !== 'Diproses' &&
                         $record->status !== 'Selesai'
                     ),

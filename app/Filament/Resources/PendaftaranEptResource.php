@@ -39,7 +39,8 @@ class PendaftaranEptResource extends Resource
             ->schema([
                 Forms\Components\Placeholder::make('name')
                     ->label('Keterangan Pemohon')
-                    ->content(function () use ($user) {
+                    ->content(function ($record) {
+                        $user = $record?->users;
                         $name = $user?->name ?? '-';
                         $prodi = $user?->prody?->name ?? '-';
                         return "{$name} - {$prodi}";
@@ -47,7 +48,7 @@ class PendaftaranEptResource extends Resource
 
                 Forms\Components\Placeholder::make('srn')
                     ->label('Nomor Pokok Mahasiswa')
-                    ->content($user?->srn),
+                    ->content(fn ($record) => $record?->users?->srn ?? '-'),
 
                 Forms\Components\Hidden::make('user_id')
                     ->default(fn () => Auth::id()),
@@ -74,7 +75,7 @@ class PendaftaranEptResource extends Resource
 
                 Forms\Components\Hidden::make('status_pembayaran')
                     ->default('pending')
-                    ->visible(fn () => !auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                    ->visible(fn () => !auth()->user()->hasRole(['Staf Administrasi'])),
 
                 Forms\Components\Select::make('status_pembayaran')
                     ->options([
@@ -83,7 +84,7 @@ class PendaftaranEptResource extends Resource
                         'rejected' => 'Rejected',
                     ])
                     ->default('pending')
-                    ->hidden(fn () => !auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                    ->hidden(fn () => !auth()->user()->hasRole(['Staf Administrasi'])),
             ]);
     }
 
@@ -177,7 +178,7 @@ class PendaftaranEptResource extends Resource
                     ->button()
                     ->icon('heroicon-o-check-circle')
                     ->visible(fn ($record) =>
-                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                        auth()->user()->hasRole('Staf Administrasi') &&
                         in_array($record->status_pembayaran, ['pending', 'rejected'])
                     )
                     ->action(function ($record) {
@@ -194,7 +195,7 @@ class PendaftaranEptResource extends Resource
                     ->button()
                     ->icon('heroicon-o-x-circle')
                     ->visible(fn ($record) =>
-                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                        auth()->user()->hasRole('Staf Administrasi') &&
                         in_array($record->status_pembayaran, ['approved', 'pending'])
                     )
                     ->action(function ($record) {

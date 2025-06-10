@@ -125,6 +125,7 @@ class MasterGrupTesResource extends Resource
                     ->button()
                     ->visible(fn ($record) => $record->pendaftaran_grup_tes_count > 0),
             ])
+            ->defaultSort('updated_at', 'desc')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
