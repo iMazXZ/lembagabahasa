@@ -107,12 +107,12 @@ class PendaftaranEptResource extends Resource
                 Tables\Columns\TextColumn::make('users.name')
                     ->label('Nama Pendaftar')
                     ->searchable()
-                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
                 Tables\Columns\BadgeColumn::make('pendaftaranGrupTes.masterGrupTes.group_number')
                     ->label('Grup')
                     ->color('success')
                     ->sortable()
-                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
                 Tables\Columns\TextColumn::make('bukti_pembayaran')
                     ->label('Bukti Pembayaran')
                     ->formatStateUsing(fn ($state) => 'Bukti Bayar')
@@ -120,7 +120,7 @@ class PendaftaranEptResource extends Resource
                     ->openUrlInNewTab()
                     ->icon('heroicon-o-photo')
                     ->color('info')
-                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                    ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
                 Tables\Columns\BadgeColumn::make('status_pembayaran')
                     ->label('Status')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
@@ -350,7 +350,7 @@ class PendaftaranEptResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        if (!auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])) {
+        if (!auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])) {
             return null;
         }
         $count = static::getModel()::where('status_pembayaran', 'pending')->count();
@@ -379,7 +379,7 @@ class PendaftaranEptResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        if (auth()->user()->hasRole(['Admin', 'Staf Administrasi'])) {
+        if (auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])) {
             return parent::getEloquentQuery();
         }
 

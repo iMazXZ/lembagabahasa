@@ -42,8 +42,8 @@ class ListPendaftaranEpts extends ListRecords
         $query = parent::getTableQuery();
 
         $user = Auth::user();
-        if ($user->hasRole('Admin') || $user->hasRole('Staf Administrasi')) {
-            return $query; // Admin dan Staf Administrasi bisa lihat semua
+        if ($user->hasRole('Admin') || $user->hasRole('Staf Administrasi') || $user->hasRole('Kepala Lembaga')) {
+            return $query; // Admin, Staf Administrasi, dan Kepala Lembaga bisa lihat semua
         }
 
         // Selain admin dan staf administrasi hanya bisa lihat data sendiri
@@ -53,7 +53,7 @@ class ListPendaftaranEpts extends ListRecords
     public function getTabs(): array
     {
         $user = Auth::user();
-        if (!($user->hasRole('Admin') || $user->hasRole('Staf Administrasi'))) {
+        if (!($user->hasRole('Admin') || $user->hasRole('Staf Administrasi') || $user->hasRole('Kepala Lembaga'))) {
             return [];
         }
 

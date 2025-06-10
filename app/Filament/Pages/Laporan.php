@@ -22,7 +22,6 @@ class Laporan extends Page implements HasForms
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static string $view = 'filament.pages.laporan';
-    protected static ?string $navigationGroup = 'Laporan';
 
     // Method lain biarkan seperti yang sudah benar sebelumnya
     public function getHeaderWidgetsColumns(): int
@@ -44,6 +43,12 @@ class Laporan extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('dashboard')
+                ->label('Kembali ke Dasbor')
+                ->url(route('filament.admin.pages.2'))
+                ->color('gray')
+                ->icon('heroicon-o-arrow-left'),
+
             Action::make('exportPdfPeriode')
                 ->label('Cetak Laporan (Per Periode)')
                 ->icon('heroicon-o-calendar-days')

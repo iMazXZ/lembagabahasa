@@ -172,7 +172,7 @@ class PenerjemahanResource extends Resource
                 ->label('Nama Pemohon')
                 ->searchable()
                 ->sortable()
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah'])),
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
             Tables\Columns\TextColumn::make('bukti_pembayaran')
                 ->label('Bukti Pembayaran')
@@ -182,7 +182,7 @@ class PenerjemahanResource extends Resource
                 ->icon('heroicon-o-photo')
                 ->color('info')
                 ->placeholder('-')
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi'])),
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
 
             Tables\Columns\BadgeColumn::make('status')
                 ->label('Status')
@@ -217,7 +217,7 @@ class PenerjemahanResource extends Resource
                 ->icon('heroicon-o-document')
                 ->color('primary')
                 ->placeholder('-')
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah'])),
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
             Tables\Columns\TextColumn::make('submission_date')
                 ->label('Pengajuan')
@@ -228,7 +228,7 @@ class PenerjemahanResource extends Resource
                 ->label('Penerjemah')
                 ->placeholder('Belum ditentukan')
                 ->sortable()
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah'])),
+                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
             Tables\Columns\TextColumn::make('completion_date')
                 ->label('Selesai')
