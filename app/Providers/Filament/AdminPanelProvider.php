@@ -22,8 +22,9 @@ use App\Filament\Auth\Register;
 use Filament\Facades\Filament;
 
 use App\Filament\Widgets\StatsWidget;
-use App\Filament\Widgets\DashboardNavigationWidget;
 use App\Filament\Pages\Auth\RequestPasswordReset;
+use App\Filament\Widgets\PengumumanWidget;
+use App\Filament\Pages\DashboardKustom;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -47,13 +48,11 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                DashboardKustom::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                DashboardNavigationWidget::class,
-                StatsWidget::class,
+                
             ])
             ->brandLogo(fn () => view('filament.logo'))
             ->favicon(asset('favicon.ico'))

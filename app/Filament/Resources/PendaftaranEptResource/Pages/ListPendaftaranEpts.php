@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use App\Enums\StatusPembayaran; // Ensure this is the correct namespace for StatusPembayaran
 use Filament\Resources\Components\Tab;
+use Filament\Actions\Action;
 
 
 class ListPendaftaranEpts extends ListRecords
@@ -21,9 +22,19 @@ class ListPendaftaranEpts extends ListRecords
         $user = auth()->user();
         $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
 
-        return $isComplete
+        $baseActions = [
+            Action::make('dashboard')
+                ->label('Kembali ke Dasbor')
+                ->url(route('filament.admin.home'))
+                ->color('gray')
+                ->icon('heroicon-o-arrow-left'),
+        ];
+        
+        $conditionalActions = $isComplete
             ? [Actions\CreateAction::make()]
             : [];
+
+        return array_merge($baseActions, $conditionalActions);
     }
 
     protected function getTableQuery(): Builder

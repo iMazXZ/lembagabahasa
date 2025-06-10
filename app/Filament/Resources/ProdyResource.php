@@ -61,12 +61,6 @@ class ProdyResource extends Resource
         ];
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        $user = auth()->user();
-        return $user && ($user->hasRole(['Admin', 'Staf Pendaftar']));
-    }
-
     public static function getPages(): array
     {
         return [

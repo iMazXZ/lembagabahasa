@@ -47,7 +47,7 @@
                         <i class="fas fa-sign-in-alt mr-2"></i>Login
                     </a>
                     @else
-                    <a href="{{ route('filament.admin.pages.dashboard') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                    <a href="{{ route('filament.admin.home') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
                         <i class="fas fa-user-circle"></i>
                         <span>{{ Auth::user()->name }}</span>
                     </a>
@@ -73,7 +73,7 @@
                     <i class="fas fa-sign-in-alt mr-2"></i>Login
                 </a>
                 @else
-                <a href="{{ route('filament.admin.pages.dashboard') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                <a href="{{ route('filament.admin.home') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
                     <i class="fas fa-user-circle"></i>
                      <span>{{ Auth::user()->name }}</span>
                 </a>
@@ -96,7 +96,7 @@
                         <i class="fas fa-tachometer-alt mr-3"></i>Registrasi Sekarang
                     </a>
                 @else
-                    <a href="{{ route('filament.admin.pages.dashboard') }}" class="inline-block bg-um-green hover:bg-green-600 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
+                    <a href="{{ route('filament.admin.home') }}" class="inline-block bg-um-green hover:bg-green-600 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
                         <i class="fas fa-arrow-down mr-3"></i>Dashboard Saya
                     </a>
                 @endguest

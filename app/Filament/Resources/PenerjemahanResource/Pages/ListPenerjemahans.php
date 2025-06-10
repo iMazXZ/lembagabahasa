@@ -8,6 +8,7 @@ use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use App\Enums\StatusPembayaran;
+use Filament\Actions\Action;
 
 class ListPenerjemahans extends ListRecords
 {
@@ -17,18 +18,22 @@ class ListPenerjemahans extends ListRecords
     {
         $user = auth()->user();
         $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
-
-        // Hanya tampilkan tombol Create jika BUKAN penerjemah
-        if (!$user?->hasRole('penerjemah')) {
-            return $isComplete
-                ? [
-                    Actions\CreateAction::make()
-                        ->label('Permintaan Baru'),
-                ]
-                : [];
+        
+        $baseActions = [
+            Action::make('dashboard')
+                ->label('Kembali ke Dasbor')
+                ->url(route('filament.admin.home'))
+                ->color('gray')
+                ->icon('heroicon-o-arrow-left'),
+        ];
+        
+        $conditionalActions = [];
+        
+        if (!$user?->hasRole('penerjemah') && $isComplete) {
+            $conditionalActions[] = Actions\CreateAction::make()->label('Permintaan Baru');
         }
-
-        return [];
+        
+        return array_merge($baseActions, $conditionalActions);
     }
 
     protected function getTableQuery(): Builder

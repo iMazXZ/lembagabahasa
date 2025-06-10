@@ -8,13 +8,11 @@ use App\Models\PendaftaranEpt;
 use App\Models\Penerjemahan;
 use Filament\Support\Enums\IconPosition;
 use Illuminate\Support\Facades\Auth;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class StatsWidget extends BaseWidget
 {
-    public static function canView(): bool
-    {
-        return auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga']);
-    }
+    use HasWidgetShield;
 
     protected function getStats(): array
     {
