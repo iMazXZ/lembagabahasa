@@ -77,7 +77,7 @@
                 <a href="#tentang" class="block py-2 text-gray-700 hover:text-um-blue">Tentang</a>
                 <a href="#kontak" class="block py-2 text-gray-700 hover:text-um-blue">Kontak</a>
                 @guest
-                <a href="{{ route('filament.admin.auth.login') }}" class="bg-gradient-to-r from-um-blue to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                <a href="{{ route('filament.admin.auth.login') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-blue to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
                     <i class="fas fa-sign-in-alt mr-2"></i>Login
                 </a>
                 @else

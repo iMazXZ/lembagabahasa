@@ -13,6 +13,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Actions\Action;
 use App\Notifications\NilaiEptNotification;
+use Filament\Notifications\Notification;
+use App\Notifications\SertifikatSiapDiambilNotification;
 
 class DataNilaiTesResource extends Resource
 {
@@ -142,7 +144,7 @@ class DataNilaiTesResource extends Resource
             Action::make('kirim_nilai_email')
                 ->label('Kirim Email Nilai')
                 ->button()
-                ->icon('heroicon-o-paper-airplane')
+                ->icon('heroicon-s-paper-airplane')
                 ->color('success')
                 ->requiresConfirmation()
                 ->visible(fn ($record) => !$record->email_nilai_terkirim)
@@ -153,6 +155,25 @@ class DataNilaiTesResource extends Resource
                     if ($user) {
                         $user->notify(new NilaiEptNotification($record, $tanggal));
                         $record->update(['email_nilai_terkirim' => true]);
+                        Notification::make()->title('Notifikasi Nilai Berhasil dikirim ke ' . $user->name)->success()->send();
+                    }
+                }),
+
+            Action::make('kirim_notif_sertifikat')
+                ->label('Kirim Notif Sertifikat')
+                ->button()
+                ->icon('heroicon-s-paper-airplane')
+                ->color('danger')
+                ->requiresConfirmation()
+                // Tombol hanya muncul jika notif sertifikat belum pernah dikirim
+                ->visible(fn ($record) => !$record->sertifikat_notif_terkirim)
+                ->action(function ($record) {
+                    $user = $record->pendaftaranGrupTes->pendaftaranEpt->users;
+
+                    if ($user) {
+                        $user->notify(new SertifikatSiapDiambilNotification($user));
+                        $record->update(['sertifikat_notif_terkirim' => true]);
+                        Notification::make()->title('Notifikasi Sertifikat Berhasil dikirim ke ' . $user->name)->success()->send();
                     }
                 }),
         ])
@@ -176,6 +197,29 @@ class DataNilaiTesResource extends Resource
                                 $record->update(['email_nilai_terkirim' => true]);
                             }
                         }
+                    }),
+                Tables\Actions\BulkAction::make('kirimNotifSertifikat')
+                    ->label('Kirim Notif Sertifikat Siap Diambil')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->action(function (Collection $records) {
+                        $berhasilKirim = 0;
+                        // Proses hanya record yang belum pernah dikirimi notifikasi
+                        $records->where('sertifikat_notif_terkirim', false)->each(function ($record) use (&$berhasilKirim) {
+                            $user = $record->pendaftaranGrupTes->pendaftaranEpt->user;
+
+                            if ($user) {
+                                $user->notify(new SertifikatSiapDiambilNotification($user));
+                                $record->update(['sertifikat_notif_terkirim' => true]);
+                                $berhasilKirim++;
+                            }
+                        });
+
+                        Notification::make()
+                            ->title('Notifikasi berhasil dikirim ke ' . $berhasilKirim . ' peserta.')
+                            ->success()
+                            ->send();
                     }),
             ]),
         ]);
