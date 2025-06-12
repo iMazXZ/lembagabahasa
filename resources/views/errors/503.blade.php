@@ -34,6 +34,15 @@
         <p class="text-sm text-gray-500">
             Terima kasih atas kesabaran Anda.
         </p>
+
+        {{-- TAMBAHKAN TOMBOL REFRESH DI SINI --}}
+        <div class="mt-10">
+            <button 
+               onclick="window.location.reload();"
+               class="inline-block bg-um-gold hover:bg-yellow-500 text-white px-8 py-3 rounded-full font-bold text-lg transition-colors">
+                <i class="fas fa-sync-alt mr-2"></i>Coba Lagi
+            </button>
+        </div>
     </div>
 
 </body>
