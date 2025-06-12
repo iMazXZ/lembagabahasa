@@ -6,6 +6,7 @@
     <title>Lembaga Bahasa UM Metro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -24,7 +25,7 @@
 
     <!-- Desktop/Mobile Navbar -->
     <nav class="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+        <div class="max-w-7xl mx-auto px-4 lg:px-4">
             <div class="flex justify-between items-center py-3 lg:py-4">
                 <div class="flex items-center space-x-3">
                     <div class="w-10 h-10 lg:w-12 lg:h-12 bg-um-gold rounded-lg flex items-center justify-center">
@@ -37,20 +38,27 @@
                 </div>
                 
                 <!-- Desktop Menu -->
-                <div class="hidden lg:flex items-center space-x-8">
+                <div class="hidden lg:flex items-center space-x-6">
                     <a href="#beranda" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Beranda</a>
                     <a href="#layanan" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Layanan</a>
                     <a href="#tentang" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Tentang</a>
                     <a href="#kontak" class="text-gray-700 hover:text-um-blue font-medium transition-colors">Kontak</a>
                     @guest
-                    <a href="{{ route('filament.admin.auth.login') }}" class="bg-gradient-to-r from-um-gold to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
-                        <i class="fas fa-sign-in-alt mr-2"></i>Login
-                    </a>
+                        <a href="{{ route('filament.admin.auth.login') }}" class="bg-gradient-to-r from-um-gold to-purple-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                            <i class="fas fa-sign-in-alt mr-2"></i>Login
+                        </a>
                     @else
-                    <a href="{{ route('filament.admin.pages.2') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
-                        <i class="fas fa-user-circle"></i>
-                        <span>{{ Auth::user()->name }}</span>
-                    </a>
+                        <a href="{{ route('filament.admin.home') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                            <i class="fas fa-user-circle"></i>
+                            <span>{{ Auth::user()->name }}</span>
+                        </a>
+
+                        <form method="POST" action="{{ route('filament.admin.auth.logout') }}">
+                            @csrf
+                            <button type="submit" class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                                <i class="fas fa-sign-out-alt"></i>Logout
+                            </button>
+                        </form>
                     @endguest
                 </div>
 
@@ -77,35 +85,39 @@
                     <i class="fas fa-user-circle"></i>
                      <span>{{ Auth::user()->name }}</span>
                 </a>
+                <form method="POST" action="{{ route('filament.admin.auth.logout') }}">
+                    @csrf
+                    <button type="submit" class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                        <i class="fas fa-sign-out-alt"></i>Logout
+                    </button>
+                </form>
                 @endguest
             </div>
         </div>
     </nav>
 
-    <!-- Breadcrumbs - Large for Desktop -->
     <div class="bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 py-16 lg:py-32">
         <div class="max-w-7xl mx-auto px-4 lg:px-8 text-center text-white">
-            <h1 class="text-4xl lg:text-7xl font-bold mb-6 lg:mb-8 leading-tight">
+            <h1 data-aos="fade-up" class="text-4xl lg:text-7xl font-bold mb-6 lg:mb-8 leading-tight">
                 LEMBAGA BAHASA<br>
                 <span class="text-sm lg:text-2xl text-blue-200">UNIVERSITAS MUHAMMADIYAH METRO</span>
             </h1>
             
-            <div class="mb-8 lg:mb-12">
+            <div data-aos="fade-up" data-aos-delay="100" class="mb-8 lg:mb-12">
                 @guest
                     <a href="{{ route('filament.admin.auth.login') }}" class="inline-block bg-um-gold hover:bg-yellow-500 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
-                        <i class="fas fa-tachometer-alt mr-3"></i>Registrasi Sekarang
+                        <i class="fas fa-sign-in mr-3"></i>Masuk ke Akun
                     </a>
                 @else
                     <a href="{{ route('filament.admin.pages.2') }}" class="inline-block bg-um-green hover:bg-green-600 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
-                        <i class="fas fa-arrow-down mr-3"></i>Dashboard Saya
+                        <i class="fas fa-user mr-3"></i>Dashboard Saya
                     </a>
                 @endguest
             </div>
 
             <!-- Service Info Cards -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mt-12 lg:mt-20">
-                <!-- Waktu Pelayanan -->
-                <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
+                <div data-aos="fade-up" data-aos-delay="200" class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
                     <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-clock text-2xl lg:text-3xl text-white"></i>
                     </div>
@@ -115,7 +127,7 @@
                 </div>
 
                 <!-- Pendaftaran On Desk -->
-                <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
+                <div data-aos="fade-up" data-aos-delay="300" class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
                     <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-trophy text-2xl lg:text-3xl text-white"></i>
                     </div>
@@ -125,7 +137,7 @@
                 </div>
 
                 <!-- Bantuan Layanan -->
-                <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
+                <div data-aos="fade-up" data-aos-delay="400" class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
                     <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-headset text-2xl lg:text-3xl text-white"></i>
                     </div>
@@ -137,10 +149,9 @@
         </div>
     </div>
 
-    <!-- Hero Section - Redesigned -->
     <section id="beranda" class="py-12 lg:py-20 bg-gradient-to-br from-blue-50 to-purple-50">
         <div class="max-w-7xl mx-auto px-4 lg:px-8">
-            <div class="text-center max-w-4xl mx-auto">
+            <div data-aos="zoom-in" class="text-center max-w-4xl mx-auto">
                 <div class="w-16 h-16 lg:w-24 lg:h-24 bg-um-blue rounded-2xl flex items-center justify-center mx-auto mb-6 lg:mb-8">
                     <i class="fas fa-university text-white text-2xl lg:text-4xl"></i>
                 </div>
@@ -191,14 +202,14 @@
     <!-- Services Section - Enhanced -->
     <section id="layanan" class="py-12 lg:py-20">
         <div class="max-w-7xl mx-auto px-4 lg:px-8">
-            <div class="text-center mb-12 lg:mb-16">
+            <div data-aos="fade-up" class="text-center mb-12 lg:mb-16">
                 <h2 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-4 lg:mb-6">Layanan Unggulan Kami</h2>
                 <p class="text-gray-600 text-lg lg:text-xl max-w-2xl mx-auto">Dua layanan utama yang telah terpercaya melayani ribuan klien dengan standar internasional</p>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                 <!-- EPT Service -->
-                <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
+                <div data-aos="fade-right" data-aos-delay="100" class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
                     <div class="flex items-start space-x-6">
                         <div class="flex-1">
                             <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">English Proficiency Test</h3>
@@ -232,7 +243,7 @@
                 </div>
 
                 <!-- Translation Service -->
-                <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
+                <div data-aos="fade-left" data-aos-delay="100" class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
                     <div class="flex items-start space-x-6">
                         <div class="flex-1">
                             <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">Penerjemahan Dokumen</h3>
@@ -267,7 +278,7 @@
             </div>
 
             <!-- Why Choose Us - Enhanced -->
-            <div class="mt-16 lg:mt-24 bg-gray-50 rounded-2xl lg:rounded-3xl p-8 lg:p-12">
+            <div data-aos="fade-up" data-aos-delay="200" class="mt-16 lg:mt-24 bg-gray-50 rounded-2xl lg:rounded-3xl p-8 lg:p-12">
                 <h3 class="text-2xl lg:text-3xl font-bold text-center mb-8 lg:mb-12">Mengapa Memilih Lembaga Bahasa UM Metro?</h3>
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                     <div class="text-center">
@@ -306,7 +317,7 @@
     <!-- About Section - Enhanced -->
     <section id="tentang" class="py-12 lg:py-20 bg-gray-50">
         <div class="max-w-7xl mx-auto px-4 lg:px-8">
-            <div class="text-center mb-12 lg:mb-16">
+            <div data-aos="fade-up" data-aos-delay="100" class="text-center mb-12 lg:mb-16">
                 <div class="w-20 h-20 lg:w-24 lg:h-24 bg-um-blue rounded-3xl flex items-center justify-center mx-auto mb-6">
                     <i class="fas fa-university text-white text-3xl lg:text-4xl"></i>
                 </div>
@@ -318,7 +329,7 @@
                 </p>
             </div>
             
-            <div class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-12 shadow-lg">
+            <div data-aos="fade-up" data-aos-delay="300" class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-12 shadow-lg">
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 mb-8 lg:mb-12">
                     <div class="text-center p-6 bg-um-blue/10 rounded-2xl">
                         <div class="text-3xl lg:text-4xl font-bold text-um-blue mb-2">15+</div>
@@ -355,12 +366,12 @@
 
     <!-- Registration Section -->
     <section id="registrasi" class="py-12 lg:py-20 bg-gradient-to-r from-um-blue to-purple-600">
-        <div class="max-w-4xl mx-auto px-4 lg:px-8 text-center text-white">
+         <div data-aos="fade-up" data-aos-delay="100" class="max-w-4xl mx-auto px-4 lg:px-8 text-center text-white">
             <h2 class="text-3xl lg:text-4xl font-bold mb-6 lg:mb-8">Siap Memulai Perjalanan Bahasa Anda?</h2>
             <p class="text-lg lg:text-xl mb-8 lg:mb-12 text-blue-100">
                 Bergabunglah dengan ribuan peserta yang telah merasakan pengalaman belajar dan uji bahasa terbaik
             </p>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            <div data-aos="zoom-in" data-aos-delay="300" class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
                 <a href="{{ route('filament.admin.resources.ept.index') }}" class="bg-white text-um-blue px-8 py-6 rounded-2xl font-bold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center">
                     <i class="fas fa-clipboard-check mr-3 text-xl"></i>
                     Daftar EPT Sekarang
@@ -376,13 +387,13 @@
     <!-- Contact Section - Enhanced -->
     <section id="kontak" class="py-12 lg:py-20">
         <div class="max-w-7xl mx-auto px-4 lg:px-8">
-            <div class="text-center mb-12 lg:mb-16">
+            <div data-aos="fade-up" data-aos-delay="100" class="text-center mb-12 lg:mb-16">
                 <h2 class="text-3xl lg:text-4xl font-bold mb-4 lg:mb-6">Hubungi Kami</h2>
                 <p class="text-gray-600 text-lg lg:text-xl">Siap membantu Anda dengan layanan terbaik</p>
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-12 lg:mb-16">
-                <div class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+                <div data-aos="zoom-in" data-aos-delay="200" class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
                     <div class="w-16 h-16 bg-um-blue rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-map-marker-alt text-white text-xl"></i>
                     </div>
@@ -392,7 +403,7 @@
                     <p class="text-sm text-um-blue mt-2 font-medium">Kampus 3 UM Metro</p>
                 </div>
                 
-                <div class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+                <div data-aos="zoom-in" data-aos-delay="300" class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
                     <div class="w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-phone text-white text-xl"></i>
                     </div>
@@ -402,7 +413,7 @@
                     <p class="text-sm text-green-600 mt-2 font-medium">Layanan 08:00-16:00 WIB</p>
                 </div>
                 
-                <div class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+                <div data-aos="zoom-in" data-aos-delay="400" class="bg-white rounded-2xl p-6 lg:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
                     <div class="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-envelope text-white text-xl"></i>
                     </div>
@@ -528,6 +539,15 @@
                 mobileMenu.classList.add('hidden');
             }
         });
+    </script>
+
+    {{-- Script untuk AOS --}}
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+      AOS.init({
+        duration: 800,
+        once: false,
+      });
     </script>
 
 </body>

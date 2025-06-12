@@ -26,6 +26,7 @@ use App\Filament\Widgets\StatsWidget;
 use App\Filament\Pages\Auth\RequestPasswordReset;
 use App\Filament\Widgets\PengumumanWidget;
 use App\Filament\Pages\DashboardKustom;
+use Illuminate\Support\Facades\Blade;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -82,6 +83,10 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
+            ->renderHook(
+                'panels::auth.login.form.after',
+                fn (): string => Blade::render('<div class="text-center mt-6"><a href="/" class="text-sm text-primary-600 transition">← Kembali ke <strong>Halaman Utama</strong></a></div>'),
+            )
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
             ])

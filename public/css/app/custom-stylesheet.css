@@ -1,13 +1,3 @@
-.fi-body {
-    background-color: #FFFF !important; /* Ubah warna latar belakang menjadi biru muda */
-}
-
-/* Untuk mode gelap */
-.dark .fi-body {
-    background-color: #18181b !important; /* Warna latar belakang mode gelap */
-    color: #e5e7eb !important; /* Warna teks mode gelap */
-}
-
 .fi-header-subheading {
     font-size: 12px !important; /* Ubah ukuran font subjudul */
 }
