@@ -41,6 +41,15 @@ class MasterGrupTesResource extends Resource
                     ->validationMessages([
                         'unique' => 'Nomor Grup Tes ini Sudah Dibuat. Silakan Buat Nomor Lainnya.',
                     ]),
+                Forms\Components\TextInput::make('ruangan_tes')
+                    ->label('Ruangan Tes')
+                    ->default('Cambridge Room')
+                    ->maxLength(255)
+                    ->required(),
+                Forms\Components\TextInput::make('instructional_year')
+                    ->maxLength(255)
+                    ->helperText('Contoh: Odd 2024/2025')
+                    ->required(),
                 Forms\Components\DateTimePicker::make('tanggal_tes')
                     ->label('Jadwal Tes')
                     ->helperText('Pastikan Tanggal Tes tidak bentrok dengan jadwal lainnya.')
@@ -62,14 +71,6 @@ class MasterGrupTesResource extends Resource
                             }
                         };
                     }),
-                Forms\Components\TextInput::make('instructional_year')
-                    ->maxLength(255)
-                    ->required(),
-                Forms\Components\TextInput::make('ruangan_tes')
-                    ->label('Ruangan Tes')
-                    ->default('Cambridge Room')
-                    ->maxLength(255)
-                    ->required(),
             ]);
     }
 
