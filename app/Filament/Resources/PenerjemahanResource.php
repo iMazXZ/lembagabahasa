@@ -46,15 +46,27 @@ class PenerjemahanResource extends Resource
             Forms\Components\Placeholder::make('name')
                 ->label('Keterangan Pemohon')
                 ->content(function ($record) {
-                        $user = $record?->users;
-                        $name = $user?->name ?? '-';
-                        $prodi = $user?->prody?->name ?? '-';
-                        return "{$name} - {$prodi}";
-                    }),
+                    if ($record) {
+                        $user = $record->users;
+                    } else {
+                        $user = auth()->user();
+                    }
+                    $name = $user?->name ?? '-';
+                    $prodi = $user?->prody?->name ?? '-';
+                    return "{$name} - {$prodi}";
+                }),
 
-            Forms\Components\Placeholder::make('srn')
+             Forms\Components\Placeholder::make('srn')
                 ->label('Nomor Pokok Mahasiswa')
-                ->content(fn ($record) => $record?->users?->srn ?? '-'),
+                ->content(function ($record) {
+                    if ($record) {
+                        $user = $record->users;
+                    } else {
+                        $user = auth()->user();
+                    }
+                    $srn = $user?->srn ?? '-';
+                    return "{$srn}";
+                }),
 
             Forms\Components\Hidden::make('user_id')
                 ->default(fn () => auth()->id()),
