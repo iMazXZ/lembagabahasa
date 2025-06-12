@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Models\Penerjemahan;
 use Filament\Actions\Action;
 use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\Storage;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class PenerjemahanStatusWidget extends Widget
@@ -36,16 +37,27 @@ class PenerjemahanStatusWidget extends Widget
             ->label('Ajukan Penerjemahan')
             ->url(route('filament.admin.resources.penerjemahan.create'))
             ->color('primary')
-            ->icon('heroicon-o-document-plus');
+            ->icon('heroicon-s-document-plus');
     }
 
-    // Tombol "Lihat Riwayat"
+    // Tombol "Riwayat"
     protected function getRiwayatAction(): Action
     {
         return Action::make('riwayatPenerjemahan')
-            ->label('Lihat Riwayat Permohonan')
+            ->label('Riwayat')
             ->url(route('filament.admin.resources.penerjemahan.index'))
             ->color('primary')
-            ->icon('heroicon-o-document-text');
+            ->icon('heroicon-s-document-text');
+    }
+
+    // Tombol Download Hasil
+    protected function getDownloadHasilAction(): Action
+    {
+        return Action::make('downloadHasil')
+            ->label('Download Hasil')
+            ->url(fn () => $this->latestPenerjemahan->dokumen_terjemahan ? Storage::url($this->latestPenerjemahan->dokumen_terjemahan) : null)
+            ->openUrlInNewTab()
+            ->color('success')
+            ->icon('heroicon-s-cloud-arrow-down');
     }
 }

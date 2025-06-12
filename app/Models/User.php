@@ -9,8 +9,10 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Support\Facades\Storage;
+use Filament\Models\Contracts\HasAvatar;
 
-class User extends Authenticatable
+class User extends Authenticatable implements HasAvatar
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
@@ -25,7 +27,7 @@ class User extends Authenticatable
         'email',
         'password',
         'srn',
-        'prody',
+        'prody_id',
         'year',
         'image',
         'nilaibasiclistening'
@@ -65,4 +67,15 @@ class User extends Authenticatable
         return $this->morphMany(DatabaseNotification::class, 'notifiable')->orderBy('created_at', 'desc');
     }
 
+     public function getFilamentAvatarUrl(): ?string
+    {
+        // Cek apakah ada nilai di kolom 'image'
+        if ($this->image) {
+            // Jika ada, buat URL publiknya
+            return Storage::url($this->image);
+        }
+
+        // Jika tidak ada, kembalikan null (Filament akan menampilkan inisial)
+        return null;
+    }
 }

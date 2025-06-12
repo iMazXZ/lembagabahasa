@@ -11,9 +11,6 @@
                     <h3 class="font-bold text-md text-gray-900 dark:text-white">
                         {{ $pengumuman->judul }}
                     </h3>
-                    <time class="text-xs text-gray-500 dark:text-gray-400">
-                        Dipublikasikan pada: {{ $pengumuman->published_at->format('d F Y, H:i') }}
-                    </time>
                     <div class="mt-2 text-sm prose dark:prose-invert max-w-none">
                         {!! $pengumuman->isi !!}
                     </div>

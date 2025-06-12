@@ -23,11 +23,7 @@ class DashboardKustom extends Page
 
     public function getTitle(): string | Htmlable
     {
-        // Ambil nama pengguna yang sedang login
-        $userName = auth()->user()->name;
-
-        // Kembalikan sapaan yang dipersonalisasi
-        return "Halo, " . $userName;
+        return '';
     }
 
     protected static string $view = 'filament.pages.dashboard-kustom';

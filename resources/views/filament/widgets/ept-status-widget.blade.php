@@ -1,6 +1,6 @@
 <x-filament::widget class="h-full">
     <x-filament::card class="h-full flex flex-col">
-        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1 mb-2">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1 mb-4">
             <x-heroicon-o-information-circle class="w-5 h-5 text-gray-500 dark:text-gray-400"/>
             <span>Status Pendaftaran EPT</span>
         </h2>
@@ -47,8 +47,11 @@
                     </div>
                 </div>
 
-                <div class="mt-2">
-                    {{-- Me-render tombol dari class PHP --}}
+               <div class="mt-2 flex items-center gap-2">
+                    @if ($latestEpt->status_pembayaran === 'approved')
+                        {{ $this->getLihatJadwalAction() }}
+                    @endif
+
                     {{ $this->getRiwayatAction() }}
                 </div>
 
@@ -60,7 +63,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <p class="text-base text-gray-500 dark:text-gray-400 mb-4">Anda belum pernah mendaftar EPT.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Anda belum pernah mendaftar EPT.</p>
                     
                     {{-- Me-render tombol dari class PHP --}}
                     {{ $this->getDaftarAction() }}

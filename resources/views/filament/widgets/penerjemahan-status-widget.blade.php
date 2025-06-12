@@ -1,8 +1,8 @@
 <x-filament::widget class="h-full">
     <x-filament::card class="h-full flex flex-col">
-        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1 mb-2">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1 mb-4">
             <x-heroicon-o-document-duplicate class="w-5 h-5 text-gray-500 dark:text-gray-400"/>
-            <span>Status Penerjemahan</span>
+            <span>Status Penerjemahan Dokumen</span>
         </h2>
 
         <div class="flex-1 mt-4">
@@ -43,6 +43,10 @@
                 </div>
 
                 <div class="mt-2">
+                    @if (in_array($latestPenerjemahan->status, ['Selesai', 'diambil']) && $latestPenerjemahan->dokumen_terjemahan)
+                        {{ $this->getDownloadHasilAction() }}
+                    @endif
+
                     {{ $this->getRiwayatAction() }}
                 </div>
 
@@ -54,7 +58,7 @@
                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                         </svg>
                     </div>
-                    <p class="text-base text-gray-500 dark:text-gray-400 mb-4">Anda belum pernah mengajukan penerjemahan.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Anda belum pernah mengajukan penerjemahan.</p>
                     
                     {{ $this->getAjukanAction() }}
                 </div>

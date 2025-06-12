@@ -110,7 +110,7 @@ class PenerjemahanResource extends Resource
                 ->downloadable()
                 ->acceptedFileTypes(['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                 ->maxSize(10240)
-                ->visible($user->hasRole('Penerjemah'))
+                ->visible($user->hasAnyRole(['Admin', 'Penerjemah']))
                 ->reactive()
                 ->afterStateUpdated(function ($state, $set) {
                     if ($state) {
@@ -396,7 +396,10 @@ class PenerjemahanResource extends Resource
                     ->requiresConfirmation()
                     ->visible(fn ($record) =>
                         $record->dokumen_terjemahan !== null &&
-                        auth()->user()->hasRole('Admin')
+                        auth()->user()->hasRole('Admin') &&
+                        $record->status !== 'Selesai' &&
+                        $record->status !== 'Ditolak - Dokumen Tidak Valid' &&
+                        $record->status !== 'Ditolak - Pembayaran Tidak Valid'
                     ),
                     
             ])
