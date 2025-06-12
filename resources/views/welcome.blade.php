@@ -48,7 +48,7 @@
                             <i class="fas fa-sign-in-alt mr-2"></i>Login
                         </a>
                     @else
-                        <a href="{{ route('filament.admin.home') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
+                        <a href="{{ route('filament.admin.pages.2') }}" class="flex items-center space-x-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 transition-all duration-300 font-medium">
                             <i class="fas fa-user-circle"></i>
                             <span>{{ Auth::user()->name }}</span>
                         </a>
