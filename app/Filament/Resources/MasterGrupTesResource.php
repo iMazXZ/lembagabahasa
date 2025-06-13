@@ -97,10 +97,6 @@ class MasterGrupTesResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make()
-                    ->label('Edit')
-                    ->icon('heroicon-s-pencil')
-                    ->button(),
                 Tables\Actions\Action::make('Input Nilai')
                     ->label('Input Nilai')
                     ->icon('heroicon-s-pencil-square')
@@ -125,6 +121,8 @@ class MasterGrupTesResource extends Resource
                     ->color('danger')
                     ->button()
                     ->visible(fn ($record) => $record->pendaftaran_grup_tes_count > 0),
+                Tables\Actions\EditAction::make()
+                    ->label(' '),
             ])
             ->defaultSort('updated_at', 'desc')
             ->bulkActions([

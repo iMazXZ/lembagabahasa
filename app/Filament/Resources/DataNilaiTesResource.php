@@ -91,8 +91,8 @@ class DataNilaiTesResource extends Resource
                 ->helperText('Akan dihitung otomatis'),
 
             Forms\Components\Hidden::make('selesai_pada')
-                ->default(now()) // Otomatis diisi waktu saat form dibuat
-                ->dehydrated(), // Pastikan nilai disimpan ke database
+                ->default(now())
+                ->dehydrated(),
         ]);
     }
 
@@ -104,8 +104,7 @@ class DataNilaiTesResource extends Resource
         
         $totalScore = $listening + $structure + $reading;
         $set('total_score', $totalScore);
-        
-        // Set rank based on total score
+                
         $rank = $totalScore >= 400 ? 'Pass' : 'Fail';
         $set('rank', $rank);
     }
@@ -138,12 +137,9 @@ class DataNilaiTesResource extends Resource
         ])
         ->defaultSort('updated_at', 'desc')
         ->actions([
-            Tables\Actions\EditAction::make()
-                ->label('Edit'),
-
+            Tables\Actions\ActionGroup::make([
             Action::make('kirim_nilai_email')
-                ->label('Kirim Email Nilai')
-                ->button()
+                ->label('Kirim Email Nilai')                
                 ->icon('heroicon-s-paper-airplane')
                 ->color('success')
                 ->requiresConfirmation()
@@ -158,15 +154,14 @@ class DataNilaiTesResource extends Resource
                         Notification::make()->title('Notifikasi Nilai Berhasil dikirim ke ' . $user->name)->success()->send();
                     }
                 }),
-
             Action::make('kirim_notif_sertifikat')
-                ->label('Kirim Notif Sertifikat')
-                ->button()
+                ->label('Kirim Notif Sertifikat')                
                 ->icon('heroicon-s-paper-airplane')
                 ->color('danger')
                 ->requiresConfirmation()
-                // Tombol hanya muncul jika notif sertifikat belum pernah dikirim
-                ->visible(fn ($record) => !$record->sertifikat_notif_terkirim)
+                ->visible(fn ($record) => 
+                    $record->rank === 'Pass' && !$record->sertifikat_notif_terkirim
+                )
                 ->action(function ($record) {
                     $user = $record->pendaftaranGrupTes->pendaftaranEpt->users;
 
@@ -176,6 +171,13 @@ class DataNilaiTesResource extends Resource
                         Notification::make()->title('Notifikasi Sertifikat Berhasil dikirim ke ' . $user->name)->success()->send();
                     }
                 }),
+            ])->label('Kirim Email')
+                    ->icon('heroicon-s-paper-airplane')
+                    ->color('danger')
+                    ->button(),
+
+            Tables\Actions\EditAction::make()
+                ->label(' '),
         ])
         ->bulkActions([
             Tables\Actions\BulkActionGroup::make([
@@ -198,14 +200,14 @@ class DataNilaiTesResource extends Resource
                             }
                         }
                     }),
+                    
                 Tables\Actions\BulkAction::make('kirimNotifSertifikat')
                     ->label('Kirim Notif Sertifikat Siap Diambil')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
-                        $berhasilKirim = 0;
-                        // Proses hanya record yang belum pernah dikirimi notifikasi
+                        $berhasilKirim = 0;                        
                         $records->where('sertifikat_notif_terkirim', false)->each(function ($record) use (&$berhasilKirim) {
                             $user = $record->pendaftaranGrupTes->pendaftaranEpt->user;
 

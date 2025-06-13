@@ -87,6 +87,10 @@ class AdminPanelProvider extends PanelProvider
                 'panels::auth.login.form.after',
                 fn (): string => Blade::render('<div class="text-center mt-6"><a href="/" class="text-sm text-primary-600 transition">← Kembali ke <strong>Halaman Utama</strong></a></div>'),
             )
+            ->renderHook(
+                'panels::auth.password-reset.request.form.after',
+                fn (): string => Blade::render('<div class="text-sm text-center text-primary-600 dark:text-gray-400 mt-4"><p>Setelah mengirim permintaan, jangan lupa periksa folder <strong>SPAM</strong> di email Anda jika email tidak kunjung masuk.</p></div>'),
+            )
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
             ])
