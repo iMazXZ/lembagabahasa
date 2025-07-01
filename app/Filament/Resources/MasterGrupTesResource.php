@@ -102,7 +102,10 @@ class MasterGrupTesResource extends Resource
                     ->icon('heroicon-s-pencil-square')
                     ->button()
                     ->url(fn ($record) => MasterGrupTesResource::getUrl('input-nilai-grup', ['record' => $record]))
-                    ->visible(fn ($record) => $record->pendaftaran_grup_tes_count > 0),
+                    ->visible(fn ($record) => 
+                        $record->pendaftaran_grup_tes_count > 0 &&
+                        in_array(auth()->user()->role, ['Staf Administrasi', 'Admin'])
+                    ),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('Cetak')
                         ->url(fn ($record) => route('grup.cetak', $record->id))
