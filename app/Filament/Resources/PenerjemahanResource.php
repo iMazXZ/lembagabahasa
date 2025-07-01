@@ -507,19 +507,23 @@ class PenerjemahanResource extends Resource
             Tables\Filters\Filter::make('created_at')
                 ->form([
                     Forms\Components\DatePicker::make('created_from')
-                        ->label('Dari Tanggal'),
+                        ->label('Dari Tanggal')
+                        ->displayFormat('d/m/Y')
+                        ->format('d/m/Y'),
                     Forms\Components\DatePicker::make('created_until')
-                        ->label('Sampai Tanggal'),
+                        ->label('Sampai Tanggal')
+                        ->displayFormat('d/m/Y')
+                        ->format('d/m/Y'),
                 ])
                 ->query(function (Builder $query, array $data): Builder {
                     return $query
                         ->when(
                             $data['created_from'],
-                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', \Carbon\Carbon::createFromFormat('d/m/Y', $date)->format('Y-m-d')),
                         )
                         ->when(
                             $data['created_until'],
-                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', \Carbon\Carbon::createFromFormat('d/m/Y', $date)->format('Y-m-d')),
                         );
                 }),
         ])

@@ -37,7 +37,8 @@ class UserResource extends Resource
                     ->maxLength(255)
                     ->validationMessages([
                         'required' => 'Wajib Diisi',
-                    ]),
+                    ])
+                    ->dehydrateStateUsing(fn (string $state): string => ucwords(strtolower($state))),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()

@@ -64,7 +64,8 @@ class Biodata extends Page
                         ->validationMessages([
                             'required' => 'Wajib Diisi.',
                         ])
-                        ->helperText(str('Isi dengan **nama lengkap** disini.')->inlineMarkdown()->toHtmlString()),
+                        ->helperText(str('Isi dengan **nama lengkap** disini.')->inlineMarkdown()->toHtmlString())
+                         ->dehydrateStateUsing(fn (string $state): string => ucwords(strtolower($state))),
                     TextInput::make('email')
                         ->required()
                         ->email()
