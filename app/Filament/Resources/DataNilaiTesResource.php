@@ -116,7 +116,8 @@ class DataNilaiTesResource extends Resource
                 ->label('Nama Peserta')
                 ->searchable(),
             Tables\Columns\TextColumn::make('pendaftaranGrupTes.pendaftaranEpt.users.srn')
-                ->label('SRN'),
+                ->label('SRN')
+                ->searchable(),
             Tables\Columns\TextColumn::make('pendaftaranGrupTes.masterGrupTes.group_number')
                 ->label('Grup')
                 ->sortable(),
