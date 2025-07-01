@@ -104,7 +104,7 @@ class MasterGrupTesResource extends Resource
                     ->url(fn ($record) => MasterGrupTesResource::getUrl('input-nilai-grup', ['record' => $record]))
                     ->visible(fn ($record) => 
                         $record->pendaftaran_grup_tes_count > 0 &&
-                        in_array(auth()->user()->role, ['Staf Administrasi', 'Admin'])
+                        auth()->user()->hasRole(['Admin', 'Staf Administrasi'])
                     ),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('Cetak')
