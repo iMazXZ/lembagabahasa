@@ -9,4 +9,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateMasterGrupTes extends CreateRecord
 {
     protected static string $resource = MasterGrupTesResource::class;
+    
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
