@@ -23,7 +23,7 @@ class PenerjemahanResource extends Resource
 {
     protected static ?string $model = Penerjemahan::class;
 
-    protected static ?string $navigationIcon = 'heroicon-s-academic-cap';
+    protected static ?string $navigationIcon = 'heroicon-s-language';
     
     protected static ?string $navigationLabel = 'Penerjemahan Dokumen Abstrak';
 

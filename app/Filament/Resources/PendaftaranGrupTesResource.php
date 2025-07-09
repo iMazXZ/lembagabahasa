@@ -22,7 +22,7 @@ class PendaftaranGrupTesResource extends Resource
 {
     protected static ?string $model = PendaftaranGrupTes::class;
     
-    protected static ?string $navigationIcon = 'heroicon-o-arrow-right-start-on-rectangle';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-right-end-on-rectangle';
 
     protected static ?string $navigationGroup = 'Manajemen EPT';
 

@@ -23,10 +23,10 @@
 </head>
 <body class="bg-white text-gray-900">
 
-    <div class="flex items-center justify-center bg-red-700 text-center p-3 font-medium text-white">
+    <!-- <div class="flex items-center justify-center bg-red-700 text-center p-3 font-medium text-white">
         <i class="fas fa-exclamation-triangle mr-2"></i>
         <p>Aplikasi ini masih dalam tahap <b>Beta Testing</b>. Beberapa fitur mungkin belum berfungsi dengan baik.</p>
-    </div>  
+    </div>   -->
 
     <!-- Desktop/Mobile Navbar -->
     <nav class="bg-white shadow-sm border-b sticky top-0 z-50">
