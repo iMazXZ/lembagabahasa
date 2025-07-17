@@ -14,6 +14,10 @@ class CreatePendaftaranEpt extends CreateRecord
 {
     protected static string $resource = PendaftaranEptResource::class;
 
+    protected static ?string $title = 'Permohonan Pendaftaran EPT';
+
+    protected static bool $canCreateAnother = false;
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
@@ -30,7 +34,7 @@ class CreatePendaftaranEpt extends CreateRecord
         if (!$isComplete) {
             session()->flash('error', 'Anda harus melengkapi biodata terlebih dahulu sebelum melakukan pendaftaran EPT.');
             
-            $this->redirect(route('filament.pages.biodata'));
+            $this->redirect(route('filament.admin.pages.biodata'));
             return;
         }
     }

@@ -11,6 +11,10 @@ class CreatePenerjemahan extends CreateRecord
 {
     protected static string $resource = PenerjemahanResource::class;
 
+    protected static ?string $title = 'Permohonan Penerjemahan Dokumen Abstrak';
+
+    protected static bool $canCreateAnother = false;
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

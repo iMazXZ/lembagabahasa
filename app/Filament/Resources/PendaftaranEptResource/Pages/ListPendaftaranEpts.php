@@ -30,9 +30,7 @@ class ListPendaftaranEpts extends ListRecords
                 ->icon('heroicon-o-arrow-left'),
         ];
         
-        $conditionalActions = $isComplete
-            ? [Actions\CreateAction::make()]
-            : [];
+        $conditionalActions = $isComplete ? [Actions\CreateAction::make()->label('Daftar EPT')] : [];
 
         return array_merge($baseActions, $conditionalActions);
     }
