@@ -9,21 +9,18 @@ use App\Filament\Widgets\PendaftarProdiChart;
 use App\Filament\Widgets\NilaiRataRataChart;
 use Filament\Forms\Components\DatePicker;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
-// KEMBALIKAN DUA BARIS INI
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Carbon\Carbon; // <-- Tambahkan ini
 
-// KEMBALIKAN "implements HasForms"
 class Laporan extends Page implements HasForms
 {
     use HasPageShield;
-    // KEMBALIKAN "use InteractsWithForms"
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static string $view = 'filament.pages.laporan';
 
-    // Method lain biarkan seperti yang sudah benar sebelumnya
     public function getHeaderWidgetsColumns(): int
     {
         return 2;
@@ -38,8 +35,6 @@ class Laporan extends Page implements HasForms
         ];
     }
 
-    // app/Filament/Pages/Laporan.php
-
     protected function getHeaderActions(): array
     {
         return [
@@ -50,11 +45,9 @@ class Laporan extends Page implements HasForms
                 ->icon('heroicon-o-arrow-left'),
 
             Action::make('exportPdfPeriode')
-                ->label('Cetak Laporan (Per Periode)')
+                ->label('Cetak Laporan (Custom)')
                 ->icon('heroicon-o-calendar-days')
                 ->color('primary')
-                // Tambahkan atribut ini untuk memaksa link terbuka di tab baru
-                ->extraAttributes(['target' => '_blank'])
                 ->form([
                     DatePicker::make('tanggal_mulai')
                         ->label('Tanggal Mulai')
@@ -65,15 +58,31 @@ class Laporan extends Page implements HasForms
                         ->default(now()->endOfMonth())
                         ->required(),
                 ])
-                // Ubah isi action menjadi redirect
                 ->action(function (array $data) {
                     $url = route('laporan.export.pdf', [
                         'mulai' => $data['tanggal_mulai'],
                         'selesai' => $data['tanggal_selesai'],
                     ]);
+                    // Mengarahkan ke tab baru
+                    return redirect()->to($url);
+                }),
 
-                    // Lakukan redirect biasa. Atribut target='_blank' akan menanganinya.
-                    return redirect($url);
+            // TOMBOL BARU DITAMBAHKAN DI SINI
+            Action::make('exportPdf3Bulan')
+                ->label('Cetak Laporan (3 Bulan Terakhir)')
+                ->icon('heroicon-o-document-chart-bar')
+                ->color('warning')
+                ->action(function () {
+                    $tanggalSelesai = Carbon::now()->endOfMonth();
+                    // Mengambil 2 bulan sebelumnya + bulan ini = 3 bulan
+                    $tanggalMulai = Carbon::now()->subMonths(2)->startOfMonth(); 
+
+                    $url = route('laporan.export.pdf', [
+                        'mulai' => $tanggalMulai->toDateString(),
+                        'selesai' => $tanggalSelesai->toDateString(),
+                    ]);
+                    // Mengarahkan ke tab baru
+                    return redirect()->to($url);
                 }),
 
             Action::make('exportPdfAll')
