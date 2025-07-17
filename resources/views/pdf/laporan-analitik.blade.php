@@ -5,30 +5,30 @@
     <title>Laporan Analitik</title>
     <style>
         @page {
-            /* Defines the space for the header and footer on every page */
+            /* Menentukan ruang untuk header dan footer di setiap halaman */
             margin: 100px 30px 60px 30px;
         }
 
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
-            font-size: 10px;
+            font-size: 9px; /* Ukuran font dikecilkan sedikit agar muat */
             color: #333;
         }
 
-        /* This ensures the header is fixed within the top margin of every page */
+        /* Memastikan header tetap di dalam margin atas setiap halaman */
         header {
             position: fixed;
-            top: -85px; /* Pulls the header up into the margin area */
+            top: -85px; /* Menarik header ke area margin atas */
             left: 0;
             right: 0;
             height: 80px;
             text-align: center;
         }
 
-        /* This ensures the footer is fixed within the bottom margin of every page */
+        /* Memastikan footer tetap di dalam margin bawah setiap halaman */
         footer {
             position: fixed;
-            bottom: -50px; /* Pulls the footer down into the margin area */
+            bottom: -50px; /* Menarik footer ke area margin bawah */
             left: 0;
             right: 0;
             height: 40px;
@@ -58,14 +58,14 @@
 
         h3 {
             font-size: 13px;
-            margin-top: 15px; /* Reduced space above section titles */
+            margin-top: 15px;
             margin-bottom: 10px;
             text-align: left;
             font-weight: bold;
         }
 
         main {
-            /* No margin needed here as @page handles the spacing */
+            /* Tidak perlu margin karena @page sudah mengatur jarak */
         }
 
         table {
@@ -76,7 +76,7 @@
 
         th, td {
             border: 1px solid #ccc;
-            padding: 7px;
+            padding: 6px;
             text-align: left;
             vertical-align: top;
             word-wrap: break-word;
@@ -101,11 +101,11 @@
         }
 
         .badge-lulus {
-            background-color: #28a745; /* A slightly darker green */
+            background-color: #28a745;
         }
 
         .badge-gagal {
-            background-color: #dc3545; /* A slightly darker red */
+            background-color: #dc3545;
         }
 
         .page-break {
@@ -118,7 +118,7 @@
 <header>
     <h1>LAPORAN ANALITIK</h1>
     <h2>LEMBAGA BAHASA UNIVERSITAS MUHAMMADIYAH METRO</h2>
-    <p class="meta-info">Tanggal Cetak: {{ $tanggal_cetak }} | Periode: {{ $periode_laporan }}</p>
+    <p class="meta-info">Tanggal Cetak: {{ \Carbon\Carbon::now()->locale('id')->translatedFormat('d F Y') }} | Periode: {{ $periode_laporan }}</p>
 </header>
 
 <footer>
@@ -127,18 +127,20 @@
 
 <main>
 
-    <h3>1. Detail Pendaftar English Proficiency Test (EPT)</h3>
+    <h3>Pendaftar English Proficiency Test (EPT)</h3>
     <table>
         <thead>
             <tr>
                 <th class="center" style="width: 4%;">No</th>
                 <th>Nama</th>
-                <th>NPM</th>
-                <th>Program Studi</th>
-                <th class="center">Listening</th>
-                <th class="center">Structure</th>
-                <th class="center">Reading</th>
-                <th class="center" style="width: 10%;">Skor Total</th>
+                <th class="center" style="width: 3%;">NPM</th>
+                <th class="center">Prodi</th>
+                <th class="center">Tgl. Daftar</th>
+                <th class="center" style="width: 3%;">Grup</th>
+                <th class="center" style="width: 3%;">Listening</th>
+                <th class="center" style="width: 3%;">Structure</th>
+                <th class="center" style="width: 3%;">Reading</th>
+                <th class="center" style="width: 8%;">Skor Total</th>
                 <th class="center" style="width: 8%;">Status</th>
             </tr>
         </thead>
@@ -146,14 +148,17 @@
             @forelse($pendaftarEptDetails as $index => $pendaftar)
                 @php
                     $prodi = $pendaftar->users->prody->name ?? '';
+                    // Logika kelulusan sesuai permintaan
                     $isPBI = $prodi === 'Pendidikan Bahasa Inggris';
                     $passing_grade = $isPBI ? 500 : 400;
                 @endphp
                 <tr>
                     <td class="center">{{ $index + 1 }}</td>
                     <td>{{ $pendaftar->users->name ?? 'N/A' }}</td>
-                    <td>{{ $pendaftar->users->srn ?? 'N/A' }}</td>
-                    <td>{{ $prodi ?: 'N/A' }}</td>
+                    <td class="center">{{ $pendaftar->users->srn ?? 'N/A' }}</td>
+                    <td class="center">{{ $prodi ?: 'N/A' }}</td>
+                    <td class="center">{{ $pendaftar->created_at->locale('id')->translatedFormat('d M Y') }}</td>
+                    <td class="center">{{ $pendaftar->pendaftaranGrupTes->first()?->masterGrupTes?->group_number ?? '-' }}</td>
                     <td class="center">{{ $pendaftar->listening_comprehension }}</td>
                     <td class="center">{{ $pendaftar->structure_written_expr }}</td>
                     <td class="center">{{ $pendaftar->reading_comprehension }}</td>
@@ -172,7 +177,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="center">Tidak ada data pendaftar EPT pada periode ini.</td>
+                    <td colspan="11" class="center">Tidak ada data pendaftar EPT pada periode ini.</td>
                 </tr>
             @endforelse
         </tbody>
@@ -180,7 +185,7 @@
 
     <div class="page-break"></div>
 
-    <h3>2. Detail Layanan Penerjemahan</h3>
+    <h3>Penerjemahan Dokumen Abstrak</h3>
     <table>
         <thead>
             <tr>
@@ -197,12 +202,23 @@
                 <tr>
                     <td class="center">{{ $index + 1 }}</td>
                     <td>{{ $penerjemahan->users->name ?? 'N/A' }}</td>
-                    <td>{{ $penerjemahan->created_at->format('d F Y') }}</td>
+                    <td>{{ $penerjemahan->created_at->locale('id')->translatedFormat('d F Y') }}</td>
                     <td>
-                        {{ $penerjemahan->status == 'Selesai' ? $penerjemahan->updated_at->format('d F Y') : '-' }}
+                        {{ $penerjemahan->status == 'Selesai' ? $penerjemahan->updated_at->locale('id')->translatedFormat('d F Y') : '-' }}
                     </td>
                     <td>{{ $penerjemahan->translator->name ?? 'Belum Ditugaskan' }}</td>
-                    <td class="center">{{ $penerjemahan->status }}</td>
+                    <td class="center">
+                        {{-- ============================================== --}}
+                        {{-- == PERUBAHAN LOGIKA UNTUK DOWNLOAD DI SINI == --}}
+                        {{-- ============================================== --}}
+                        @if($penerjemahan->status == 'Selesai' && !empty($penerjemahan->dokumen_terjemahan))
+                            <a href="{{ Storage::url($penerjemahan->dokumen_terjemahan) }}" target="_blank" style="color: green; text-decoration: underline;">
+                                Selesai
+                            </a>
+                        @else
+                            {{ $penerjemahan->status }}
+                        @endif
+                    </td>
                 </tr>
             @empty
                 <tr>
