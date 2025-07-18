@@ -281,7 +281,7 @@ class PendaftaranEptResource extends Resource
                             Forms\Components\Select::make('grup_tes_id')
                                 ->label('Pilih Grup Tes')
                                 ->options(
-                                    \App\Models\MasterGrupTes::all()->mapWithKeys(function ($item) {
+                                    \App\Models\MasterGrupTes::orderByDesc('created_at')->get()->mapWithKeys(function ($item) {
                                         $jumlahPeserta = \App\Models\PendaftaranGrupTes::where('grup_tes_id', $item->id)->count();
                                         return [
                                             $item->id => 'Grup ' . $item->group_number . ' - ' . \Carbon\Carbon::parse($item->tanggal_tes)->translatedFormat('d M Y') . " ({$jumlahPeserta} Peserta)",
