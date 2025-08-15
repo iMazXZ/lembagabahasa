@@ -11,6 +11,7 @@ use App\Filament\Widgets\BiodataStatusWidget;
 use App\Filament\Widgets\PengumumanWidget;
 use App\Filament\Widgets\EptStatusWidget;
 use App\Filament\Widgets\PenerjemahanStatusWidget;
+use App\Filament\Widgets\MyEptSubmissionStatus;
 use Filament\Widgets\AccountWidget;
 
 class DashboardKustom extends Page
@@ -48,6 +49,7 @@ class DashboardKustom extends Page
             StatsWidget::class,
             EptStatusWidget::class,
             PenerjemahanStatusWidget::class,
+            MyEptSubmissionStatus::class,
         ];
     }
 }
