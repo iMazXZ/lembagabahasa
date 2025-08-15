@@ -59,7 +59,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                         TextInput::make('nilai_tes_1')->label('Nilai Tes')->numeric()->required(),
                         DatePicker::make('tanggal_tes_1')->label('Tanggal Tes')->required(),
                         FileUpload::make('foto_path_1')
-                            ->label('Upload Bukti Tes')
+                            ->label('Screenshot Nilai Tes')
                             ->disk('public')->directory('ept_proofs')->image()->required(),
                     ])->columns(3), // Tampilkan dalam 3 kolom
 
@@ -69,7 +69,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                         TextInput::make('nilai_tes_2')->label('Nilai Tes')->numeric()->required(),
                         DatePicker::make('tanggal_tes_2')->label('Tanggal Tes')->required(),
                         FileUpload::make('foto_path_2')
-                            ->label('Upload Bukti Tes')
+                            ->label('Screenshot Nilai Tes')
                             ->disk('public')->directory('ept_proofs')->image()->required(),
                     ])->columns(3),
 
@@ -79,7 +79,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                         TextInput::make('nilai_tes_3')->label('Nilai Tes')->numeric()->required(),
                         DatePicker::make('tanggal_tes_3')->label('Tanggal Tes')->required(),
                         FileUpload::make('foto_path_3')
-                            ->label('Upload Bukti Tes')
+                            ->label('Screenshot Nilai Tes')
                             ->disk('public')->directory('ept_proofs')->image()->required(),
                     ])->columns(3),
             ])
