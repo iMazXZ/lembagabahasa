@@ -17,7 +17,11 @@ class ListPenerjemahans extends ListRecords
     protected function getHeaderActions(): array
     {
         $user = auth()->user();
-        $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
+        $isComplete = 
+            !is_null($user->nilaibasiclistening) &&
+            ($user->prody !== null && $user->prody !== '') &&
+            ($user->srn !== null && $user->srn !== '') &&
+            ($user->year !== null && $user->year !== '');
         
         $baseActions = [
             Action::make('dashboard')
@@ -53,7 +57,11 @@ class ListPenerjemahans extends ListRecords
         $user = Auth::user();
         
         if ($user->hasRole('pendaftar')) {
-            $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
+            $isComplete = 
+                !is_null($user->nilaibasiclistening) &&
+                ($user->prody !== null && $user->prody !== '') &&
+                ($user->srn !== null && $user->srn !== '') &&
+                ($user->year !== null && $user->year !== '');
 
             if (!$isComplete) {
                 return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk melanjutkan proses pendaftaran.';

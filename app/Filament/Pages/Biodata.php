@@ -21,7 +21,7 @@ class Biodata extends Page
     use HasPageShield;
 
     protected static ?string $navigationIcon = 'heroicon-s-cog-6-tooth';
-    protected static ?string $navigationLabel = 'Account Settings';
+    protected static ?string $navigationLabel = 'Biodata';
     protected static string $view = 'filament.pages.biodata';
 
     public $user;
@@ -95,7 +95,10 @@ class Biodata extends Page
 
                     TextInput::make('nilaibasiclistening')
                         ->label('Masukan Nilai Basic Listening')
-                        ->helperText('Isi dengan angka 0 jika bukan Mahasiswa.'),
+                        ->helperText('Isi dengan angka 0 jika bukan Mahasiswa.')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100),
 
                     FileUpload::make('image')->image()
                         ->label('Foto Profil')
@@ -136,5 +139,25 @@ class Biodata extends Page
             ->success()
             ->body('Informasi akun Anda telah diperbarui.')
             ->send();
+    }
+
+    public function getSubheading(): ?string
+    {
+        $user = Auth::user();
+        
+        if ($user->hasRole('pendaftar')) {
+            $isComplete = 
+                !is_null($user->nilaibasiclistening) &&
+                ($user->prody !== null && $user->prody !== '') &&
+                ($user->srn !== null && $user->srn !== '') &&
+                ($user->year !== null && $user->year !== '');
+
+
+            if (!$isComplete) {
+                return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk bisa melakukan proses pendaftaran.';
+            }
+        }
+
+        return '';
     }
 }

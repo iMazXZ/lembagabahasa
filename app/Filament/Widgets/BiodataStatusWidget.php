@@ -25,9 +25,13 @@ class BiodataStatusWidget extends Widget
         $user = auth()->user();
         
         // KOREKSI: Menggunakan logika baru untuk mengecek biodata lengkap
-        if ($user->prody && $user->nilaibasiclistening && $user->srn && $user->year) {
-            $this->isBiodataComplete = true;
-        }
+        $isComplete =
+            !is_null($user->nilaibasiclistening) &&
+            ($user->prody !== null && $user->prody !== '') &&
+            ($user->srn !== null && $user->srn !== '') &&
+            ($user->year !== null && $user->year !== '');
+
+        $this->isBiodataComplete = $isComplete;
     }
 
     // Tombol "Lengkapi Biodata"

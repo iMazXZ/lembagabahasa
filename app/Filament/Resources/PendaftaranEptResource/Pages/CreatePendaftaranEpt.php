@@ -29,7 +29,12 @@ class CreatePendaftaranEpt extends CreateRecord
 
         $user = Auth::user();
 
-        $isComplete = $user->prody && $user->nilaibasiclistening && $user->srn && $user->year;
+        $isComplete = 
+            !is_null($user->nilaibasiclistening) &&
+            ($user->prody !== null && $user->prody !== '') &&
+            ($user->srn !== null && $user->srn !== '') &&
+            ($user->year !== null && $user->year !== '');
+
 
         if (!$isComplete) {
             session()->flash('error', 'Anda harus melengkapi biodata terlebih dahulu sebelum melakukan pendaftaran EPT.');
