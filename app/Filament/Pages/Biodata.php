@@ -95,7 +95,7 @@ class Biodata extends Page
 
                     TextInput::make('nilaibasiclistening')
                         ->label('Masukan Nilai Basic Listening')
-                        ->helperText('Isi dengan angka 0 jika bukan Mahasiswa.')
+                        ->helperText('Isi dengan angka 0 jika bukan Mahasiswa S1.')
                         ->numeric()
                         ->minValue(0)
                         ->maxValue(100),
