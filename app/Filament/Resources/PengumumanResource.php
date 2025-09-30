@@ -14,9 +14,11 @@ class PengumumanResource extends Resource
 {
     protected static ?string $model = Pengumuman::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-megaphone';
+    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static ?string $slug = 'info';
+
+    public static ?string $label = 'Pengumuman Dashboard';
 
     public static function form(Form $form): Form
     {
