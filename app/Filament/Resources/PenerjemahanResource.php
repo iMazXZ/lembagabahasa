@@ -18,6 +18,9 @@ use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Forms\Components\Placeholder;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Filament\Forms\Get;
 
 class PenerjemahanResource extends Resource
 {
@@ -57,7 +60,7 @@ class PenerjemahanResource extends Resource
                 }),
 
              Forms\Components\Placeholder::make('srn')
-                ->label('Nomor Pokok Mahasiswa')
+                ->label('NPM')
                 ->content(function ($record) {
                     if ($record) {
                         $user = $record->users;
@@ -92,29 +95,44 @@ class PenerjemahanResource extends Resource
                         $set('status', 'Menunggu');
                     }
                 })
-                ->helperText('Pastikan file dalam format gambar (JPG/PNG) dan ukuran tidak lebih dari 2MB.'),
+                ->helperText('Pastikan file dalam format gambar (JPG/PNG) dan ukuran tidak lebih dari 2MB.')
+                ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, Get $get): string {
+                    $pemohon = \App\Models\User::find($get('user_id')) ?? auth()->user();
+
+                    $nama = Str::slug($pemohon->name ?? 'user');
+                    $srn  = preg_replace('/\D+/', '', (string)($pemohon->srn ?? ''));
+                    $ext  = strtolower($file->getClientOriginalExtension());
+
+                    $stamp = now()->format('dmyHi');
+                    return "{$nama}_{$srn}_struk-abstrak_{$stamp}.{$ext}";
+                }),
 
             Forms\Components\FileUpload::make('dokumen_asli')
-                ->label('Upload Dokumen Asli')
+                ->label('Upload Dokumen Abstrak')
                 ->directory('dokumen-asli')
                 ->downloadable()
                 ->acceptedFileTypes([
                     'application/msword',
                     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 ])
-                ->maxSize(10240)
+                ->maxSize(2048)
                 ->required()
                 ->validationMessages([
                     'required' => 'Dokumen Abstrak Asli wajib diunggah.',
                 ])
                 ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
                 ->reactive()
-                ->afterStateUpdated(function ($state, $set, $get) {
-                    if ($state && $get('status') === 'Ditolak - Dokumen Tidak Valid') {
-                        $set('status', 'Menunggu');
-                    }
-                })
-                ->helperText('Format: DOC atau DOCX. Maksimal 10MB'),
+                ->helperText('Format: DOC atau DOCX. Maksimal 2MB')
+                ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, Get $get): string {
+                    $pemohon = \App\Models\User::find($get('user_id')) ?? auth()->user();
+
+                    $nama = Str::slug($pemohon->name ?? 'user');
+                    $srn  = preg_replace('/\D+/', '', (string)($pemohon->srn ?? ''));
+                    $ext  = strtolower($file->getClientOriginalExtension());
+
+                    $stamp = now()->format('dmyHi');
+                    return "{$nama}_{$srn}_abstrak_{$stamp}.{$ext}";
+                }),
 
             Forms\Components\FileUpload::make('dokumen_terjemahan')
                 ->label('Upload Hasil Terjemahan')
@@ -124,12 +142,17 @@ class PenerjemahanResource extends Resource
                 ->maxSize(10240)
                 ->visible($user->hasAnyRole(['Admin', 'Penerjemah']))
                 ->reactive()
-                ->afterStateUpdated(function ($state, $set) {
-                    if ($state) {
-                        $set('completion_date', now());
-                    }
-                })
-                ->helperText('Format: DOC atau DOCX. Maksimal 10MB'),
+                ->afterStateUpdated(fn ($state, $set) => $state ? $set('completion_date', now()) : null)
+                ->helperText('Format: DOC atau DOCX. Maksimal 10MB')
+                ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, Get $get): string {
+                    $pemohon = \App\Models\User::find($get('user_id')) ?? auth()->user();
+
+                    $nama = Str::slug($pemohon->name ?? 'user');
+                    $srn  = preg_replace('/\D+/', '', (string)($pemohon->srn ?? ''));
+                    $ext  = strtolower($file->getClientOriginalExtension());
+
+                    return "{$nama}_{$srn}_terjemahan_" . now()->format('YmdHis') . ".{$ext}";
+                }),
 
             Forms\Components\DateTimePicker::make('submission_date')
                 ->label('Tanggal Pengajuan')
