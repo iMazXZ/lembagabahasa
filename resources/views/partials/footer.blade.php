@@ -3,26 +3,27 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
       <div>
         <div class="flex items-center space-x-3 mb-4">
-          <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-            <i class="fas fa-language text-um-blue text-lg"></i>
-          </div>
-          <div>
-            <div class="text-lg font-bold">Lembaga Bahasa</div>
-            <div class="text-sm text-blue-200">UM Metro</div>
-          </div>
+          {{-- BRAND: background putih, tanpa lingkaran di balik logo --}}
+          <a href="{{ route('front.home') }}" class="group flex items-center gap-1">
+            <img
+              src="{{ asset('images/logo-um.png') }}"
+              alt="Logo UM Metro"
+              class="h-9 w-9 md:h-12 md:w-12 object-contain"
+              loading="lazy">
+
+            <div class="leading-tight">
+              <div class="font-extrabold tracking-tight text-[18px] md:text-[20px] text-white">
+                <span>Lembaga</span><span class="text-um-gold">Bahasa</span>
+              </div>
+              <div class="text-white text-[11px] md:text-[10px] -mt-0.5">
+                Universitas Muhammadiyah Metro
+              </div>
+              <div class="italic text-white text-[12px] md:text-[10px]">
+                Supports Your Success
+              </div>
+            </div>
+          </a>
         </div>
-        <p class="text-blue-100 text-sm leading-relaxed">
-          Membangun masa depan melalui penguasaan bahasa dan komunikasi global. Kami berkomitmen memberikan layanan terbaik dengan standar internasional.
-        </p>
-      </div>
-      <div>
-        <h4 class="text-lg font-bold mb-4">Tautan Cepat</h4>
-        <ul class="space-y-2">
-          <li><a href="{{ route('front.home') }}#beranda" class="text-blue-100 hover:text-um-gold">Beranda</a></li>
-          <li><a href="{{ route('front.home') }}#layanan" class="text-blue-100 hover:text-um-gold">Layanan</a></li>
-          <li><a href="{{ route('front.home') }}#tentang" class="text-blue-100 hover:text-um-gold">Tentang</a></li>
-          <li><a href="{{ route('front.home') }}#kontak" class="text-blue-100 hover:text-um-gold">Kontak</a></li>
-        </ul>
       </div>
       <div>
         <h4 class="text-lg font-bold mb-4">Jam Pelayanan</h4>

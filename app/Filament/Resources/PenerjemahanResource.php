@@ -3,35 +3,27 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PenerjemahanResource\Pages;
-use App\Filament\Resources\PenerjemahanResource\RelationManagers;
 use App\Models\Penerjemahan;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Carbon;
-use Filament\Tables\Columns\ViewColumn;
-use Filament\Forms\Components\Placeholder;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Str;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Filament\Forms\Get;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 
 class PenerjemahanResource extends Resource
 {
     protected static ?string $model = Penerjemahan::class;
 
-    protected static ?string $navigationIcon = 'heroicon-s-language';
-    
+    protected static ?string $navigationIcon  = 'heroicon-s-language';
     protected static ?string $navigationLabel = 'Penerjemahan Dokumen Abstrak';
+    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
 
-    public static ?string $slug = 'penerjemahan';
-
+    public static ?string $slug  = 'penerjemahan';
     public static ?string $label = 'Penerjemahan Dokumen Abstrak';
 
     public static function getTitle(): string
@@ -39,553 +31,470 @@ class PenerjemahanResource extends Resource
         return 'Penerjemahan Dokumen Abstrak';
     }
 
-    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
-
+    /* -----------------------------------------------------------
+    |  FORM
+    |----------------------------------------------------------- */
     public static function form(Form $form): Form
     {
-        $user = auth()->user();
-
         return $form->schema([
-            Forms\Components\Placeholder::make('name')
+
+            // Identitas pemohon (readonly placeholders)
+            Forms\Components\Placeholder::make('pemohon_nama')
                 ->label('Keterangan Pemohon')
                 ->content(function ($record) {
-                    if ($record) {
-                        $user = $record->users;
-                    } else {
-                        $user = auth()->user();
-                    }
-                    $name = $user?->name ?? '-';
-                    $prodi = $user?->prody?->name ?? '-';
-                    return "{$name} - {$prodi}";
+                    $u = $record?->users ?: auth()->user();
+                    $name = $u?->name ?? '-';
+                    $prodi = $u?->prody?->name ?? '-';
+                    return "{$name} — {$prodi}";
                 }),
 
-             Forms\Components\Placeholder::make('srn')
+            Forms\Components\Placeholder::make('pemohon_srn')
                 ->label('NPM')
                 ->content(function ($record) {
-                    if ($record) {
-                        $user = $record->users;
-                    } else {
-                        $user = auth()->user();
-                    }
-                    $srn = $user?->srn ?? '-';
-                    return "{$srn}";
+                    $u = $record?->users ?: auth()->user();
+                    return $u?->srn ?? '-';
                 }),
 
-            Forms\Components\Hidden::make('user_id')
-                ->default(fn () => auth()->id()),
+            // Relasi pemohon & status default
+            Forms\Components\Hidden::make('user_id')->default(fn () => auth()->id()),
+            Forms\Components\Hidden::make('status')->default('Menunggu'),
 
-            Forms\Components\Hidden::make('status')
-                ->default(fn () => 'Menunggu'),
-
+            // Bukti pembayaran (gambar)
             Forms\Components\FileUpload::make('bukti_pembayaran')
                 ->label('Upload Bukti Pembayaran')
                 ->directory('bukti-penerjemahan')
-                ->downloadable()
                 ->image()
+                ->downloadable()
                 ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg'])
                 ->maxSize(2048)
                 ->required()
-                ->validationMessages([
-                    'required' => 'Foto bukti pembayaran wajib diunggah.',
-                ])
-                ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
+                ->helperText('Format JPG/PNG, maksimal 2MB.')
+                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'pendaftar']))
                 ->reactive()
                 ->afterStateUpdated(function ($state, $set, $get) {
-                    if ($state && $get('status') === 'Ditolak - Pembayaran Tidak Valid') {
+                    if ($state && ($get('status') === 'Ditolak - Pembayaran Tidak Valid')) {
                         $set('status', 'Menunggu');
                     }
-                })
-                ->helperText('Pastikan file dalam format gambar (JPG/PNG) dan ukuran tidak lebih dari 2MB.')
-                ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, Get $get): string {
-                    $pemohon = \App\Models\User::find($get('user_id')) ?? auth()->user();
-
-                    $nama = Str::slug($pemohon->name ?? 'user');
-                    $srn  = preg_replace('/\D+/', '', (string)($pemohon->srn ?? ''));
-                    $ext  = strtolower($file->getClientOriginalExtension());
-
-                    $stamp = now()->format('dmyHi');
-                    return "{$nama}_{$srn}_struk-abstrak_{$stamp}.{$ext}";
                 }),
 
-            Forms\Components\FileUpload::make('dokumen_asli')
-                ->label('Upload Dokumen Abstrak')
-                ->directory('dokumen-asli')
-                ->downloadable()
-                ->acceptedFileTypes([
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            // === TEKS SUMBER === (terlihat semua role)
+            Forms\Components\Section::make('Abstrak')
+                ->schema([
+                    Forms\Components\RichEditor::make('source_text')
+                        ->label('Masukan Abstrak Yang Ingin Diterjemahkan')
+                        ->toolbarButtons([
+                            'bold',
+                            'italic',
+                            'underline',
+                            'bulletList',
+                            'orderedList',
+                            'h2',
+                            'h3',
+                            'paragraph',
+                            'undo',
+                            'redo',
+                        ])
+                        ->columnSpanFull()
+                        ->required()
+                        // Pendaftar: editable saat create; saat edit terkunci.
+                        // Role lain (Admin, Penerjemah, Staf, Kepala): read-only.
+                        ->disabled(function ($record) {
+                            $u = auth()->user();
+                            if ($u?->hasRole('pendaftar')) {
+                                return filled($record); // edit -> terkunci
+                            }
+                            return $u?->hasAnyRole(['Admin', 'Penerjemah', 'Staf Administrasi', 'Kepala Lembaga']);
+                        })
+                        ->reactive()
+                        ->afterStateUpdated(function ($state, $set) {
+                            $plain = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $state)));
+                            $set('source_word_count', $plain === '' ? 0 : str_word_count(
+                                $plain,
+                                0,
+                                'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ'
+                            ));
+                        })
+                        ->hint(function ($record) {
+                            $u = auth()->user();
+                            if ($u?->hasRole('pendaftar') && filled($record)) {
+                                return 'Teks Absrak terkunci setelah diajukan.';
+                            }
+                            if ($u?->hasAnyRole(['Admin', 'Penerjemah'])) {
+                                return 'read-only';
+                            }
+                            return null;
+                        }),
+
+                    Forms\Components\Placeholder::make('source_word_count')
+                        ->label('Jumlah Kata Yang Dimasukan')
+                        ->content(fn (Get $get) => $get('source_word_count') ?? 0),
+                ])->collapsible(),
+
+            // === HASIL TERJEMAHAN ===
+            // Disembunyikan untuk pendaftar (lihat via PDF saja).
+            Forms\Components\Section::make('Hasil Terjemahan')
+                ->schema([
+                    Forms\Components\RichEditor::make('translated_text')
+                        ->label('Teks Terjemahan')
+                        ->toolbarButtons([
+                            'bold',
+                            'italic',
+                            'underline',
+                            'bulletList',
+                            'orderedList',
+                            'h2',
+                            'h3',
+                            'paragraph',
+                            'undo',
+                            'redo',
+                        ])
+                        ->columnSpanFull()
+                        ->reactive()
+                        ->disabled(function () {
+                            $u = auth()->user();
+                            return ! $u?->hasAnyRole(['Admin', 'Penerjemah']);
+                        })
+                        ->afterStateUpdated(function ($state, $set) {
+                            $plain = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $state)));
+                            $count = $plain === '' ? 0 : str_word_count(
+                                $plain,
+                                0,
+                                'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ'
+                            );
+                            $set('translated_word_count', $count);
+                            if ($count > 0) {
+                                $set('completion_date', now());
+                            }
+                        })
+                        ->hint(function () {
+                            $u = auth()->user();
+                            return $u?->hasAnyRole(['Admin','Penerjemah'])
+                                ? 'Isi/ubah hasil terjemahan di sini.'
+                                : null;
+                        }),
+
+                    Forms\Components\Placeholder::make('translated_word_count')
+                        ->label('Jumlah Kata (Terjemahan)')
+                        ->content(fn (Get $get) => $get('translated_word_count') ?? 0),
                 ])
-                ->maxSize(2048)
-                ->required()
-                ->validationMessages([
-                    'required' => 'Dokumen Abstrak Asli wajib diunggah.',
-                ])
-                ->visible($user->hasAnyRole(['Admin', 'pendaftar']))
-                ->reactive()
-                ->helperText('Format: DOC atau DOCX. Maksimal 2MB')
-                ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, Get $get): string {
-                    $pemohon = \App\Models\User::find($get('user_id')) ?? auth()->user();
+                ->collapsible()
+                ->visible(fn () => ! auth()->user()?->hasRole('pendaftar')),
 
-                    $nama = Str::slug($pemohon->name ?? 'user');
-                    $srn  = preg_replace('/\D+/', '', (string)($pemohon->srn ?? ''));
-                    $ext  = strtolower($file->getClientOriginalExtension());
-
-                    $stamp = now()->format('dmyHi');
-                    return "{$nama}_{$srn}_abstrak_{$stamp}.{$ext}";
-                }),
-
-            Forms\Components\FileUpload::make('dokumen_terjemahan')
-                ->label('Upload Hasil Terjemahan')
-                ->directory('hasil-terjemahan')
-                ->downloadable()
-                ->acceptedFileTypes(['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
-                ->maxSize(10240)
-                ->visible($user->hasAnyRole(['Admin', 'Penerjemah']))
-                ->reactive()
-                ->afterStateUpdated(fn ($state, $set) => $state ? $set('completion_date', now()) : null)
-                ->helperText('Format: DOC atau DOCX. Maksimal 10MB')
-                ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, Get $get): string {
-                    $pemohon = \App\Models\User::find($get('user_id')) ?? auth()->user();
-
-                    $nama = Str::slug($pemohon->name ?? 'user');
-                    $srn  = preg_replace('/\D+/', '', (string)($pemohon->srn ?? ''));
-                    $ext  = strtolower($file->getClientOriginalExtension());
-
-                    return "{$nama}_{$srn}_terjemahan_" . now()->format('YmdHis') . ".{$ext}";
-                }),
-
+            // Tanggal
             Forms\Components\DateTimePicker::make('submission_date')
                 ->label('Tanggal Pengajuan')
                 ->default(now())
                 ->disabled()
                 ->dehydrated(),
 
-            Forms\Components\Placeholder::make('status_badge')
-                ->label('Status')
-                ->content(fn ($get) => $get('status') ?? '-'),
-
-            Forms\Components\Placeholder::make('translator_name')
-                ->label('Nama Penerjemah')
-                ->content(function ($get, $record) {
-                    if ($get('translator_id')) {
-                        // Jika sedang edit, ambil dari relasi jika ada
-                        if ($record && $record->translator) {
-                            return $record->translator->name;
-                        }
-                        // Jika create, ambil dari User model
-                        $translator = \App\Models\User::find($get('translator_id'));
-                        return $translator?->name ?? '-';
-                    }
-                    return '-';
-                })
-                ->visible(fn ($get) => !empty($get('translator_id'))),
-
-            // FIELD UNTUK ADMIN - ASSIGN PENERJEMAH
-            Forms\Components\Select::make('translator_id')
-                ->label('Pilih Penerjemah')
-                ->options(function () {
-                    return \App\Models\User::whereHas('roles', function ($query) {
-                        $query->where('name', 'Penerjemah');
-                    })->pluck('name', 'id');
-                })
-                ->searchable()
-                ->placeholder('Pilih penerjemah...')
-                ->visible($user->hasRole('Admin')),
-
             Forms\Components\DateTimePicker::make('completion_date')
                 ->label('Tanggal Selesai')
                 ->disabled()
-                ->dehydrated()
-                ->visible($user->hasRole('Penerjemah')),
-        ]);
+                ->dehydrated(),
+
+            // Info Status & Penerjemah
+            Forms\Components\Placeholder::make('status_badge')
+                ->label('Status')
+                ->content(fn (Get $get) => $get('status') ?? '-'),
+
+            Forms\Components\Placeholder::make('translator_name')
+                ->label('Nama Penerjemah')
+                ->content(function (Get $get, $record) {
+                    if ($get('translator_id')) {
+                        if ($record?->translator) return $record->translator->name;
+                        $tr = User::find($get('translator_id'));
+                        return $tr?->name ?? '-';
+                    }
+                    return '-';
+                })
+                ->visible(fn (Get $get) => filled($get('translator_id'))),
+
+            Forms\Components\Select::make('translator_id')
+                ->label('Pilih Penerjemah')
+                ->options(fn () => User::whereHas('roles', fn ($q) => $q->where('name', 'Penerjemah'))->pluck('name', 'id'))
+                ->searchable()
+                ->placeholder('Pilih penerjemah...')
+                ->visible(fn () => auth()->user()?->hasRole('Admin')),
+        ])->columns(2);
     }
 
+    /* -----------------------------------------------------------
+    |  TABLE
+    |----------------------------------------------------------- */
     public static function table(Table $table): Table
     {
-        return $table->columns([
-            Tables\Columns\TextColumn::make('users.name')
-                ->label('Nama Pemohon')
-                ->searchable()
-                ->sortable()
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
+        return $table
+            ->defaultSort('created_at', 'desc')
+            ->columns([
+                Tables\Columns\TextColumn::make('users.name')
+                    ->label('Nama Pemohon')
+                    ->searchable()
+                    ->sortable()
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
-            Tables\Columns\TextColumn::make('bukti_pembayaran')
-                ->label('Bukti Pembayaran')
-                ->formatStateUsing(fn ($state) => $state ? 'Bukti Bayar' : '-')
-                ->url(fn ($record) => $record->bukti_pembayaran ? Storage::url($record->bukti_pembayaran) : null, true)
-                ->openUrlInNewTab()
-                ->icon('heroicon-o-photo')
-                ->color('info')
-                ->placeholder('-')
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
-
-            Tables\Columns\BadgeColumn::make('status')
-                ->label('Status')
-                ->colors([
-                    'warning' => fn ($state) => $state === 'Menunggu',
-                    'info' => fn ($state) => $state === 'Diproses',
-                    'info' => fn ($state) => $state === 'Disetujui',
-                    'success' => fn ($state) => $state === 'Selesai', 
-                    'danger' => fn ($state) => str_contains($state, 'Tidak Valid'),
-                ])
-                ->icons([
-                    'heroicon-s-clock' => fn ($state) => $state === 'Menunggu',
-                    'heroicon-s-cog-6-tooth' => fn ($state) => $state === 'Diproses',
-                    'heroicon-s-check' => fn ($state) => $state === 'Disetujui',
-                    'heroicon-s-check-circle' => fn ($state) => $state === 'Selesai',
-                    'heroicon-s-x-circle' => fn ($state) => str_contains($state, 'Tidak Valid'),
-                ])
-                ->iconPosition('before')
-                ->formatStateUsing(function ($state) {
-                    if (str_contains($state, 'Tidak Valid')) {
-                        return str_replace(['Ditolak - ', ' Tidak Valid'], ['Ditolak: ', ' Invalid'], $state);
-                    }
-                    return $state;
-                })
-                ->sortable(),
-
-            Tables\Columns\TextColumn::make('dokumen_asli')
-                ->label('Dokumen Asli')
-                ->formatStateUsing(fn ($state) => $state ? 'Lihat Dokumen' : '-')
-                ->url(fn ($record) => $record->dokumen_asli ? Storage::url($record->dokumen_asli) : null, true)
-                ->openUrlInNewTab()
-                ->icon('heroicon-o-document')
-                ->color('primary')
-                ->placeholder('-')
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
-
-            Tables\Columns\TextColumn::make('submission_date')
-                ->label('Pengajuan')
-                ->dateTime(fn () => request()->header('User-Agent') && preg_match('/Mobile|Android|iPhone|iPad|iPod/i', request()->header('User-Agent')) ? 'd/m' : 'd/m/Y H:i')
-                ->sortable(),
-
-            Tables\Columns\TextColumn::make('translator.name')
-                ->label('Penerjemah')
-                ->placeholder('Belum ditentukan')
-                ->sortable()
-                ->visible(fn () => auth()->user()->hasRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
-
-            Tables\Columns\TextColumn::make('completion_date')
-                ->label('Selesai')
-                ->dateTime(fn () => request()->header('User-Agent') && preg_match('/Mobile|Android|iPhone|iPad|iPod/i', request()->header('User-Agent')) ? 'd/m' : 'd/m/Y H:i')
-                ->placeholder('-')
-                ->sortable(),
-        ])
-        
-        ->actions([
-            // ACTION DOWNLOAD HASIL
-            Tables\Actions\Action::make('download_hasil')
-                ->label('Download')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->url(fn ($record) => $record->dokumen_terjemahan ? Storage::url($record->dokumen_terjemahan) : null)
-                ->openUrlInNewTab()
-                ->visible(fn ($record) =>
-                    $record->dokumen_terjemahan !== null &&
-                    (
-                        // Tampil ke pendaftar hanya jika status sudah 'Selesai'
-                        (auth()->user()->hasRole('pendaftar') && $record->status === 'Selesai')
-                        // Tampil ke admin, staf, penerjemah kapan saja dokumen_terjemahan ada
-                        || auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah'])
-                    )
-                )
-                ->color('success'),
-
-            // ACTION GROUP UNTUK ADMIN - UBAH STATUS
-            Tables\Actions\ActionGroup::make([
-                Tables\Actions\EditAction::make(),
-                
-                Tables\Actions\Action::make('approve_pembayaran')
-                    ->label('Approve')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->action(function ($record) {
-                        $record->update(['status' => 'Disetujui']);
-
-                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification('Disetujui'));
-
-                        Notification::make()
-                            ->title("Pembayaran Disetujui dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
-                            ->success()
-                            ->send();
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Setujui Pembayaran')
-                    ->modalDescription('Apakah Anda yakin ingin menyetujui pembayaran ini?')
-                    ->visible(fn ($record) =>
-                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
-                        $record->status !== 'Disetujui' &&
-                        $record->status !== 'Diproses' &&
-                        $record->status !== 'Selesai'
-                    ),
-
-                Tables\Actions\Action::make('pilih_penerjemah')
-                    ->label('Pilih Penerjemah')
-                    ->icon('heroicon-o-user-plus')
+                Tables\Columns\TextColumn::make('bukti_pembayaran')
+                    ->label('Bukti')
+                    ->formatStateUsing(fn ($state) => $state ? 'Lihat' : '-')
+                    ->url(fn ($record) => $record->bukti_pembayaran ? Storage::url($record->bukti_pembayaran) : null, true)
+                    ->openUrlInNewTab()
+                    ->icon('heroicon-o-photo')
                     ->color('info')
-                    ->form([
-                        Forms\Components\Select::make('translator_id')
-                            ->label('Pilih Penerjemah')
-                            ->options(function () {
-                                return \App\Models\User::whereHas('roles', function ($query) {
-                                    $query->where('name', 'Penerjemah');
-                                })->pluck('name', 'id');
-                            })
-                            ->required()
-                            ->searchable()
-                            ->placeholder('Pilih penerjemah...'),
+                    ->placeholder('-')
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
+
+                Tables\Columns\BadgeColumn::make('status')
+                    ->label('Status')
+                    ->colors([
+                        'warning' => fn (string $state) => $state === 'Menunggu',
+                        'info'    => fn (string $state) => in_array($state, ['Diproses', 'Disetujui'], true),
+                        'success' => fn (string $state) => $state === 'Selesai',
+                        'danger'  => fn (string $state) => str_contains($state, 'Tidak Valid'),
                     ])
-                    ->action(function ($record, array $data) {
-                        $record->update([
-                            'status' => 'Diproses',
-                            'translator_id' => $data['translator_id']
-                        ]);
-
-                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification('Diproses'));
-
-                        Notification::make()
-                            ->title("Penerjemahan Diproses dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
-                            ->success()
-                            ->send();
+                    ->icons([
+                        'heroicon-s-clock'        => fn (string $state) => $state === 'Menunggu',
+                        'heroicon-s-cog-6-tooth'  => fn (string $state) => $state === 'Diproses',
+                        'heroicon-s-check'        => fn (string $state) => $state === 'Disetujui',
+                        'heroicon-s-check-circle' => fn (string $state) => $state === 'Selesai',
+                        'heroicon-s-x-circle'     => fn (string $state) => str_contains($state, 'Tidak Valid'),
+                    ])
+                    ->iconPosition('before')
+                    ->formatStateUsing(function (string $state) {
+                        return str_contains($state, 'Tidak Valid')
+                            ? str_replace(['Ditolak - ', ' Tidak Valid'], ['Ditolak: ', ' Invalid'], $state)
+                            : $state;
                     })
-                    ->visible(fn ($record) => auth()->user()->hasRole('Admin') && $record->status === 'Disetujui'),
+                    ->sortable(),
 
+                Tables\Columns\TextColumn::make('submission_date')
+                    ->label('Pengajuan')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
 
-                // ACTION UNTUK MENOLAK PEMBAYARAN
-                Tables\Actions\Action::make('tolak_pembayaran')
-                    ->label('Reject - Pembayaran')
-                    ->icon('heroicon-m-credit-card')
-                    ->color('danger')
-                    ->action(function ($record) {
-                        $record->update([
-                            'status' => 'Ditolak - Pembayaran Tidak Valid',
-                            'translator_id' => null // Clear translator assignment
-                        ]);
+                Tables\Columns\TextColumn::make('translator.name')
+                    ->label('Penerjemah')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
-                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
-                            'Ditolak - Pembayaran Tidak Valid'
-                        ));
-
-                        Notification::make()
-                            ->title("Ditolak dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
-                            ->danger()
-                            ->send();
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Tolak Pengajuan - Pembayaran Tidak Valid')
-                    ->modalDescription('Apakah Anda yakin pembayaran tidak valid dan ingin menolak pengajuan ini?')
-                    ->visible(fn ($record) =>
-                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
-                        $record->status !== 'Disetujui' &&
-                        $record->status !== 'Diproses' &&
-                        $record->status !== 'Selesai'
-                    ),
-
-                // ACTION UNTUK MENOLAK DOKUMEN
-                Tables\Actions\Action::make('tolak_dokumen')
-                    ->label('Reject - Dokumen')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->action(function ($record) {
-                        $record->update([
-                            'status' => 'Ditolak - Dokumen Tidak Valid',
-                            'translator_id' => null // Clear translator assignment
-                        ]);
-
-                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
-                            'Ditolak - Dokumen Tidak Valid'
-                        ));
-
-                        Notification::make()
-                            ->title("Ditolak dan Notifikasi Sudah Terkirim ke Email {$record->users->email}")
-                            ->danger()
-                            ->send();
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Tolak Pengajuan - Dokumen Tidak Valid')
-                    ->modalDescription('Apakah Anda yakin dokumen tidak valid dan ingin menolak pengajuan ini?')
-                    ->visible(fn ($record) =>
-                        auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi']) &&
-                        $record->status !== 'Diproses' &&
-                        $record->status !== 'Selesai'
-                    ),
-                    
-                Tables\Actions\Action::make('set_selesai')
-                    ->label('Set Selesai')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->action(function ($record) {
-                        $record->update([
-                            'status' => 'Selesai',
-                            'completion_date' => now()
-                        ]);
-
-                        $record->users->notify(new \App\Notifications\PenerjemahanStatusNotification(
-                            'Selesai'
-                        ));
-
-                        Notification::make()
-                            ->title("Notifikasi Sudah Terkirim ke Email {$record->users->email}")
-                            ->success()
-                            ->send();
-                    })
-                    ->requiresConfirmation()
-                    ->visible(fn ($record) =>
-                        $record->dokumen_terjemahan !== null &&
-                        auth()->user()->hasRole('Admin') &&
-                        $record->status !== 'Selesai' &&
-                        $record->status !== 'Ditolak - Dokumen Tidak Valid' &&
-                        $record->status !== 'Ditolak - Pembayaran Tidak Valid'
-                    ),
-                    
+                Tables\Columns\TextColumn::make('completion_date')
+                    ->label('Selesai')
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder('—')
+                    ->sortable(),
             ])
-            ->label('Ubah Status')
-            ->icon('heroicon-s-cog-6-tooth')
-            ->visible(fn () => auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])),
-            
-            // ACTION GROUP UNTUK PENERJEMAH - HANYA EDIT
-            Tables\Actions\ActionGroup::make([
-                Tables\Actions\EditAction::make()
-                    ->label('Upload Hasil')
-                    ->icon('heroicon-o-arrow-up-tray'),
-            ])
-            ->label('Aksi Penerjemah')
-            ->icon('heroicon-s-academic-cap')
-            ->visible(fn ($record) => auth()->user()->hasRole('Penerjemah') && $record->translator_id === auth()->id()),
-            
-            // ACTION STANDALONE EDIT UNTUK ROLE LAIN
-            Tables\Actions\EditAction::make()
-                ->visible(fn () => !auth()->user()->hasAnyRole(['Admin', 'Penerjemah', 'Staf Administrasi'])),
-        ])
-
-        // BULK ACTIONS
-        ->bulkActions(
-            auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])
-                ? [
-                    Tables\Actions\BulkActionGroup::make([
-                        Tables\Actions\DeleteBulkAction::make(),
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
+                    ->options([
+                        'Menunggu' => 'Menunggu',
+                        'Disetujui' => 'Disetujui',
+                        'Diproses'  => 'Diproses',
+                        'Selesai'   => 'Selesai',
+                        'Ditolak - Pembayaran Tidak Valid' => 'Ditolak - Pembayaran',
+                        'Ditolak - Dokumen Tidak Valid'    => 'Ditolak - Dokumen',
                     ]),
-                    Tables\Actions\BulkAction::make('validasiPembayaran')
-                        ->label('Pilih Status')
-                        ->icon('heroicon-s-check-circle')
-                        ->color('primary')
-                        ->form([
-                            Forms\Components\Select::make('status')
-                                ->label('Set Status Pembayaran')
-                                ->options([
-                                    'Menunggu' => 'Menunggu',
-                                    'Disetujui' => 'Disetujui',
-                                    'Diproses' => 'Diproses',
-                                    'Selesai' => 'Selesai',
-                                    'Ditolak - Pembayaran Tidak Valid' => 'Ditolak - Pembayaran Tidak Valid',
-                                    'Ditolak - Dokumen Tidak Valid' => 'Ditolak - Dokumen Tidak Valid',
-                                ])
-                                ->required()
-                                ->reactive(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Dari'),
+                        Forms\Components\DatePicker::make('created_until')->label('Sampai'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['created_from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+                            ->when($data['created_until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
+                    }),
+            ])
+            ->actions([
+                Tables\Actions\Action::make('download_pdf')
+                    ->label('Unduh PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('danger')
+                    ->visible(function ($record) {
+                        $u = auth()->user();
+                        $adminOrStaff = $u->hasAnyRole(['Admin','Staf Administrasi','Kepala Lembaga']);
+                        $ownerDone    = $u->hasRole('pendaftar')
+                                        && $record->user_id === $u->id
+                                        && $record->status === 'Selesai';
+                        return ( $adminOrStaff && filled($record->translated_text) ) || $ownerDone;
+                    })
+                    ->action(fn ($record) => redirect()->route('export.penerjemahan.pdf', $record)),
 
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\EditAction::make(),
+
+                    Tables\Actions\Action::make('approve_pembayaran')
+                        ->label('Approve')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Setujui Pembayaran')
+                        ->modalDescription('Yakin menyetujui pembayaran ini?')
+                        ->visible(fn ($record) =>
+                            auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                            !in_array($record->status, ['Disetujui', 'Diproses', 'Selesai'], true)
+                        )
+                        ->action(function ($record) {
+                            $record->update(['status' => 'Disetujui']);
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Disetujui'));
+                            Notification::make()->title("Pembayaran disetujui & notifikasi terkirim ke {$record->users?->email}")->success()->send();
+                        }),
+
+                    Tables\Actions\Action::make('pilih_penerjemah')
+                        ->label('Pilih Penerjemah')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('info')
+                        ->form([
                             Forms\Components\Select::make('translator_id')
                                 ->label('Pilih Penerjemah')
-                                ->options(function () {
-                                    return \App\Models\User::whereHas('roles', function ($query) {
-                                        $query->where('name', 'Penerjemah');
-                                    })->pluck('name', 'id');
-                                })
-                                ->searchable()
-                                ->placeholder('Pilih penerjemah...')
-                                ->visible(fn ($get) => $get('status') === 'Diproses')
-                                ->required(fn ($get) => $get('status') === 'Diproses'),
+                                ->options(fn () => User::whereHas('roles', fn ($q) => $q->where('name', 'Penerjemah'))->pluck('name', 'id'))
+                                ->required()
+                                ->searchable(),
                         ])
-                        ->action(function ($records, array $data) {
-                            foreach ($records as $record) {
-                                $updateData = [
-                                    'status' => $data['status'],
-                                ];
-                                if ($data['status'] === 'Diproses' && !empty($data['translator_id'])) {
-                                    $updateData['translator_id'] = $data['translator_id'];
-                                } elseif ($data['status'] !== 'Diproses') {
-                                    $updateData['translator_id'] = null;
-                                }
-                                $record->update($updateData);
-                            }
+                        ->visible(fn ($record) => auth()->user()?->hasRole('Admin') && $record->status === 'Disetujui')
+                        ->action(function ($record, array $data) {
+                            $record->update([
+                                'status'        => 'Diproses',
+                                'translator_id' => $data['translator_id'],
+                            ]);
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Diproses'));
+                            Notification::make()->title("Penerjemahan diproses & notifikasi terkirim ke {$record->users?->email}")->success()->send();
+                        }),
 
-                            Notification::make()
-                                ->title('Status pembayaran berhasil diperbarui.')
-                                ->success()
-                                ->send();
-                        })
-                        ->deselectRecordsAfterCompletion(),
-                ]
-                : []
-        )
-
-        // FILTERS
-        ->filters([
-            Tables\Filters\SelectFilter::make('status')
-                ->options([
-                    'Menunggu' => 'Menunggu',
-                    'Diproses' => 'Diproses', 
-                    'Selesai' => 'Selesai',
-                    'Ditolak - Pembayaran Tidak Valid' => 'Ditolak - Pembayaran',
-                    'Ditolak - Dokumen Tidak Valid' => 'Ditolak - Dokumen',
-                ]),
-            Tables\Filters\Filter::make('created_at')
-                ->form([
-                    Forms\Components\DatePicker::make('created_from')
-                        ->label('Dari Tanggal')
-                        ->displayFormat('d/m/Y')
-                        ->format('d/m/Y'),
-                    Forms\Components\DatePicker::make('created_until')
-                        ->label('Sampai Tanggal')
-                        ->displayFormat('d/m/Y')
-                        ->format('d/m/Y'),
-                ])
-                ->query(function (Builder $query, array $data): Builder {
-                    return $query
-                        ->when(
-                            $data['created_from'],
-                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', \Carbon\Carbon::createFromFormat('d/m/Y', $date)->format('Y-m-d')),
+                    Tables\Actions\Action::make('tolak_pembayaran')
+                        ->label('Reject - Pembayaran')
+                        ->icon('heroicon-m-credit-card')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Tolak Pengajuan (Pembayaran Tidak Valid)')
+                        ->modalDescription('Yakin menolak karena pembayaran tidak valid?')
+                        ->visible(fn ($record) =>
+                            auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                            !in_array($record->status, ['Disetujui', 'Diproses', 'Selesai'], true)
                         )
-                        ->when(
-                            $data['created_until'],
-                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', \Carbon\Carbon::createFromFormat('d/m/Y', $date)->format('Y-m-d')),
-                        );
-                }),
-        ])
+                        ->action(function ($record) {
+                            $record->update([
+                                'status'        => 'Ditolak - Pembayaran Tidak Valid',
+                                'translator_id' => null,
+                            ]);
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Ditolak - Pembayaran Tidak Valid'));
+                            Notification::make()->title("Ditolak & notifikasi terkirim ke {$record->users?->email}")->danger()->send();
+                        }),
 
-        ->groups([
-            Tables\Grouping\Group::make('status')
-                ->label('Status')
-                ->collapsible(),
-            Tables\Grouping\Group::make('created_at')
-                ->label('Tanggal Pendaftaran')
-                ->date()
-                ->collapsible(),
-        ])
+                    Tables\Actions\Action::make('tolak_dokumen')
+                        ->label('Reject - Dokumen')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Tolak Pengajuan (Dokumen Tidak Valid)')
+                        ->modalDescription('Yakin menolak karena dokumen tidak valid?')
+                        ->visible(fn ($record) =>
+                            auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                            !in_array($record->status, ['Diproses', 'Selesai'], true)
+                        )
+                        ->action(function ($record) {
+                            $record->update([
+                                'status'        => 'Ditolak - Dokumen Tidak Valid',
+                                'translator_id' => null,
+                            ]);
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Ditolak - Dokumen Tidak Valid'));
+                            Notification::make()->title("Ditolak & notifikasi terkirim ke {$record->users?->email}")->danger()->send();
+                        }),
 
-        // DEFAULT SORTING
-        ->defaultSort('created_at', 'desc');
+                    Tables\Actions\Action::make('set_selesai')
+                        ->label('Set Selesai')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->visible(fn ($record) =>
+                            auth()->user()?->hasRole('Admin') &&
+                            $record->status !== 'Selesai'
+                        )
+                        ->action(function ($record) {
+                            $record->update([
+                                'status'          => 'Selesai',
+                                'completion_date' => now(),
+                            ]);
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Selesai'));
+                            Notification::make()->title("Notifikasi terkirim ke {$record->users?->email}")->success()->send();
+                        }),
+                    
+                    Tables\Actions\Action::make('regenerate_pdf')
+                        ->label('Regenerate PDF')
+                        ->icon('heroicon-o-arrow-path')
+                        ->requiresConfirmation()
+                        ->visible(fn () => auth()->user()->hasAnyRole(['Admin','Staf Administrasi']))
+                        ->action(function (\App\Models\Penerjemahan $record) {
+                            // kamu bisa langsung panggil controller via route, atau taruh logika disini:
+                            $record->ensureVerification();
+                            $record->version = (int) $record->version + 1;
+
+                            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.terjemahan-pdf', [
+                                'record' => $record->load(['users','translator'])
+                            ])->setPaper('a4');
+
+                            $dir = 'penerjemahan/pdfs';
+                            $filename = $record->officialPdfFilename();
+                            $path = "{$dir}/{$filename}";
+                            \Storage::disk('public')->put($path, $pdf->output());
+
+                            $full = storage_path('app/public/'.$path);
+                            $record->pdf_path   = $path;
+                            $record->pdf_sha256 = hash_file('sha256', $full);
+                            $record->issued_at  = now();
+                            $record->save();
+                        }),
+                ])
+                ->label('Ubah Status')
+                ->icon('heroicon-s-cog-6-tooth')
+                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])),
+
+                // Aksi khusus Penerjemah: hanya Edit untuk mengisi terjemahan
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\EditAction::make()->label('Isi Terjemahan')->icon('heroicon-o-pencil-square'),
+                ])
+                ->label('Aksi Penerjemah')
+                ->icon('heroicon-s-academic-cap')
+                ->visible(fn ($record) => auth()->user()?->hasRole('Penerjemah') && $record->translator_id === auth()->id()),
+
+                // Aksi Edit standar untuk role lain
+                Tables\Actions\EditAction::make()
+                    ->visible(fn () => !auth()->user()?->hasAnyRole(['Admin', 'Penerjemah', 'Staf Administrasi'])),
+            ])
+            ->bulkActions(
+                auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])
+                    ? [
+                        Tables\Actions\BulkActionGroup::make([
+                            Tables\Actions\DeleteBulkAction::make(),
+                        ]),
+                    ]
+                    : []
+            );
     }
 
-    // QUERY SCOPING BERDASARKAN ROLE
+    /* -----------------------------------------------------------
+    |  QUERY SCOPE (berdasarkan role)
+    |----------------------------------------------------------- */
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        
+
         if ($user->hasRole('pendaftar')) {
             return parent::getEloquentQuery()->where('user_id', $user->id);
         }
-        
+
         if ($user->hasRole('Penerjemah')) {
             return parent::getEloquentQuery()->where('translator_id', $user->id);
         }
-        
-        // Admin bisa lihat semua
+
         return parent::getEloquentQuery();
     }
 
-    // NAVIGATION BADGE UNTUK ADMIN dan STAF ADMINISTRASI
+    /* -----------------------------------------------------------
+    |  NAV BADGE (Admin/Staf)
+    |----------------------------------------------------------- */
     public static function getNavigationBadge(): ?string
     {
-        if (!auth()->user()->hasAnyRole(['Admin', 'Staf Administrasi'])) {
+        if (!auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
             return null;
         }
         $count = static::getModel()::where('status', 'Menunggu')->count();
@@ -594,7 +503,7 @@ class PenerjemahanResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Pemohon Perlu ditinjau';
+        return 'Pemohon perlu ditinjau';
     }
 
     public static function getNavigationBadgeColor(): ?string
@@ -604,17 +513,15 @@ class PenerjemahanResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPenerjemahans::route('/'),
+            'index'  => Pages\ListPenerjemahans::route('/'),
             'create' => Pages\CreatePenerjemahan::route('/create'),
-            'edit' => Pages\EditPenerjemahan::route('/{record}/edit'),
+            'edit'   => Pages\EditPenerjemahan::route('/{record}/edit'),
         ];
     }
 }
