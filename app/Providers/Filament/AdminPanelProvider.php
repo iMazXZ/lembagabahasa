@@ -63,12 +63,6 @@ class AdminPanelProvider extends PanelProvider
                 'Layanan Lembaga Bahasa',
                 'Manajemen EPT',
             ])
-            // ->navigationItems([
-            //     NavigationItem::make('Halaman Utama')
-            //         ->url(url('/'), shouldOpenInNewTab: true)
-            //         ->icon('heroicon-o-globe-alt')
-            //         ->sort(-3),
-            // ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

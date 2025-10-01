@@ -17,9 +17,12 @@ class EptSubmissionResource extends Resource
 {
     protected static ?string $model = EptSubmission::class;
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-    protected static ?string $navigationLabel = 'Pengajuan Surat Rekomendasi';
+
     protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
-    protected static ?string $pluralModelLabel = 'Pengajuan Surat Rekomendasi';
+
+    public static ?string $slug = 'suratrekomendasi';
+    protected static ?string $navigationLabel = 'Pengajuan Surat Rekomendasi';
+    protected static ?int $navigationSort = 3;
 
     public static function shouldRegisterNavigation(): bool
     {
