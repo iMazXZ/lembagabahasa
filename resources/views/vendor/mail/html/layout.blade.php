@@ -215,7 +215,7 @@
                                         
                                         <div class="social-links">
                                             <a href="mailto:info@lembagabahasa.site">Email</a> |
-                                            <a href="https://wa.me/6282373271109">WhatsApp</a> |
+                                            <a href="https://wa.me/6287790740408">WhatsApp</a> |
                                             <a href="{{ config('app.url') }}">Website</a>
                                         </div>
                                     </td>

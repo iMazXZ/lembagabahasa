@@ -14,7 +14,7 @@
         <img
           src="{{ asset('images/logo-um.png') }}"
           alt="Logo UM Metro"
-          class="h-9 w-9 md:h-12 md:w-12 object-contain"
+          class="h-12 w-12 md:h-12 md:w-12 object-contain"
           loading="lazy">
 
         <div class="leading-tight">
@@ -32,8 +32,7 @@
 
       {{-- Desktop menu --}}
       <div class="hidden lg:flex items-center gap-6">
-        <a href="{{ route('front.home') }}#beranda" class="{{ $linkBase }}">Beranda</a>
-        <a href="{{ route('front.home') }}#layanan" class="{{ $linkBase }}">Layanan</a>
+        <a href="{{ route('front.home') }}#berita" class="{{ $linkBase }}">Cek Jadwal dan Nilai</a>
         <a href="{{ route('front.home') }}#tentang" class="{{ $linkBase }}">Tentang</a>
         <a href="{{ route('front.home') }}#kontak" class="{{ $linkBase }}">Kontak</a>
 
@@ -67,15 +66,15 @@
       </div>
 
       {{-- Mobile toggle --}}
-      <button id="menuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100" aria-controls="mobileMenu" aria-expanded="false">
-        <i class="fas fa-bars text-gray-600"></i>
+      <button id="menuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" aria-controls="mobileMenu" aria-expanded="false">
+        <i class="fas fa-bars text-gray-600 text-xl"></i>
         <span class="sr-only">Toggle menu</span>
       </button>
     </div>
   </div>
 
   {{-- Mobile menu --}}
-  <div id="mobileMenu" class="lg:hidden hidden bg-white border-t px-4 py-3">
+  <div id="mobileMenu" class="hidden lg:hidden bg-white border-t px-4 py-3" style="display: none;">
     <div class="flex flex-col gap-2">
       <a href="{{ route('front.home') }}#beranda" class="py-2 {{ $linkBase }}">Beranda</a>
       <a href="{{ route('front.home') }}#layanan" class="py-2 {{ $linkBase }}">Layanan</a>
@@ -108,25 +107,67 @@
   </div>
 </nav>
 
-{{-- Script kecil toggle + auto-close --}}
+{{-- Script toggle mobile menu --}}
 <script>
-  (function(){
+  console.log('Navbar script loaded');
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded');
+    
     const toggle = document.getElementById('menuToggle');
-    const menu   = document.getElementById('mobileMenu');
-    if(!toggle || !menu) return;
+    const menu = document.getElementById('mobileMenu');
+    
+    console.log('Toggle element:', toggle);
+    console.log('Menu element:', menu);
+    
+    if (!toggle || !menu) {
+      console.error('Toggle atau Menu tidak ditemukan!');
+      return;
+    }
 
-    toggle.addEventListener('click', () => {
-      const open = menu.classList.contains('hidden');
-      menu.classList.toggle('hidden');
-      toggle.setAttribute('aria-expanded', String(open));
+    // Toggle menu saat button diklik
+    toggle.addEventListener('click', function(e) {
+      console.log('Toggle clicked!');
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Cek apakah menu sedang ditampilkan
+      const isCurrentlyHidden = menu.style.display === 'none';
+      console.log('Menu currently hidden?', isCurrentlyHidden);
+      
+      if (isCurrentlyHidden) {
+        // Buka menu
+        menu.classList.remove('hidden');
+        menu.style.display = 'block';
+        toggle.setAttribute('aria-expanded', 'true');
+        console.log('Menu dibuka');
+      } else {
+        // Tutup menu
+        menu.classList.add('hidden');
+        menu.style.display = 'none';
+        toggle.setAttribute('aria-expanded', 'false');
+        console.log('Menu ditutup');
+      }
     });
 
-    // auto-close saat klik link
-    menu.querySelectorAll('a').forEach(a => {
-      a.addEventListener('click', () => {
+    // Auto-close saat klik link di dalam menu
+    menu.querySelectorAll('a').forEach(function(link) {
+      link.addEventListener('click', function() {
         menu.classList.add('hidden');
+        menu.style.display = 'none';
         toggle.setAttribute('aria-expanded', 'false');
       });
     });
-  })();
+
+    // Close menu saat klik di luar
+    document.addEventListener('click', function(event) {
+      const isClickInside = toggle.contains(event.target) || menu.contains(event.target);
+      
+      if (!isClickInside && menu.style.display !== 'none') {
+        menu.classList.add('hidden');
+        menu.style.display = 'none';
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
 </script>

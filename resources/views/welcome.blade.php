@@ -3,83 +3,208 @@
 
 @section('content')
 
-  {{-- HERO --}}
-  <div class="bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 py-16 lg:py-32">
-    <div class="max-w-7xl mx-auto px-4 lg:px-8 text-center text-white">
-      <h1 data-aos="fade-up" class="text-4xl lg:text-7xl font-bold mb-6 lg:mb-8 leading-tight">
-        LEMBAGA BAHASA<br>
-        <span class="text-sm lg:text-2xl text-blue-200">UNIVERSITAS MUHAMMADIYAH METRO</span>
-      </h1>
+  {{-- HERO SECTION --}}
+  <div class="relative bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 py-20 lg:py-32 overflow-hidden">
+    {{-- Animated Background Elements --}}
+    <div class="absolute inset-0 overflow-hidden">
+      <div class="absolute -top-40 -right-40 w-80 h-80 bg-yellow-400/30 rounded-full blur-3xl animate-pulse"></div>
+      <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-400/30 rounded-full blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
+      <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-400/20 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
+      <div class="absolute top-20 right-1/4 w-64 h-64 bg-green-400/20 rounded-full blur-3xl animate-pulse" style="animation-delay: 1.5s;"></div>
+    </div>
 
-      <div data-aos="fade-up" data-aos-delay="100" class="mb-8 lg:mb-12">
-        @guest
-          <a href="{{ route('filament.admin.auth.login') }}" class="inline-block bg-um-gold hover:bg-yellow-500 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
-            <i class="fas fa-sign-in mr-3"></i>Masuk ke Akun
+    {{-- Floating Shapes Animation --}}
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute top-1/4 left-1/4 w-4 h-4 bg-yellow-300/40 rounded-full animate-bounce" style="animation-duration: 3s;"></div>
+      <div class="absolute top-1/3 right-1/3 w-3 h-3 bg-pink-300/40 rounded-full animate-bounce" style="animation-duration: 4s; animation-delay: 0.5s;"></div>
+      <div class="absolute bottom-1/4 right-1/4 w-5 h-5 bg-cyan-300/40 rounded-full animate-bounce" style="animation-duration: 3.5s; animation-delay: 1s;"></div>
+      <div class="absolute bottom-1/3 left-1/3 w-4 h-4 bg-green-300/40 rounded-full animate-bounce" style="animation-duration: 4.5s; animation-delay: 1.5s;"></div>
+    </div>
+
+    {{-- Dot Pattern Overlay --}}
+    <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle, white 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+    <div class="relative max-w-7xl mx-auto px-4 lg:px-8">
+      {{-- Main Hero Content --}}
+      <div class="text-center text-white mb-16">
+        {{-- Badge --}}
+        <div data-aos="fade-down" class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 py-3 mb-8">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+          </span>
+          <span class="text-sm font-semibold text-blue-100">Pelayanan Dibuka</span>
+        </div>
+
+        {{-- Main Title --}}
+        <h1 data-aos="fade-up" class="text-4xl md:text-5xl lg:text-7xl font-extrabold mb-4 leading-tight">
+          <span class="bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-white">
+            LEMBAGA BAHASA
+          </span>
+        </h1>
+        
+        <p data-aos="fade-up" data-aos-delay="100" class="text-lg md:text-xl lg:text-2xl text-blue-200 font-medium mb-3">
+          Universitas Muhammadiyah Metro
+        </p>
+        
+        <p data-aos="fade-up" data-aos-delay="150" class="text-base md:text-lg text-blue-300 max-w-2xl mx-auto mb-10">
+          <em>"Supports Your Success"</em>
+        </p>
+
+        {{-- CTA Buttons --}}
+        <div data-aos="fade-up" data-aos-delay="200" class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          @guest
+            <a href="{{ route('filament.admin.auth.login') }}" 
+              class="group relative inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300">
+              <i class="fas fa-sign-in-alt"></i>
+              <span>Masuk ke Akun</span>
+              <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+              </svg>
+            </a>
+          @else
+            <a href="{{ route('filament.admin.pages.2') }}" 
+              class="group relative inline-flex items-center gap-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300">
+              <i class="fas fa-user"></i>
+              <span>Dashboard Saya</span>
+              <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+              </svg>
+            </a>
+          @endguest
+
+          <a href="#berita" 
+            class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:bg-white/20 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 hover:scale-105">
+            <span>Cek Jadwal dan Nilai</span>
+            <i class="fas fa-arrow-down animate-bounce"></i>
           </a>
-        @else
-          <a href="{{ route('filament.admin.pages.2') }}" class="inline-block bg-um-green hover:bg-green-600 text-white px-8 py-4 lg:px-12 lg:py-6 rounded-xl font-bold text-lg lg:text-xl transition-colors">
-            <i class="fas fa-user mr-3"></i>Dashboard Saya
-          </a>
-        @endguest
+        </div>
       </div>
 
-      {{-- 3 info cards --}}
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mt-12 lg:mt-20">
-        <div data-aos="fade-up" data-aos-delay="200" class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
-          <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-clock text-2xl lg:text-3xl text-white"></i>
+      {{-- Info Cards --}}
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        {{-- Card 1: Waktu Pelayanan --}}
+        <div data-aos="fade-up" data-aos-delay="250" 
+            class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
+          <div class="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          
+          <div class="relative flex flex-col items-center">
+            <div class="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
+              <i class="fas fa-clock text-xl text-white"></i>
+            </div>
+            
+            <h3 class="text-lg font-bold text-yellow-300 mb-3">Waktu Pelayanan</h3>
+            
+            <div class="space-y-2 text-sm text-blue-100 w-full">
+              <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
+                <i class="fas fa-calendar-alt text-yellow-300 text-xs"></i>
+                <span class="font-semibold">Senin - Ahad</span>
+              </div>
+              <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
+                <i class="fas fa-clock text-yellow-300 text-xs"></i>
+                <span>08:00 - 16:00 WIB</span>
+              </div>
+              <div class="mt-3 pt-3 border-t border-white/20">
+                <div class="bg-green-500/20 border border-green-400/30 rounded-lg py-1.5 px-3">
+                  <p class="text-xs font-semibold">
+                    <i class="fas fa-globe text-green-300 mr-1"></i>
+                    Pendaftaran Online <span class="text-green-300">24/7</span>
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <h3 class="text-lg lg:text-xl font-bold text-um-gold mb-2">Waktu Pelayanan</h3>
-          <p class="text-sm lg:text-base text-blue-100 mb-1">Senin-Ahad, Pukul 08:00-16:00 WIB</p>
-          <p class="text-xs lg:text-sm text-blue-200">Pendaftaran Online Buka 24 Jam</p>
         </div>
 
-        <div data-aos="fade-up" data-aos-delay="300" class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
-          <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-trophy text-2xl lg:text-3xl text-white"></i>
+        {{-- Card 2: Lokasi --}}
+        <div data-aos="fade-up" data-aos-delay="300" 
+            class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
+          <div class="absolute inset-0 bg-gradient-to-br from-pink-400/20 to-purple-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          
+          <div class="relative flex flex-col items-center">
+            <div class="w-14 h-14 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
+              <i class="fas fa-map-marker-alt text-xl text-white"></i>
+            </div>
+            
+            <h3 class="text-lg font-bold text-pink-300 mb-3">Pendaftaran On Desk</h3>
+            
+            <div class="space-y-2 text-sm text-blue-100 w-full">
+              <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
+                <i class="fas fa-university text-pink-300 text-xs"></i>
+                <span class="font-semibold">Kampus 3 UM Metro</span>
+              </div>
+              <div class="mt-3 pt-3 border-t border-white/20">
+                <a href="#kontak" class="inline-flex items-center gap-2 text-xs text-pink-200 hover:text-pink-300 transition-colors font-semibold">
+                  <i class="fas fa-directions"></i>
+                  Lihat Peta Lokasi
+                </a>
+              </div>
+            </div>
           </div>
-          <h3 class="text-lg lg:text-xl font-bold text-um-gold mb-2">Pendaftaran On Desk</h3>
-          <p class="text-sm lg:text-base text-blue-100 mb-1">Kampus 3 UM Metro</p>
-          <p class="text-xs lg:text-sm text-blue-200">Jalan Gatot Subroto No. 100 Yosodadi Kota Metro</p>
         </div>
 
-        <div data-aos="fade-up" data-aos-delay="400" class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center">
-          <div class="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-headset text-2xl lg:text-3xl text-white"></i>
+        {{-- Card 3: Kontak --}}
+        <div data-aos="fade-up" data-aos-delay="350" 
+            class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
+          <div class="absolute inset-0 bg-gradient-to-br from-green-400/20 to-teal-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          
+          <div class="relative flex flex-col items-center">
+            <div class="w-14 h-14 bg-gradient-to-br from-green-400 to-teal-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
+              <i class="fas fa-headset text-xl text-white"></i>
+            </div>
+            
+            <h3 class="text-lg font-bold text-green-300 mb-3">Bantuan Layanan</h3>
+            
+            <div class="space-y-2 w-full">
+              <a href="https://wa.me/6287790740408" target="_blank" 
+                class="flex items-center justify-center gap-2 bg-white/10 hover:bg-green-500/30 rounded-lg py-2 px-3 transition-all group/link text-sm">
+                <i class="fab fa-whatsapp text-green-300 text-lg"></i>
+                <div class="text-left">
+                  <p class="text-xs text-blue-200">WhatsApp</p>
+                  <p class="font-bold text-white group-hover/link:text-green-300 transition-colors text-sm">087790740408</p>
+                </div>
+              </a>
+              
+              <a href="mailto:info@lembagabahasa.site" 
+                class="flex items-center justify-center gap-2 bg-white/10 hover:bg-yellow-500/30 rounded-lg py-2 px-3 transition-all group/link text-sm">
+                <i class="fas fa-envelope text-yellow-300 text-lg"></i>
+                <div class="text-left">
+                  <p class="text-xs text-blue-200">Email</p>
+                  <p class="font-bold text-white group-hover/link:text-yellow-300 transition-colors text-xs break-all">info@lembagabahasa.site</p>
+                </div>
+              </a>
+            </div>
           </div>
-          <h3 class="text-lg lg:text-xl font-bold text-um-gold mb-2">Bantuan Layanan</h3>
-          <p class="text-sm lg:text-base text-blue-100 mb-1">Whatsapp : 087790740408</p>
-          <p class="text-xs lg:text-sm text-blue-200">Email: info@lemabagabahasa.site</p>
         </div>
       </div>
     </div>
   </div>
 
   {{-- SECTION: Berita / Jadwal / Nilai (desain split) --}}
-    <section class="py-6 lg:py-10 bg-white">
-    {{-- Jadwal Tes EPT Offline --}}
-    <x-post.section-split
-        title="Jadwal Tes EPT Offline"
-        :items="$schedules"
-        :moreRoute="route('front.schedule')"
-        emptyText="Belum ada jadwal."
-    />
+    <section id="berita" class="py-6 lg:py-10 bg-white">
+      {{-- Jadwal Tes EPT Offline --}}
+      <x-post.section-split
+          title="Jadwal Tes EPT Offline"
+          :items="$schedules"
+          :moreRoute="route('front.schedule')"
+          emptyText="Belum ada jadwal."
+      />
 
-    {{-- Nilai Tes EPT --}}
-    <x-post.section-split
-        title="Nilai Tes EPT"
-        :items="$scores"
-        :moreRoute="route('front.scores')"
-        emptyText="Belum ada pengumuman nilai."
-    />
+      {{-- Nilai Tes EPT --}}
+      <x-post.section-split
+          title="Nilai Tes EPT"
+          :items="$scores"
+          :moreRoute="route('front.scores')"
+          emptyText="Belum ada pengumuman nilai."
+      />
 
-    {{-- Berita --}}
-    <x-post.section-split
-        title="Berita Terbaru"
-        :items="$news"
-        :moreRoute="route('front.news')"
-        emptyText="Belum ada berita."
-    />
+      {{-- Berita --}}
+      <x-post.section-split
+          title="Berita Terbaru"
+          :items="$news"
+          :moreRoute="route('front.news')"
+          emptyText="Belum ada berita."
+      />
     </section>
 
   {{-- BERANDA (stats & CTA) --}}
@@ -127,89 +252,6 @@
           <a href="#layanan" class="w-full lg:w-auto border-2 border-um-blue text-um-blue px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-um-blue hover:text-white transition-colors text-lg">
             <i class="fas fa-info-circle mr-2"></i>Pelajari Lebih Lanjut
           </a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  {{-- LAYANAN --}}
-  <section id="layanan" class="py-12 lg:py-20">
-    <div class="max-w-7xl mx-auto px-4 lg:px-8">
-      <div data-aos="fade-up" class="text-center mb-12 lg:mb-16">
-        <h2 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-4 lg:mb-6">Layanan Unggulan Kami</h2>
-        <p class="text-gray-600 text-lg lg:text-xl max-w-2xl mx-auto">Dua layanan utama yang telah terpercaya melayani ribuan klien dengan standar internasional</p>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        {{-- EPT --}}
-        <div data-aos="fade-right" data-aos-delay="100" class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
-          <div class="flex items-start space-x-6">
-            <div class="flex-1">
-              <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">English Proficiency Test</h3>
-              <p class="text-gray-600 mb-6 lg:mb-8 leading-relaxed">
-                Uji kemampuan bahasa Inggris dengan standar internasional.
-                Dapatkan sertifikat resmi untuk keperluan akademik dan profesional.
-              </p>
-              <div class="space-y-3 mb-6 lg:mb-8">
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-um-blue mr-3"></i><span>Sertifikat resmi terakreditasi</span></div>
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-um-blue mr-3"></i><span>Tes berbasis komputer modern</span></div>
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-um-blue mr-3"></i><span>Hasil cepat dan akurat</span></div>
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-um-blue mr-3"></i><span>Standar internasional TOEFL/IELTS</span></div>
-              </div>
-              <a href="{{ route('filament.admin.resources.ept.index') }}" class="inline-flex items-center bg-um-blue text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
-                <i class="fas fa-user-plus mr-2"></i>Daftar EPT Sekarang
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {{-- Penerjemahan --}}
-        <div data-aos="fade-left" data-aos-delay="100" class="bg-white rounded-2xl lg:rounded-3xl p-8 lg:p-10 shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow">
-          <div class="flex items-start space-x-6">
-            <div class="flex-1">
-              <h3 class="text-xl lg:text-2xl font-bold mb-3 lg:mb-4">Penerjemahan Dokumen</h3>
-              <p class="text-gray-600 mb-6 lg:mb-8 leading-relaxed">
-                Layanan penerjemahan profesional dengan akurasi tinggi.
-                Didukung tim translator berpengalaman dan bersertifikat.
-              </p>
-              <div class="space-y-3 mb-6 lg:mb-8">
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-purple-600 mr-3"></i><span>Translator tersertifikasi internasional</span></div>
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-purple-600 mr-3"></i><span>Berbagai jenis dokumen</span></div>
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-purple-600 mr-3"></i><span>Garansi akurasi tinggi</span></div>
-                <div class="flex items-center text-gray-600"><i class="fas fa-check text-purple-600 mr-3"></i><span>Pengerjaan cepat & tepat waktu</span></div>
-              </div>
-              <a href="{{ route('filament.admin.resources.penerjemahan.index') }}" class="inline-flex items-center bg-purple-600 text-white px-6 py-3 lg:px-8 lg:py-4 rounded-xl font-medium hover:bg-purple-700 transition-colors text-lg">
-                <i class="fas fa-file-alt mr-2"></i>Mulai Terjemahkan
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {{-- Why choose us --}}
-      <div data-aos="fade-up" data-aos-delay="200" class="mt-16 lg:mt-24 bg-gray-50 rounded-2xl lg:rounded-3xl p-8 lg:p-12">
-        <h3 class="text-2xl lg:text-3xl font-bold text-center mb-8 lg:mb-12">Mengapa Memilih Lembaga Bahasa UM Metro?</h3>
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-          <div class="text-center">
-            <div class="w-16 h-16 lg:w-20 lg:h-20 bg-um-blue rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="fas fa-award text-white text-xl lg:text-2xl"></i></div>
-            <h4 class="font-bold text-lg mb-2">Terakreditasi</h4>
-            <p class="text-gray-600">Standar internasional dengan sertifikasi resmi</p>
-          </div>
-          <div class="text-center">
-            <div class="w-16 h-16 lg:w-20 lg:h-20 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="fas fa-users text-white text-xl lg:text-2xl"></i></div>
-            <h4 class="font-bold text-lg mb-2">Tim Ahli</h4>
-            <p class="text-gray-600">Profesional berpengalaman 15+ tahun</p>
-          </div>
-          <div class="text-center">
-            <div class="w-16 h-16 lg:w-20 lg:h-20 bg-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="fas fa-clock text-white text-xl lg:text-2xl"></i></div>
-            <h4 class="font-bold text-lg mb-2">Cepat & Tepat</h4>
-            <p class="text-gray-600">Layanan efisien dengan hasil berkualitas</p>
-          </div>
-          <div class="text-center">
-            <div class="w-16 h-16 lg:w-20 lg:h-20 bg-um-gold rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="fas fa-star text-white text-xl lg:text-2xl"></i></div>
-            <h4 class="font-bold text-lg mb-2">Terpercaya</h4>
-            <p class="text-gray-600">Ribuan klien puas dengan layanan kami</p>
-          </div>
         </div>
       </div>
     </div>
