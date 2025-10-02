@@ -81,38 +81,35 @@
         </div>
       </div>
 
-      {{-- Info Cards --}}
+      {{-- Info Cards (Ringkas) --}}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
         {{-- Card 1: Waktu Pelayanan --}}
         <div data-aos="fade-up" data-aos-delay="250" 
-            class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
+        class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
           <div class="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          
           <div class="relative flex flex-col items-center">
-            <div class="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
-              <i class="fas fa-clock text-xl text-white"></i>
+        <div class="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
+          <i class="fas fa-clock text-xl text-white"></i>
+        </div>
+        <h3 class="text-lg font-bold text-yellow-300 mb-3">Waktu Pelayanan</h3>
+        <div class="space-y-2 text-sm text-blue-100 w-full">
+          <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
+            <i class="fas fa-calendar-alt text-yellow-300 text-xs"></i>
+            <span>Senin-Kamis 08:00-16:00</span>
+          </div>
+          <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
+            <i class="fas fa-calendar-alt text-yellow-300 text-xs"></i>
+            <span>Jumat 08:00-11:30</span>
+          </div>
+          <div class="mt-3 pt-3 border-t border-white/20">
+            <div class="bg-green-500/20 border border-green-400/30 rounded-lg py-1.5 px-3">
+          <p class="text-xs font-semibold">
+            <i class="fas fa-globe text-green-300 mr-1"></i>
+            Online 24/7
+          </p>
             </div>
-            
-            <h3 class="text-lg font-bold text-yellow-300 mb-3">Waktu Pelayanan</h3>
-            
-            <div class="space-y-2 text-sm text-blue-100 w-full">
-              <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
-                <i class="fas fa-calendar-alt text-yellow-300 text-xs"></i>
-                <span class="font-semibold">Senin - Ahad</span>
-              </div>
-              <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
-                <i class="fas fa-clock text-yellow-300 text-xs"></i>
-                <span>08:00 - 16:00 WIB</span>
-              </div>
-              <div class="mt-3 pt-3 border-t border-white/20">
-                <div class="bg-green-500/20 border border-green-400/30 rounded-lg py-1.5 px-3">
-                  <p class="text-xs font-semibold">
-                    <i class="fas fa-globe text-green-300 mr-1"></i>
-                    Pendaftaran Online <span class="text-green-300">24/7</span>
-                  </p>
-                </div>
-              </div>
-            </div>
+          </div>
+        </div>
           </div>
         </div>
 
