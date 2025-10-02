@@ -8,22 +8,22 @@
 
 @section('content')
 <style>
-  .tbl-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:1.5rem 0}
-  .prose .tbl-wrap table{width:100%;border-collapse:separate;border-spacing:0;font-size:.95rem}
-  .prose .tbl-wrap thead th{position:sticky;top:0;z-index:1;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff;font-weight:600;padding:14px 16px;text-align:left;white-space:nowrap;border-bottom:2px solid #1d4ed8}
-  .prose .tbl-wrap tbody td{padding:12px 16px;vertical-align:top;color:#374151;border-bottom:1px solid #f3f4f6;word-break:break-word}
+  .tbl-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:0.2rem 0}
+  .prose .tbl-wrap table{width:100%;border-collapse:separate;border-spacing:0;font-size:.8rem}
+  .prose .tbl-wrap thead th{position:sticky;top:0;z-index:1;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff;font-weight:600;padding:2px 2px;text-align:left;white-space:nowrap;border-bottom:2px solid #1d4ed8}
+  .prose .tbl-wrap tbody td{padding:2px 2px;vertical-align:top;color:#374151;border-bottom:1px solid #f3f4f6;word-break:break-word}
   .prose .tbl-wrap tbody tr:nth-child(even) td{background:#f9fafb}
   .prose .tbl-wrap tbody tr:hover td{background:#eff6ff}
   .prose .tbl-wrap thead th:first-child,.prose .tbl-wrap tbody td:first-child{text-align:center;width:56px}
   .prose .tbl-wrap thead th:last-child,.prose .tbl-wrap tbody td:last-child{text-align:center;white-space:nowrap}
-  @media (max-width:640px){.prose .tbl-wrap thead th,.prose .tbl-wrap tbody td{padding:10px 12px;font-size:.9rem}}
+  @media (max-width:640px){.prose .tbl-wrap thead th,.prose .tbl-wrap tbody td{padding:5px 6px;font-size:.7rem}}
 </style>
 
 <!-- Breadcrumb & Back Button -->
 <div class="bg-gray-50 border-b">
   <div class="max-w-7xl mx-auto px-4 lg:px-6 py-4">
     <a href="{{ url()->previous() }}" 
-       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium transition-colors group">
+       class="inline-flex items-center gap-2 text-blue-400 hover:text-blue-700 font-medium transition-colors group">
       <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
       </svg>
@@ -35,13 +35,13 @@
 <section class="max-w-7xl mx-auto px-4 lg:px-6 py-8 lg:py-12">
   
   {{-- ========== HEADER ARTIKEL ========== --}}
-  <header class="mb-8">
-    <h1 class="text-3xl lg:text-5xl font-bold leading-tight text-gray-900 mb-4">
+  <header class="mb-8 text-center">
+    <h1 class="text-2xl lg:text-3xl font-bold leading-tight text-gray-900 mb-4">
       {{ $post->title }}
     </h1>
     
     <!-- Meta Information -->
-    <div class="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+    <div class="flex flex-wrap justify-center items-center gap-4 text-sm text-gray-600">
       <div class="flex items-center gap-2">
         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -73,15 +73,15 @@
 
   @if($isWide)
     {{-- ========== MODE SATU KOLOM (FULL WIDTH) ========== --}}
-    <article class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-10">
+    <article class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
       <div id="post-body"
-           class="prose prose-lg lg:prose-xl max-w-none
-                  prose-headings:font-bold prose-headings:text-gray-900 prose-headings:mt-8 prose-headings:mb-4
+           class="prose prose-sm lg:prose-lg max-w-none
+                  prose-headings:font-bold prose-headings:text-gray-900 prose-headings:mt-2 prose-headings:mb-2
                   prose-p:text-gray-700 prose-p:leading-relaxed
                   prose-a:text-blue-600 prose-a:font-medium hover:prose-a:text-blue-700 hover:prose-a:underline
                   prose-img:rounded-xl prose-img:shadow-lg prose-img:my-8
-                  prose-figure:my-8 prose-figcaption:text-center prose-figcaption:text-sm prose-figcaption:text-gray-500 prose-figcaption:mt-3
-                  prose-ul:my-6 prose-ol:my-6
+                  prose-figure:my-2 prose-figcaption:text-center prose-figcaption:text-sm prose-figcaption:text-gray-500 prose-figcaption:mt-2
+                  prose-ul:my-2 prose-ol:my-2
                   prose-li:text-gray-700 prose-li:my-2
                   prose-strong:text-gray-900 prose-strong:font-semibold
                   prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-lg">
@@ -91,7 +91,7 @@
 
     @if($related->count())
       <div class="mt-16">
-        <h2 class="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">Artikel Terkait</h2>
+        <h2 class="text-2xl text-center lg:text-2xl font-bold text-gray-900 mb-6">Informasi Lainnya</h2>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           @foreach($related as $r)
             <a href="{{ route('front.post.show', $r->slug) }}" 
