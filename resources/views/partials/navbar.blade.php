@@ -33,7 +33,7 @@
       {{-- Desktop menu --}}
       <div class="hidden lg:flex items-center gap-6">
         <a href="{{ route('front.home') }}#berita" class="{{ $linkBase }}">Cek Jadwal dan Nilai</a>
-        <a href="{{ route('front.home') }}#tentang" class="{{ $linkBase }}">Tentang</a>
+        <a href="{{ route('front.home') }}#profil" class="{{ $linkBase }}">Profil</a>
         <a href="{{ route('front.home') }}#kontak" class="{{ $linkBase }}">Kontak</a>
 
         {{-- Verifikasi: halaman sendiri, bisa diberi state active --}}

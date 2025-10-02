@@ -204,6 +204,31 @@
       />
     </section>
 
+  {{-- VIDEO PROFIL --}}
+  <section id="profil" class="py-12 lg:py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8">
+      <div data-aos="fade-up" class="text-center mb-8 lg:mb-12">
+        <h2 class="text-3xl lg:text-4xl font-bold mb-4">Profil Lembaga Bahasa</h2>
+        <p class="text-gray-600 text-lg lg:text-xl max-w-3xl mx-auto">
+          Kenali lebih dekat layanan dan fasilitas Lembaga Bahasa UM Metro
+        </p>
+      </div>
+
+      <div data-aos="zoom-in" data-aos-delay="200" class="max-w-5xl mx-auto">
+        <div class="relative rounded-2xl overflow-hidden shadow-2xl bg-gray-900" style="aspect-ratio: 16/9;">
+          <iframe 
+            class="absolute inset-0 w-full h-full"
+            src="https://www.youtube.com/embed/MBWXzhED58Y" 
+            title="Profil Lembaga Bahasa UM Metro"
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
   {{-- BERANDA (stats & CTA) --}}
   <section id="beranda" class="py-12 lg:py-20 bg-gradient-to-br from-blue-50 to-purple-50">
     <div class="max-w-7xl mx-auto px-4 lg:px-8">
@@ -240,15 +265,6 @@
             <div class="text-2xl lg:text-3xl font-bold text-um-gold">A</div>
             <div class="text-sm lg:text-base text-gray-600">Akreditasi</div>
           </div>
-        </div>
-
-        <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 justify-center items-center">
-          <a href="{{ route('filament.admin.auth.login') }}" class="w-full lg:w-auto bg-um-blue text-white px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors text-lg">
-            <i class="fas fa-rocket mr-2"></i>Mulai Sekarang
-          </a>
-          <a href="#layanan" class="w-full lg:w-auto border-2 border-um-blue text-um-blue px-8 py-4 lg:px-10 lg:py-4 rounded-xl font-medium hover:bg-um-blue hover:text-white transition-colors text-lg">
-            <i class="fas fa-info-circle mr-2"></i>Pelajari Lebih Lanjut
-          </a>
         </div>
       </div>
     </div>
