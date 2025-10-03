@@ -12,6 +12,11 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
+use App\Support\Verification;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class EptSubmissionResource extends Resource
 {
@@ -105,6 +110,14 @@ class EptSubmissionResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+
+                Action::make('print')
+                    ->label('Cetak PDF')
+                    ->icon('heroicon-o-printer')
+                    ->visible(fn (EptSubmission $record) => $record->status === 'approved')
+                    ->url(fn (EptSubmission $record) => route('ept-submissions.pdf', $record))
+                    ->openUrlInNewTab(),
+
                 Action::make('approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
@@ -113,11 +126,38 @@ class EptSubmissionResource extends Resource
                     ->visible(fn (EptSubmission $record): bool =>
                         $record->status === 'pending' && auth()->user()?->hasAnyRole(['Admin','Staf Administrasi'])
                     )
-                    ->form([
-                        Forms\Components\Textarea::make('catatan_admin')
-                            ->label('Catatan (Opsional)')
-                            ->rows(4),
-                    ])
+                    ->form(function (EptSubmission $record) {
+                        // Hitung saran nomor surat default (sequence per tahun)
+                        $year   = now()->year;
+                        $count  = EptSubmission::whereYear('approved_at', $year)
+                                    ->whereNotNull('surat_nomor')
+                                    ->count();
+                        $seq    = str_pad((string)($count + 1), 3, '0', STR_PAD_LEFT);
+                        $suggest= "{$seq}/II.3.AU/F/KET/LB_UMM/{$year}";
+
+                        return [
+                            Forms\Components\TextInput::make('surat_nomor')
+                                ->label('Nomor Surat')
+                                ->default($record->surat_nomor ?: $suggest)
+                                ->required()
+                                ->maxLength(100)
+                                // Validasi format: 3 digit / II.3.AU/F/KET/LB_UMM / 4 digit tahun
+                                ->rule('regex:/^\d{3}\/II\.3\.AU\/F\/KET\/LB_UMM\/\d{4}$/')
+                                ->helperText('Format: 001/II.3.AU/F/KET/LB_UMM/2025')
+                                // Cek unik di DB
+                                ->rule(fn () => Rule::unique('ept_submissions', 'surat_nomor')
+                                    ->ignore($record->id)
+                                    ->where(fn ($q) => $q->whereNotNull('surat_nomor')))
+                                    ->validationMessages([
+                                        'required' => 'Nomor surat wajib diisi.',
+                                        'regex'    => 'Format nomor surat tidak sesuai',
+                                        'unique'   => 'Nomor surat sudah digunakan.',
+                                    ]),
+                            Forms\Components\Textarea::make('catatan_admin')
+                                ->label('Catatan (Opsional)')
+                                ->rows(4),
+                        ];
+                    })
                     ->action(function (EptSubmission $record, array $data) {
                         if ($record->status !== 'pending') {
                             Notification::make()->title('Status sudah tidak pending.')->danger()->send();
@@ -125,19 +165,26 @@ class EptSubmissionResource extends Resource
                         }
 
                         DB::transaction(function () use ($record, $data) {
-                            $record->update([
-                                'status' => 'approved',
-                                'catatan_admin' => $data['catatan_admin'] ?? $record->catatan_admin,
-                                'approved_at' => now(),
-                                'approved_by' => auth()->id(),
+                            // Kunci baris supaya sequence/unik aman saat traffic tinggi
+                            $locked = EptSubmission::query()->lockForUpdate()->find($record->id);
+
+                            // Generate kode verifikasi jika kosong
+                            $code = $locked->verification_code ?: Verification::generateCode();
+
+                            $locked->update([
+                                'status'            => 'approved',
+                                'catatan_admin'     => $data['catatan_admin'] ?? $locked->catatan_admin,
+                                'approved_at'       => now(),
+                                'approved_by'       => auth()->id(),
+                                'verification_code' => $code,
+                                'verification_url'  => url("/verification/{$code}"),
+                                'surat_nomor'       => $data['surat_nomor'], // <= pakai input admin
                             ]);
                         });
 
                         Notification::make()->title('Pengajuan disetujui.')->success()->send();
-
-                        // contoh: kirim notifikasi ke user (opsional, aktifkan jika ada Notifiable)
-                        // $record->user->notify(new SubmissionApprovedNotification($record));
                     }),
+
                 Action::make('reject')
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')

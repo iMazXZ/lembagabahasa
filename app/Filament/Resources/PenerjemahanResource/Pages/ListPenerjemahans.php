@@ -52,6 +52,18 @@ class ListPenerjemahans extends ListRecords
         return $query;
     }
 
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Resources\PenerjemahanResource\Widgets\PenerjemahanInfoBanner::class,
+        ];
+    }
+    
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
+    }
+
     public function getSubheading(): ?string
     {
         $user = Auth::user();
@@ -70,4 +82,5 @@ class ListPenerjemahans extends ListRecords
 
         return '';
     }
+    
 }

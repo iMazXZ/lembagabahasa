@@ -8,6 +8,7 @@ use App\Http\Controllers\CetakNilaiGrupController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PdfExportController;
 use App\Http\Controllers\VerificationController;
+use App\Http\Controllers\EptSubmissionPdfController;
 
 /*
 |--------------------------------------------------------------------------
@@ -75,8 +76,21 @@ Route::middleware('auth')->group(function () {
         ->name('penerjemahan.pdf.regenerate');
 });
 
+Route::middleware(['auth'])->group(function () {
+    Route::get('/ept-submissions/{submission}/pdf', [EptSubmissionPdfController::class, 'show'])
+        ->name('ept-submissions.pdf');
+});
+
+Route::get('/verification/{code}/ept.pdf', [EptSubmissionPdfController::class, 'byCode'])
+    ->where('code', '[A-Za-z0-9\-_]+')
+    ->middleware('throttle:30,1') // rate-limit opsional
+    ->name('verification.ept.pdf');
+
 Route::get('/verification', [VerificationController::class, 'index'])
-    ->name('verification.index');   // NEW: form cek kode
+    ->name('verification.index');
 
 Route::get('/verification/{code}', [VerificationController::class, 'show'])
-    ->name('verification.show');    // existing
+    ->where('code', '[A-Za-z0-9\-_]+')
+    ->middleware('throttle:60,1')   // atau lebih ketat: throttle:20,1
+    ->name('verification.show');
+
