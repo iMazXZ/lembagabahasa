@@ -29,15 +29,14 @@ class DashboardKustom extends Page
 
     protected static string $view = 'filament.pages.dashboard-kustom';
 
-    protected static ?int $navigationSort = -2; // Urutan menu paling atas
+    protected static ?int $navigationSort = -2;
 
     public function getHeaderWidgetsColumns(): int
     {
-        // Atur menjadi 3 kolom untuk pendaftar
         if(auth()->user()->hasRole('Pendaftar')) {
             return 3;
         }
-        return 2; // Biarkan 2 kolom untuk admin/pimpinan
+        return 2;
     }
 
     protected function getHeaderWidgets(): array

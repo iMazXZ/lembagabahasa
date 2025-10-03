@@ -37,6 +37,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
     protected static ?string $navigationIcon  = 'heroicon-o-document-plus';
     protected static ?string $navigationLabel = 'Pengajuan Surat Rekomendasi';
     protected static ?string $title           = ' ';
+    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
     protected static string  $view            = 'filament.pages.submit-ept-score';
 
     /** sembunyikan form jika user sudah punya pengajuan (pending/approved) */
