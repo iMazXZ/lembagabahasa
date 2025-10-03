@@ -19,17 +19,20 @@ use App\Http\Controllers\EptSubmissionPdfController;
 // Beranda: ambil 3 kategori (news/schedule/scores) untuk section di welcome
 Route::get('/', [HomeController::class, 'index'])->name('front.home');
 
-// Index per kategori
-Route::get('/berita', fn () => app(PostController::class)->index('news'))
+// Daftar per kategori
+Route::get('/berita', [PostController::class, 'index'])
+    ->defaults('type', 'news')
     ->name('front.news');
 
-Route::get('/jadwal-ujian', fn () => app(PostController::class)->index('schedule'))
+Route::get('/jadwal-ujian', [PostController::class, 'index'])
+    ->defaults('type', 'schedule')
     ->name('front.schedule');
 
-Route::get('/nilai-ujian', fn () => app(PostController::class)->index('scores'))
+Route::get('/nilai-ujian', [PostController::class, 'index'])
+    ->defaults('type', 'scores')
     ->name('front.scores');
 
-// Detail post (pakai slug)
+// Detail post
 Route::get('/post/{slug}', [PostController::class, 'show'])
     ->name('front.post.show');
 
