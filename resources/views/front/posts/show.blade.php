@@ -1,30 +1,129 @@
+{{-- resources/views/front/posts/show.blade.php --}}
 @extends('layouts.front')
-@section('title', $post->title.' - Lembaga Bahasa')
+@section('title', ($post->title ?? 'Detail') . ' - Lembaga Bahasa')
 
 @php
-    // Atur full width untuk konten tertentu (jadwal & nilai)
-    $isWide = in_array($post->type, ['schedule','scores']);
+    use Illuminate\Support\Facades\Route;
+
+    // Mode lebar untuk konten khusus (jadwal/nilai)
+    $isWide = in_array($post->type ?? null, ['schedule','scores'], true);
+
+    // Tentukan fallback route untuk tombol kembali
+    $candidates = [
+        'front.posts.index',
+        'front.post.index',
+        'front.news.index',
+        'front.news',
+        'front.index',
+        'home',
+    ];
+    $fallbackIndex = null;
+    foreach ($candidates as $name) {
+        if (Route::has($name)) { $fallbackIndex = route($name); break; }
+    }
+    $fallbackIndex ??= (url('/berita') ?: url('/'));
+
+    $prevUrl  = url()->previous();
+    $backHref = ($prevUrl && $prevUrl !== url()->current()) ? $prevUrl : $fallbackIndex;
+
+    /**
+     * Fallback sanitizer untuk $body
+     */
+    $sanitizeHtml = function (?string $html) {
+        $html = (string) $html;
+        $html = \Illuminate\Support\Str::of($html)
+            ->replaceMatches('/<script\b[^>]*>.*?<\/script>/is', '')
+            ->replaceMatches('/\son\w+\s*=\s*"[^"]*"/i', '')
+            ->replaceMatches("/\son\w+\s*=\s*'[^']*'/i", '')
+            ->replaceMatches('/\son\w+\s*=\s*[^\s>]+/i', '')
+            ->toString();
+        return $html;
+    };
+    $renderBody = function (?string $html) use ($sanitizeHtml) {
+        if (function_exists('clean')) { try { return clean($html, 'post'); } catch (\Throwable $e) {} }
+        return $sanitizeHtml($html);
+    };
 @endphp
 
-@section('content')
+@push('styles')
 <style>
-  .tbl-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:0.2rem 0}
+  /* ================== TABEL UTAMA ================== */
+  .tbl-wrap{
+    overflow:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.08);margin:.2rem 0;
+    position:relative;
+  }
   .prose .tbl-wrap table{width:100%;border-collapse:separate;border-spacing:0;font-size:.8rem}
-  .prose .tbl-wrap thead th{position:sticky;top:0;z-index:1;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff;font-weight:600;padding:2px 2px;text-align:left;white-space:nowrap;border-bottom:2px solid #1d4ed8}
-  .prose .tbl-wrap tbody td{padding:2px 2px;vertical-align:top;color:#374151;border-bottom:1px solid #f3f4f6;word-break:break-word}
+  .prose .tbl-wrap thead th{
+    position:sticky;top:0;z-index:10;background:#2563eb;
+    background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff;font-weight:600;
+    padding:6px 8px;text-align:left;white-space:nowrap;border-bottom:2px solid #1d4ed8
+  }
+  .prose .tbl-wrap tbody td{
+    padding:6px 8px;vertical-align:top;color:#374151;border-bottom:1px solid #f3f4f6;word-break:break-word
+  }
   .prose .tbl-wrap tbody tr:nth-child(even) td{background:#f9fafb}
   .prose .tbl-wrap tbody tr:hover td{background:#eff6ff}
   .prose .tbl-wrap thead th:first-child,.prose .tbl-wrap tbody td:first-child{text-align:center;width:56px}
   .prose .tbl-wrap thead th:last-child,.prose .tbl-wrap tbody td:last-child{text-align:center;white-space:nowrap}
-  @media (max-width:640px){.prose .tbl-wrap thead th,.prose .tbl-wrap tbody td{padding:5px 6px;font-size:.7rem}}
-</style>
 
+  /* Scroll hint indicator untuk mobile */
+  @media (max-width:640px){
+    .tbl-wrap.can-scroll::before{
+      content:'← Geser untuk melihat semua kolom →';
+      position:sticky;
+      left:0;
+      display:block;
+      text-align:center;
+      padding:8px;
+      background:linear-gradient(135deg,#dbeafe 0%,#e0e7ff 100%);
+      color:#2563eb;
+      font-size:11px;
+      font-weight:600;
+      border-bottom:2px solid #93c5fd;
+      z-index:8;
+      letter-spacing:0.3px;
+      animation:pulse 2s infinite;
+    }
+
+    @keyframes pulse{
+      0%,100%{opacity:1}
+      50%{opacity:0.7}
+    }
+
+    .tbl-wrap.scrolled::before{
+      display:none;
+    }
+  }
+
+  /* ====== MODE COMPACT MOBILE (≤640px) ====== */
+  @media (max-width:640px){
+    .tbl-wrap{border-radius:8px;box-shadow:none;margin:.1rem 0}
+    .prose .tbl-wrap table{font-size:clamp(10px,3.1vw,12px);line-height:1.2;border-spacing:0}
+    .prose .tbl-wrap thead th,.prose .tbl-wrap tbody td{padding:4px 6px}
+    .prose .tbl-wrap thead th:first-child,.prose .tbl-wrap tbody td:first-child{width:36px;text-align:center;font-variant-numeric:tabular-nums}
+    .prose .tbl-wrap thead th{top:0;z-index:12}
+    .prose .tbl-wrap tbody tr:nth-child(even) td{background:#fafafa}
+    .prose .tbl-wrap tbody tr:hover td{background:#f3f6ff}
+  }
+
+  /* Opsi super-compact untuk pembungkus bertag .compact-table */
+  @media (max-width:640px){
+    .compact-table .tbl-wrap table{font-size:10.5px;line-height:1.15}
+    .compact-table .tbl-wrap th,.compact-table .tbl-wrap td{padding:2px 4px}
+    .compact-table .tbl-wrap thead th:first-child,.compact-table .tbl-wrap tbody td:first-child{width:30px}
+  }
+</style>
+@endpush
+
+@section('content')
 <!-- Breadcrumb & Back Button -->
 <div class="bg-gray-50 border-b">
   <div class="max-w-7xl mx-auto px-4 lg:px-6 py-4">
-    <a href="{{ url()->previous() }}" 
-       class="inline-flex items-center gap-2 text-blue-400 hover:text-blue-700 font-medium transition-colors group">
-      <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="{{ $backHref }}"
+       class="inline-flex items-center gap-2 text-blue-400 hover:text-blue-700 font-medium transition-colors group"
+       aria-label="Kembali ke halaman sebelumnya">
+      <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
       </svg>
       <span>Kembali</span>
@@ -32,7 +131,7 @@
   </div>
 </div>
 
-<section class="max-w-7xl mx-auto px-4 lg:px-6 py-8 lg:py-12">
+<section class="max-w-7xl mx-auto px-4 lg:px-6 py-8 lg:py-12 {{ $isWide ? 'compact-table' : '' }}">
   
   {{-- ========== HEADER ARTIKEL ========== --}}
   <header class="mb-8 text-center">
@@ -43,7 +142,7 @@
     <!-- Meta Information -->
     <div class="flex flex-wrap justify-center items-center gap-4 text-sm text-gray-600">
       <div class="flex items-center gap-2">
-        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
         </svg>
         <span>{{ optional($post->published_at)->translatedFormat('d M Y, H:i') }}</span>
@@ -51,7 +150,7 @@
       
       @if($post->author?->name)
         <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
           </svg>
           <span>{{ $post->author->name }}</span>
@@ -65,8 +164,8 @@
       <img src="{{ $post->cover_url }}" 
            alt="{{ $post->title }}"
            class="w-full aspect-[16/9] object-cover"
-           loading="lazy" 
-           decoding="async">
+           loading="lazy" decoding="async"
+           width="1280" height="720">
       <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
     </div>
   @endif
@@ -85,7 +184,7 @@
                   prose-li:text-gray-700 prose-li:my-2
                   prose-strong:text-gray-900 prose-strong:font-semibold
                   prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-lg">
-        {!! $body !!}
+        {!! $renderBody($body) !!}
       </div>
     </article>
 
@@ -124,7 +223,7 @@
                       prose-li:text-gray-700 prose-li:my-2
                       prose-strong:text-gray-900 prose-strong:font-semibold
                       prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-lg">
-            {!! $body !!}
+            {!! $renderBody($body) !!}
           </div>
         </div>
       </article>
@@ -134,7 +233,7 @@
           <div class="sticky top-24">
             <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
               <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
                 </svg>
                 <span>Artikel Terkait</span>
@@ -159,25 +258,75 @@
     </div>
   @endif
 </section>
+@endsection
 
+@push('scripts')
 <script>
-  // Rapikan semua tabel (buang inline style + bungkus)
   document.addEventListener('DOMContentLoaded', function () {
     const root = document.getElementById('post-body');
     if (!root) return;
 
     root.querySelectorAll('table').forEach((tbl) => {
-      tbl.removeAttribute('style'); tbl.removeAttribute('width');
-      tbl.querySelectorAll('th,td,tr,thead,tbody').forEach(el => {
-        el.removeAttribute('style'); el.removeAttribute('width'); el.removeAttribute('height');
+      tbl.removeAttribute('style');
+
+      tbl.querySelectorAll('th,td,thead,tbody,tr').forEach(el => {
+        el.removeAttribute('style');
+        el.removeAttribute('height');
       });
-      if (!(tbl.parentElement && tbl.parentElement.classList.contains('tbl-wrap'))) {
+
+      if (!tbl.parentElement || !tbl.parentElement.classList.contains('tbl-wrap')) {
         const wrap = document.createElement('div');
         wrap.className = 'tbl-wrap';
+        
+        // Aktifkan mode compact otomatis di layar kecil
+        if (window.matchMedia('(max-width: 640px)').matches) {
+          wrap.classList.add('compact-table');
+        }
+        
         tbl.parentNode.insertBefore(wrap, tbl);
         wrap.appendChild(tbl);
+
+        // Deteksi jika tabel bisa di-scroll (untuk mobile)
+        const checkScroll = () => {
+          if (window.innerWidth <= 640) {
+            if (wrap.scrollWidth > wrap.clientWidth) {
+              wrap.classList.add('can-scroll');
+            } else {
+              wrap.classList.remove('can-scroll');
+            }
+          } else {
+            wrap.classList.remove('can-scroll');
+          }
+        };
+
+        checkScroll();
+        window.addEventListener('resize', checkScroll);
+
+        // Hapus hint setelah user scroll
+        wrap.addEventListener('scroll', function() {
+          if (this.scrollLeft > 10) {
+            this.classList.add('scrolled');
+            this.classList.remove('can-scroll');
+          }
+        });
       }
+    });
+
+    // Amankan tautan eksternal
+    root.querySelectorAll('a[href]').forEach(a => {
+      try {
+        const href = a.getAttribute('href');
+        const u = new URL(href, window.location.origin);
+        if (u.origin !== window.location.origin) {
+          a.target = '_blank';
+          const rel = (a.rel || '').split(/\s+/);
+          if (!rel.includes('noopener')) rel.push('noopener');
+          if (!rel.includes('noreferrer')) rel.push('noreferrer');
+          if (!rel.includes('nofollow')) rel.push('nofollow');
+          a.rel = rel.join(' ').trim();
+        }
+      } catch (e) { /* abaikan URL tidak valid */ }
     });
   });
 </script>
-@endsection
+@endpush
