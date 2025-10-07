@@ -1,5 +1,57 @@
 @extends('layouts.front')
-@section('title', 'Lembaga Bahasa UM Metro')
+
+{{-- Judul halaman --}}
+@section('title', 'Lembaga Bahasa UM Metro | EPT, Penerjemahan, Pelatihan Bahasa')
+
+{{-- Meta khusus halaman ini --}}
+@section('meta')
+  <meta name="description" content="Lembaga Bahasa UM Metro menyediakan layanan English Proficiency Test (EPT), penerjemahan dokumen, dan pelatihan Basic Listening untuk mahasiswa dan umum di Kota Metro, Lampung.">
+  <meta name="keywords" content="Lembaga Bahasa UM Metro, EPT UM Metro, Penerjemahan, Basic Listening, Jadwal EPT, Nilai EPT, Pelatihan Bahasa Inggris">
+  <meta name="author" content="Lembaga Bahasa UM Metro">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Lembaga Bahasa UM Metro | EPT, Penerjemahan, Pelatihan Bahasa">
+  <meta property="og:description" content="Layanan EPT, penerjemahan dokumen, dan pelatihan bahasa Inggris.">
+  <meta property="og:url" content="{{ url()->current() }}">
+  <meta property="og:image" content="{{ asset('images/covers/default.jpg') }}">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Lembaga Bahasa UM Metro | EPT, Penerjemahan, Pelatihan Bahasa">
+  <meta name="twitter:description" content="Layanan EPT, penerjemahan dokumen, dan pelatihan bahasa Inggris.">
+  <meta name="twitter:image" content="{{ asset('images/covers/default.jpg') }}">
+
+  <!-- JSON-LD Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    "name": "Lembaga Bahasa UM Metro",
+    "url": "https://lembagabahasa.site",
+    "parentOrganization": {
+      "@type": "CollegeOrUniversity",
+      "name": "Universitas Muhammadiyah Metro",
+      "url": "https://www.ummetro.ac.id"
+    },
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Jalan Gatot Subroto No. 100, Yosodadi",
+      "addressLocality": "Metro",
+      "addressRegion": "Lampung",
+      "addressCountry": "ID"
+    },
+    "contactPoint": [{
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "telephone": "+6287790740408",
+      "email": "lembagabahasa@ummetro.ac.id",
+      "areaServed": "ID"
+    }]
+  }
+  </script>
+@endsection
 
 @section('content')
 
