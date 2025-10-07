@@ -12,11 +12,13 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components;
+use App\Notifications\EptSubmissionStatusNotification;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use App\Support\Verification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class EptSubmissionResource extends Resource
 {
@@ -127,7 +129,7 @@ class EptSubmissionResource extends Resource
                         $record->status === 'pending' && auth()->user()?->hasAnyRole(['Admin','Staf Administrasi'])
                     )
                     ->form(function (EptSubmission $record) {
-                        // Hitung saran nomor surat default (sequence per tahun)
+                        // Saran nomor surat default (sequence per tahun)
                         $year   = now()->year;
                         $count  = EptSubmission::whereYear('approved_at', $year)
                                     ->whereNotNull('surat_nomor')
@@ -141,18 +143,16 @@ class EptSubmissionResource extends Resource
                                 ->default($record->surat_nomor ?: $suggest)
                                 ->required()
                                 ->maxLength(100)
-                                // Validasi format: 3 digit / II.3.AU/F/KET/LB_UMM / 4 digit tahun
                                 ->rule('regex:/^\d{3}\/II\.3\.AU\/F\/KET\/LB_UMM\/\d{4}$/')
                                 ->helperText('Format: 001/II.3.AU/F/KET/LB_UMM/2025')
-                                // Cek unik di DB
                                 ->rule(fn () => Rule::unique('ept_submissions', 'surat_nomor')
                                     ->ignore($record->id)
                                     ->where(fn ($q) => $q->whereNotNull('surat_nomor')))
-                                    ->validationMessages([
-                                        'required' => 'Nomor surat wajib diisi.',
-                                        'regex'    => 'Format nomor surat tidak sesuai',
-                                        'unique'   => 'Nomor surat sudah digunakan.',
-                                    ]),
+                                ->validationMessages([
+                                    'required' => 'Nomor surat wajib diisi.',
+                                    'regex'    => 'Format nomor surat tidak sesuai',
+                                    'unique'   => 'Nomor surat sudah digunakan.',
+                                ]),
                             Forms\Components\Textarea::make('catatan_admin')
                                 ->label('Catatan (Opsional)')
                                 ->rows(4),
@@ -165,10 +165,9 @@ class EptSubmissionResource extends Resource
                         }
 
                         DB::transaction(function () use ($record, $data) {
-                            // Kunci baris supaya sequence/unik aman saat traffic tinggi
                             $locked = EptSubmission::query()->lockForUpdate()->find($record->id);
 
-                            // Generate kode verifikasi jika kosong
+                            // Generate kode verifikasi jika kosong (pakai App\Support\Verification)
                             $code = $locked->verification_code ?: Verification::generateCode();
 
                             $locked->update([
@@ -177,12 +176,23 @@ class EptSubmissionResource extends Resource
                                 'approved_at'       => now(),
                                 'approved_by'       => auth()->id(),
                                 'verification_code' => $code,
-                                'verification_url'  => url("/verification/{$code}"),
-                                'surat_nomor'       => $data['surat_nomor'], // <= pakai input admin
+                                'verification_url'  => route('verification.show', ['code' => $code]),
+                                'surat_nomor'       => $data['surat_nomor'],
                             ]);
                         });
 
-                        Notification::make()->title('Pengajuan disetujui.')->success()->send();
+                        // Kirim email setelah commit
+                        $fresh   = $record->fresh();
+                        $pemohon = $fresh->user; // relasi pemohon
+
+                        if ($pemohon) {
+                            $verificationUrl = $fresh->verification_url;
+                            // Sertakan link unduh PDF jika memang route-nya ada & aksesnya sesuai
+                            $pdfUrl = route('ept-submissions.pdf', $fresh);
+                            $pemohon->notify(new EptSubmissionStatusNotification('approved', $verificationUrl, $pdfUrl));
+                        }
+
+                        Notification::make()->title('Pengajuan disetujui & email terkirim.')->success()->send();
                     }),
 
                 Action::make('reject')
@@ -207,17 +217,35 @@ class EptSubmissionResource extends Resource
 
                         DB::transaction(function () use ($record, $data) {
                             $record->update([
-                                'status' => 'rejected',
+                                'status'        => 'rejected',
                                 'catatan_admin' => $data['catatan_admin'],
-                                'rejected_at' => now(),
-                                'rejected_by' => auth()->id(),
+                                'rejected_at'   => now(),
+                                'rejected_by'   => auth()->id(),
                             ]);
                         });
 
-                        Notification::make()->title('Pengajuan ditolak.')->success()->send();
+                        // kirim email setelah commit
+                        $fresh = $record->fresh('user'); // pastikan relasi diload
+                        $pemohon = $fresh?->user;
 
-                        // contoh: kirim notifikasi ke user (opsional)
-                        // $record->user->notify(new SubmissionRejectedNotification($record));
+                        if (! $pemohon) {
+                            Log::warning('EPT rejected: user not found for record', ['id' => $record->id]);
+                            Notification::make()->title('Ditolak, tapi user tidak ditemukan.')->danger()->send();
+                            return;
+                        }
+
+                        try {
+                            // rejected tidak perlu link
+                            $pemohon->notify(new EptSubmissionStatusNotification('rejected', null, null));
+                            Notification::make()->title('Pengajuan ditolak & email terkirim.')->success()->send();
+                        } catch (\Throwable $e) {
+                            Log::error('Gagal kirim email rejected', [
+                                'e' => $e->getMessage(),
+                                'record_id' => $record->id,
+                                'user_id' => $pemohon->id,
+                            ]);
+                            Notification::make()->title('Ditolak, tapi gagal mengirim email (cek logs).')->danger()->send();
+                        }
                     }),
             ])
             ->bulkActions([
