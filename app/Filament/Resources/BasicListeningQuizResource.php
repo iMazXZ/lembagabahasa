@@ -16,7 +16,7 @@ class BasicListeningQuizResource extends Resource
     protected static ?string $model = BasicListeningQuiz::class;
     protected static ?string $navigationIcon = 'heroicon-o-pencil-square';
     protected static ?string $navigationGroup = 'Basic Listening';
-    protected static ?string $pluralLabel = 'Quizzes';
+    protected static ?string $pluralLabel = 'Quizzes (Paket)';
     protected static ?string $modelLabel = 'Quiz';
 
     public static function form(Form $form): Form

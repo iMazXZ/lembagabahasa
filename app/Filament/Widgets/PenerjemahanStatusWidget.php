@@ -14,7 +14,6 @@ class PenerjemahanStatusWidget extends Widget
     use HasWidgetShield;
     
     protected static string $view = 'filament.widgets.penerjemahan-status-widget';
-    // protected int | string | array $columnSpan = 'full';
     protected int | string | array $columnSpan = 1;
     public ?Penerjemahan $latestPenerjemahan;
 

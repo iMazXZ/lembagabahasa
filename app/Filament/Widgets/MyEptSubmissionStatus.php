@@ -12,7 +12,7 @@ class MyEptSubmissionStatus extends Widget
 {
     protected static string $view = 'filament.widgets.my-ept-submission-status';
 
-    protected int | string | array $columnSpan = 'full';
+    protected int | string | array $columnSpan = 1;
     
     public static function canView(): bool
     {

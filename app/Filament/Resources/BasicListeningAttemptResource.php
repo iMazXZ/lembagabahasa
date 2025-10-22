@@ -30,6 +30,14 @@ class BasicListeningAttemptResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // 🆕 TAMBAH EAGER LOADING DI SINI
+            ->query(BasicListeningAttempt::with([
+                'user.prody', 
+                'session', 
+                'quiz.questions', // 🆕 DIBUTUHKAN UNTK quiz_type
+                'connectCode'     // 🆕 DIBUTUHKAN UNTK kode_hint
+            ]))
+            
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Peserta')
@@ -48,25 +56,46 @@ class BasicListeningAttemptResource extends Resource
                     ->label('Pert.')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('quiz_type')
+                    ->label('Tipe')
+                    ->state(function($record) {
+                        $firstQuestion = $record->quiz->questions->first();
+                        return $firstQuestion ? $firstQuestion->type : 'unknown';
+                    })
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => match($state) {
+                        'fib_paragraph' => 'FIB',
+                        'multiple_choice' => 'MC', 
+                        default => $state
+                    })
+                    ->color(fn ($state) => match($state) {
+                        'fib_paragraph' => 'warning',
+                        'multiple_choice' => 'success',
+                        default => 'gray'
+                    }),
+
                 Tables\Columns\TextColumn::make('session.title')
                     ->label('Judul')
                     ->limit(30),
 
-                Tables\Columns\TextColumn::make('score')
+               Tables\Columns\TextColumn::make('score')
                     ->label('Skor')
                     ->badge()
                     ->sortable()
                     ->color(fn ($state) => match (true) {
-                        $state === null          => 'gray',
+                        $state === null          => 'gray',    // Belum dinilai
+                        $state === 0             => 'danger',  // 🆕 EXPLICIT UNTUK SKOR 0
                         $state >= 80             => 'success',
                         $state >= 60             => 'warning',
-                        default                  => 'danger',
-                    }),
+                        default                  => 'danger',  // 1-59
+                    })
+                    ->formatStateUsing(fn ($state) => $state === null ? '–' : $state),
 
-                // Tampilkan hint kode (bukan plaintext)
+                // 🆕 PERBAIKI KOLOM INI - PAKAI RELASI LANGSUNG
                 Tables\Columns\TextColumn::make('connectCode.code_hint')
                     ->label('Kode')
-                    ->state(fn ($record) => $record->connectCode?->code_hint ?? '—')
+                    ->searchable()
+                    ->sortable()
                     ->placeholder('—')
                     ->toggleable(),
 
@@ -116,32 +145,100 @@ class BasicListeningAttemptResource extends Resource
                 TextEntry::make('score')->label('Skor'),
                 TextEntry::make('started_at')->dateTime('d M Y H:i')->label('Mulai'),
                 TextEntry::make('submitted_at')->dateTime('d M Y H:i')->label('Submit'),
-            ])->columns(2),
+                // 🆕 TAMBAH TIPE QUIZ
+                TextEntry::make('quiz_type')
+                    ->label('Tipe Quiz')
+                    ->state(function($record) {
+                        $firstQuestion = $record->quiz->questions->first();
+                        return $firstQuestion ? $firstQuestion->type : 'unknown';
+                    })
+                    ->badge()
+                    ->color(fn ($state) => match($state) {
+                        'fib_paragraph' => 'warning',
+                        'multiple_choice' => 'success',
+                        default => 'gray'
+                    }),
+            ])->columns(3),
 
             Section::make('Jawaban')->schema([
                 TextEntry::make('answers_list')->label('Detail')
                     ->state(function($record){
                         $record->loadMissing(['answers','quiz.questions']);
                         $rows = [];
+                        
                         foreach ($record->quiz->questions as $i=>$q) {
-                            $ans = $record->answers->firstWhere('question_id',$q->id);
-                            $chosen = $ans?->answer ?? '-';
-                            $mark = $ans?->is_correct ? '✓' : '✗';
-                            $rows[] = sprintf("(%02d) [%s] %s\nA. %s\nB. %s\nC. %s\nD. %s\nJawaban: %s  | Kunci: %s\n",
-                                $i+1,
-                                $mark,
-                                $q->question,
-                                $q->option_a,$q->option_b,$q->option_c,$q->option_d,
-                                $chosen, $q->correct
-                            );
+                            $ans = $record->answers->firstWhere('question_id', $q->id);
+                            
+                            // 🆕 HANDLE BERDASARKAN TIPE - PAKAI STATIC METHOD
+                            if ($q->type === 'fib_paragraph') {
+                                // FORMAT FIB
+                                $rows[] = self::formatFibAnswer($q, $record->answers, $i+1);
+                            } else {
+                                // FORMAT MULTIPLE CHOICE
+                                $rows[] = self::formatMcAnswer($q, $ans, $i+1);
+                            }
                         }
                         return implode("\n", $rows);
                     })
                     ->columnSpanFull()
-                    ->formatStateUsing(fn($state)=> nl2br(e($state)))
+                    ->formatStateUsing(fn($state) => nl2br(e($state)))
                     ->html(),
             ])->collapsible(),
         ]);
+    }
+
+    // 🆕 METHOD STATIC: Format FIB Answer
+    private static function formatFibAnswer($question, $allAnswers, $number)
+    {
+        $paragraph = $question->paragraph_text ?? 'No paragraph';
+        $blankCount = is_array($question->fib_placeholders) ? count($question->fib_placeholders) : 0;
+        
+        $result = "({$number}) FIB PARAGRAPH - {$blankCount} blanks\n";
+        $result .= "Paragraf: {$paragraph}\n\n";
+        
+        // Tampilkan jawaban per blank
+        $fibAnswers = $allAnswers->where('question_id', $question->id);
+        
+        if ($fibAnswers->count() > 0) {
+            $result .= "Jawaban yang diberikan:\n";
+            foreach ($fibAnswers as $fibAns) {
+                $result .= "Blank {$fibAns->blank_index}: \"{$fibAns->answer}\" " . 
+                        ($fibAns->is_correct ? '✓' : '✗') . "\n";
+            }
+        } else {
+            $result .= "Tidak ada jawaban\n";
+        }
+        
+        // Tampilkan kunci jawaban jika ada
+        if (!empty($question->fib_answer_key)) {
+            $result .= "\nKunci Jawaban:\n";
+            foreach ($question->fib_answer_key as $blankIndex => $key) {
+                $keyStr = is_array($key) ? implode(' / ', $key) : $key;
+                $result .= "Blank {$blankIndex}: {$keyStr}\n";
+            }
+        }
+        
+        return $result . "\n" . str_repeat('-', 50) . "\n";
+    }
+
+    // 🆕 METHOD STATIC: Format Multiple Choice Answer  
+    private static function formatMcAnswer($question, $answer, $number)
+    {
+        $chosen = $answer?->answer ?? '-';
+        $mark = $answer?->is_correct ? '✓' : '✗';
+        
+        return sprintf("(%02d) [%s] %s\nA. %s\nB. %s\nC. %s\nD. %s\nJawaban: %s | Kunci: %s\n%s\n",
+            $number,
+            $mark,
+            $question->question ?? '-',
+            $question->option_a ?? '-', 
+            $question->option_b ?? '-', 
+            $question->option_c ?? '-', 
+            $question->option_d ?? '-',
+            $chosen, 
+            $question->correct ?? '-',
+            str_repeat('-', 50)
+        );
     }
 
     public static function getPages(): array
