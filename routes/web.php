@@ -1,14 +1,29 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+// Front & posts
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PostController;
+
+// Cetak & laporan
 use App\Http\Controllers\CetakGrupTesController;
 use App\Http\Controllers\CetakNilaiGrupController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PdfExportController;
+
+// Verifikasi & EPT PDF
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\EptSubmissionPdfController;
+
+// Basic Listening (lama: MC / multi-soal)
+use App\Http\Controllers\BasicListeningController;
+use App\Http\Controllers\BasicListeningConnectController;
+use App\Http\Controllers\BasicListeningQuizController;
+use App\Http\Controllers\BasicListeningHistoryController;
+
+// Basic Listening (baru: FIB 1 paragraf)
+use App\Http\Controllers\BasicListeningQuizFibController;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,10 +31,10 @@ use App\Http\Controllers\EptSubmissionPdfController;
 |--------------------------------------------------------------------------
 */
 
-// Beranda: ambil 3 kategori (news/schedule/scores) untuk section di welcome
+// Beranda
 Route::get('/', [HomeController::class, 'index'])->name('front.home');
 
-// Daftar per kategori
+// Daftar posting per kategori
 Route::get('/berita', [PostController::class, 'index'])
     ->defaults('type', 'news')
     ->name('front.news');
@@ -32,16 +47,21 @@ Route::get('/nilai-ujian', [PostController::class, 'index'])
     ->defaults('type', 'scores')
     ->name('front.scores');
 
-// Detail post
+// Detail posting
 Route::get('/post/{slug}', [PostController::class, 'show'])
     ->name('front.post.show');
+
+// Login → arahkan ke halaman login Filament
+Route::get('/login', fn () => redirect()->route('filament.admin.auth.login'))
+    ->name('login');
 
 
 /*
 |--------------------------------------------------------------------------
-| Existing routes (tetap)
+| Cetak / Laporan
 |--------------------------------------------------------------------------
 */
+
 Route::get('/cetak-grup/{id}', [CetakGrupTesController::class, 'cetak'])
     ->name('grup.cetak');
 
@@ -59,34 +79,45 @@ Route::get('/laporan/export/all', [LaporanController::class, 'exportAllPdf'])
 
 /*
 |--------------------------------------------------------------------------
-| Protected: Export PDF Hasil Terjemahan
-| - Hanya bisa diakses jika sudah login.
-| - Logika akses detail ada di controller (admin/staf kapan saja; pendaftar
-|   hanya jika status = Selesai dan milik sendiri).
+| Protected: Export PDF Penerjemahan
 |--------------------------------------------------------------------------
+| - Hanya bisa diakses jika sudah login.
+| - Detail otorisasi di controller (admin/staf bebas; pendaftar hanya
+|   jika status = Selesai dan milik sendiri).
 */
 Route::middleware('auth')->group(function () {
-    // Canonical (disarankan dipakai ke depannya)
+    // Canonical
     Route::get('/penerjemahan/{penerjemahan}/pdf', [PdfExportController::class, 'penerjemahan'])
         ->name('penerjemahan.pdf');
 
-    // Alias/kompatibilitas dengan URL lama milikmu
+    // Alias URL lama
     Route::get('/export/penerjemahan/{penerjemahan}', [PdfExportController::class, 'penerjemahan'])
         ->name('export.penerjemahan.pdf');
 
-    // Regenerate (khusus Admin/Staf/Kepala) – pakai POST
+    // Regenerate (Admin/Staf/Kepala) – gunakan POST
     Route::post('/penerjemahan/{penerjemahan}/pdf/regenerate', [PdfExportController::class, 'regenerate'])
         ->name('penerjemahan.pdf.regenerate');
 });
 
-Route::middleware(['auth'])->group(function () {
+
+/*
+|--------------------------------------------------------------------------
+| EPT Submission PDF (Protected)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
     Route::get('/ept-submissions/{submission}/pdf', [EptSubmissionPdfController::class, 'show'])
         ->name('ept-submissions.pdf');
 });
 
+/*
+|--------------------------------------------------------------------------
+| Verification (Public + Rate Limit)
+|--------------------------------------------------------------------------
+*/
 Route::get('/verification/{code}/ept.pdf', [EptSubmissionPdfController::class, 'byCode'])
     ->where('code', '[A-Za-z0-9\-_]+')
-    ->middleware('throttle:30,1') // rate-limit opsional
+    ->middleware('throttle:30,1')
     ->name('verification.ept.pdf');
 
 Route::get('/verification', [VerificationController::class, 'index'])
@@ -94,6 +125,104 @@ Route::get('/verification', [VerificationController::class, 'index'])
 
 Route::get('/verification/{code}', [VerificationController::class, 'show'])
     ->where('code', '[A-Za-z0-9\-_]+')
-    ->middleware('throttle:60,1')   // atau lebih ketat: throttle:20,1
+    ->middleware('throttle:60,1')
     ->name('verification.show');
 
+
+/*
+|--------------------------------------------------------------------------
+| Basic Listening (index & sesi)
+|--------------------------------------------------------------------------
+*/
+Route::get('/basic-listening', [BasicListeningController::class, 'index'])
+    ->name('bl.index');
+
+Route::get('/basic-listening/sessions/{session}', [BasicListeningController::class, 'show'])
+    ->whereNumber('session')
+    ->name('bl.session.show');
+
+
+/*
+|--------------------------------------------------------------------------
+| Basic Listening – Connect Code (Protected)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/basic-listening/sessions/{session}/code', [BasicListeningConnectController::class, 'showForm'])
+        ->whereNumber('session')
+        ->name('bl.code.form');
+
+    Route::post('/basic-listening/sessions/{session}/code', [BasicListeningConnectController::class, 'verify'])
+        ->whereNumber('session')
+        ->name('bl.code.verify');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Basic Listening – Quiz Lama (MC / multi-soal) – Protected
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/basic-listening/quiz/{attempt}', [BasicListeningQuizController::class, 'show'])
+        ->whereNumber('attempt')
+        ->name('bl.quiz.show');
+
+    Route::post('/basic-listening/quiz/{attempt}/answer', [BasicListeningQuizController::class, 'answer'])
+        ->whereNumber('attempt')
+        ->name('bl.quiz.answer');
+
+    Route::post('/basic-listening/quiz/{attempt}/submit', [BasicListeningQuizController::class, 'submit'])
+        ->whereNumber('attempt')
+        ->name('bl.quiz.submit');
+
+    Route::get('/basic-listening/quiz/{attempt}/continue', [BasicListeningController::class, 'continue'])
+        ->whereNumber('attempt')
+        ->name('bl.quiz.continue');
+        
+    Route::post('/bl-quiz/{attempt}/force-submit', [BasicListeningQuizController::class, 'forceSubmit'])
+        ->name('bl.quiz.force-submit');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Basic Listening – History (Protected)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/basic-listening/history', [BasicListeningHistoryController::class, 'index'])
+        ->name('bl.history');
+
+    Route::get('/basic-listening/history/{attempt}', [BasicListeningHistoryController::class, 'show'])
+        ->whereNumber('attempt')
+        ->name('bl.history.show');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Basic Listening – Quiz Baru (FIB 1 paragraf + timer) – Protected
+|--------------------------------------------------------------------------
+| Catatan:
+| - View: resources/views/bl/quiz_fib.blade.php
+| - Controller: BasicListeningQuizFibController
+| - Tidak bentrok dengan rute lama karena prefix berbeda (/bl/*).
+*/
+Route::middleware('auth')->group(function () {
+    Route::post('/bl/quiz/{quiz}/start',  [BasicListeningQuizFibController::class, 'start'])
+        ->whereNumber('quiz')
+        ->name('bl.start');
+
+    Route::get('/bl/quiz/{quiz}',         [BasicListeningQuizFibController::class, 'show'])
+        ->whereNumber('quiz')
+        ->name('bl.quiz');
+
+    Route::post('/bl/quiz/{attempt}/fib-answer', [BasicListeningQuizFibController::class, 'answer'])
+        ->whereNumber('attempt')
+        ->name('bl.quiz.fib.answer');
+        
+    Route::post('/bl/quiz/{quiz}/submit', [BasicListeningQuizFibController::class, 'submit'])
+        ->whereNumber('quiz')
+        ->name('bl.submit');
+});

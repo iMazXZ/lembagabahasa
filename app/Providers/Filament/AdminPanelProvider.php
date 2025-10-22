@@ -4,7 +4,7 @@ namespace App\Providers\Filament;
 
 use Filament\Contracts\Plugin;
 use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
+use Filament\Http\Middleware\AuthenticateSession;   
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages;
@@ -27,6 +27,7 @@ use App\Filament\Pages\Auth\RequestPasswordReset;
 use App\Filament\Widgets\PengumumanWidget;
 use App\Filament\Pages\DashboardKustom;
 use Illuminate\Support\Facades\Blade;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -86,7 +87,22 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => Blade::render('<div class="text-sm text-center text-primary-600 dark:text-gray-400 mt-4"><p>Setelah mengirim permintaan, jangan lupa periksa folder <strong>SPAM</strong> di email Anda jika email tidak kunjung masuk.</p></div>'),
             )
             ->plugins([
-                \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
+                FilamentShieldPlugin::make()
+                    ->gridColumns([
+                        'default' => 1,
+                        'sm' => 2,
+                        'lg' => 3
+                    ])
+                    ->sectionColumnSpan(1)
+                    ->checkboxListColumns([
+                        'default' => 1,
+                        'sm' => 2,
+                        'lg' => 4,
+                    ])
+                    ->resourceCheckboxListColumns([
+                        'default' => 1,
+                        'sm' => 2,
+                    ]),
             ])
             ->databaseNotifications();
     }

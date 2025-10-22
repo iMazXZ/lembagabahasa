@@ -104,7 +104,7 @@
         </p>
 
         {{-- CTA Buttons --}}
-        <div data-aos="fade-up" data-aos-delay="200" class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div data-aos="fade-up" data-aos-delay="200" class="flex flex-col sm:flex-row gap-4 mb-8 justify-center items-center">
           @guest
             <a href="{{ route('filament.admin.auth.login') }}" 
               class="group relative inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300">
@@ -124,106 +124,25 @@
               </svg>
             </a>
           @endguest
+        </div>
+        <div data-aos="fade-up" data-aos-delay="200" class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <a href="{{ route('verification.index') }}" 
+            class="group relative inline-flex items-center gap-3 bg-gradient-to-r from-white/30 via-green-200/20 to-white/10 hover:from-green-100/60 hover:to-green-400/30 text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-white/30 backdrop-blur-md">
+            <span class="drop-shadow font-bold">Verifikasi Dokumen</span>
+            <i class="fas fa-check-circle"></i>
+            </a>
 
-          <a href="#berita" 
-            class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:bg-white/20 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 hover:scale-105">
-            <span>Cek Jadwal dan Nilai</span>
+            <a href="{{ route('bl.index') }}" 
+            class="group relative inline-flex items-center gap-3 bg-gradient-to-r from-white/30 via-purple-200/20 to-white/10 hover:from-purple-100/60 hover:to-purple-400/30 text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-white/30 backdrop-blur-md">
+            <span class="drop-shadow font-bold">Basic Listening</span>
+            <i class="fas fa-headphones"></i>
+            </a>
+
+            <a href="#berita" 
+            class="group relative inline-flex items-center gap-3 bg-gradient-to-r from-white/30 via-blue-200/20 to-white/10 hover:from-blue-100/60 hover:to-blue-400/30 text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-white/30 backdrop-blur-md">
+            <span class="drop-shadow font-bold">Cek Jadwal &amp; Nilai EPT</span>
             <i class="fas fa-arrow-down animate-bounce"></i>
-          </a>
-        </div>
-      </div>
-
-      {{-- Info Cards (Ringkas) --}}
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-        {{-- Card 1: Waktu Pelayanan --}}
-        <div data-aos="fade-up" data-aos-delay="250" 
-        class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div class="relative flex flex-col items-center">
-        <div class="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
-          <i class="fas fa-clock text-xl text-white"></i>
-        </div>
-        <h3 class="text-lg font-bold text-yellow-300 mb-3">Waktu Pelayanan</h3>
-        <div class="space-y-2 text-sm text-blue-100 w-full">
-          <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
-            <i class="fas fa-calendar-alt text-yellow-300 text-xs"></i>
-            <span>Senin-Kamis 08:00-16:00</span>
-          </div>
-          <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
-            <i class="fas fa-calendar-alt text-yellow-300 text-xs"></i>
-            <span>Jumat 08:00-11:30</span>
-          </div>
-          <div class="mt-3 pt-3 border-t border-white/20">
-            <div class="bg-green-500/20 border border-green-400/30 rounded-lg py-1.5 px-3">
-          <p class="text-xs font-semibold">
-            <i class="fas fa-globe text-green-300 mr-1"></i>
-            Online 24/7
-          </p>
-            </div>
-          </div>
-        </div>
-          </div>
-        </div>
-
-        {{-- Card 2: Lokasi --}}
-        <div data-aos="fade-up" data-aos-delay="300" 
-            class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-pink-400/20 to-purple-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          
-          <div class="relative flex flex-col items-center">
-            <div class="w-14 h-14 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
-              <i class="fas fa-map-marker-alt text-xl text-white"></i>
-            </div>
-            
-            <h3 class="text-lg font-bold text-pink-300 mb-3">Pendaftaran On Desk</h3>
-            
-            <div class="space-y-2 text-sm text-blue-100 w-full">
-              <div class="flex items-center justify-center gap-2 bg-white/10 rounded-lg py-2 px-3">
-                <i class="fas fa-university text-pink-300 text-xs"></i>
-                <span class="font-semibold">Kampus 3 UM Metro</span>
-              </div>
-              <div class="mt-3 pt-3 border-t border-white/20">
-                <a href="#kontak" class="inline-flex items-center gap-2 text-xs text-pink-200 hover:text-pink-300 transition-colors font-semibold">
-                  <i class="fas fa-directions"></i>
-                  Lihat Peta Lokasi
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {{-- Card 3: Kontak --}}
-        <div data-aos="fade-up" data-aos-delay="350" 
-            class="group relative bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-6 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:scale-105 hover:shadow-2xl text-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-green-400/20 to-teal-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          
-          <div class="relative flex flex-col items-center">
-            <div class="w-14 h-14 bg-gradient-to-br from-green-400 to-teal-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all">
-              <i class="fas fa-headset text-xl text-white"></i>
-            </div>
-            
-            <h3 class="text-lg font-bold text-green-300 mb-3">Bantuan Layanan</h3>
-            
-            <div class="space-y-2 w-full">
-              <a href="https://wa.me/6287790740408" target="_blank" 
-                class="flex items-center justify-center gap-2 bg-white/10 hover:bg-green-500/30 rounded-lg py-2 px-3 transition-all group/link text-sm">
-                <i class="fab fa-whatsapp text-green-300 text-lg"></i>
-                <div class="text-left">
-                  <p class="text-xs text-blue-200">WhatsApp</p>
-                  <p class="font-bold text-white group-hover/link:text-green-300 transition-colors text-sm">087790740408</p>
-                </div>
-              </a>
-              
-              <a href="mailto:info@lembagabahasa.site" 
-                class="flex items-center justify-center gap-2 bg-white/10 hover:bg-yellow-500/30 rounded-lg py-2 px-3 transition-all group/link text-sm">
-                <i class="fas fa-envelope text-yellow-300 text-lg"></i>
-                <div class="text-left">
-                  <p class="text-xs text-blue-200">Email</p>
-                  <p class="font-bold text-white group-hover/link:text-yellow-300 transition-colors text-xs break-all">info@lembagabahasa.site</p>
-                </div>
-              </a>
-            </div>
-          </div>
+            </a>
         </div>
       </div>
     </div>

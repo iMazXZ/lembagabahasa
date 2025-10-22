@@ -186,5 +186,9 @@ return [
         'custom_elements' => [
             ['u', 'Inline', 'Inline', 'Common'],
         ],
+
+        'summary' => [
+            'HTML.Allowed' => 'p,br,strong,em,a[href|title|target],ul,ol,li,h2,h3,blockquote,code,img[src|alt|title|width|height]',
+        ],
     ],
 ];

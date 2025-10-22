@@ -10,6 +10,7 @@
         "awcodes/filament-tiptap-editor": "*",
         "barryvdh/laravel-dompdf": "^3.1",
         "bezhansalleh/filament-shield": "^3.3",
+        "doctrine/dbal": "^4.3",
         "filament/filament": "^3.3",
         "laravel/framework": "^11.31",
         "laravel/tinker": "^2.9",

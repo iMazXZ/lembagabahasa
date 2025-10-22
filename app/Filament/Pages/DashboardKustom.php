@@ -13,6 +13,7 @@ use App\Filament\Widgets\EptStatusWidget;
 use App\Filament\Widgets\PenerjemahanStatusWidget;
 use App\Filament\Widgets\MyEptSubmissionStatus;
 use Filament\Widgets\AccountWidget;
+use App\Filament\Widgets\QuickLinks;
 
 class DashboardKustom extends Page
 {
@@ -49,6 +50,7 @@ class DashboardKustom extends Page
             EptStatusWidget::class,
             PenerjemahanStatusWidget::class,
             MyEptSubmissionStatus::class,
+            QuickLinks::class,
         ];
     }
 }
