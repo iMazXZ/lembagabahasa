@@ -5,66 +5,32 @@
     $pemohon    = $record->users;
     $translator = $record->translator;
 
-    /**
-     * Helper: embed gambar dari /public sebagai base64 data URI
-     */
-    function embed_b64_public(string $relPath): ?string {
-        $full = public_path($relPath);
-        if (!is_file($full)) return null;
-        $ext  = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        $mime = match ($ext) {
-            'png'  => 'image/png',
-            'jpg', 'jpeg' => 'image/jpeg',
-            'webp' => 'image/webp',
-            default => 'image/png',
-        };
-        try {
-            return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($full));
-        } catch (\Throwable $e) {
-            return null;
-        }
-    }
+    // Logo / Stempel / TTD — langsung pakai file lokal
+    $logoSrc  = is_file(public_path('images/logo-um.png')) ? public_path('images/logo-um.png') : null;
+    $stampSrc = is_file(public_path('images/stempel.png')) ? public_path('images/stempel.png') : null;
+    $signSrc  = is_file(public_path('images/ttd_ketua.png')) ? public_path('images/ttd_ketua.png') : null;
 
-    /**
-     * Helper: fallback file:// path bila perlu
-     */
-    function file_src_public(string $relPath): ?string {
-        $full = public_path($relPath);
-        return is_file($full) ? ('file://' . str_replace('\\', '/', realpath($full))) : null;
-    }
-
-    // Logo / Stempel / TTD → pakai base64, fallback ke file:// bila base64 gagal
-    $logoSrc  = embed_b64_public('images/logo-um.png')     ?? file_src_public('images/logo-um.png');
-    $stampSrc = embed_b64_public('images/stempel.png')      ?? file_src_public('images/stempel.png');
-    $signSrc  = embed_b64_public('images/ttd_ketua.png')    ?? file_src_public('images/ttd_ketua.png');
-
+    // Tanggal tanda tangan (fallback completion_date → updated_at → now)
     $ttdDate = $ttdDate
-        ?? \Illuminate\Support\Carbon::parse($record->completion_date ?? now())
+        ?? \Illuminate\Support\Carbon::parse($record->completion_date ?? $record->updated_at ?? now())
             ->locale('id')
             ->translatedFormat('d F Y');
-            
+
     // Verifikasi (link & kode)
     $verifyCode = $record->verification_code ?: null;
     $verifyUrl  = $record->verification_url
         ?: ($verifyCode ? route('verification.show', ['code' => $verifyCode], true) : null);
 
-    // Tanggal tanda tangan (English; gunakan timezone app)
-    $signDate = optional($record->completion_date ?? $record->approved_at ?? $record->updated_at ?? now())
-        ->timezone(config('app.timezone', 'Asia/Jakarta'))
-        ->locale('en')
-        ->translatedFormat('F j, Y');
-
     // Penandatangan
     $chairName = 'Drs. H. Bambang Eko Siagiyanto M.Pd';
     $chairNip  = '196607161994031002';
 
-    // Konten terjemahan: bersihkan script & atribut event berbahaya
+    // Konten terjemahan: sanitasi HTML
     $rich = (string) ($record->translated_text ?? '');
-    // hapus <script>...</script>
     $rich = preg_replace('#<script\b[^>]*>(.*?)</script>#is', '', $rich);
-    // hapus atribut event handler: onclick="...", onload='...', dll
     $rich = preg_replace('/\s+on\w+\s*=\s*(".*?"|\'.*?\'|[^\s>]+)/i', '', $rich);
 @endphp
+
 <!DOCTYPE html>
 <html lang="id">
 <head>

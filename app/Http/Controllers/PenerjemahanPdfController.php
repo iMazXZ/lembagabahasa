@@ -63,21 +63,22 @@ class PenerjemahanPdfController extends Controller
         );
     }
 
-    /**
-     * Data untuk view PDF, termasuk gambar, verify URL, dan tanggal ttd.
-     */
     private function buildViewData(Penerjemahan $record): array
     {
         $verifyCode = $record->verification_code ?? null;
         $verifyUrl  = $record->verification_url ?: ($verifyCode ? route('verification.show', $verifyCode) : null);
 
+        $logo  = public_path('images/logo-um.png');
+        $stamp = public_path('images/stempel.png');
+        $sign  = public_path('images/ttd_ketua.png');
+
         return [
             'record'    => $record,
             'verifyUrl' => $verifyUrl,
-            'logoPath'  => $this->toDataUriIfExists(public_path('images/logo-um.png')),
-            'stampPath' => $this->toDataUriIfExists(public_path('images/stempel.png')),
-            'signPath'  => $this->toDataUriIfExists(public_path('images/ttd_ketua.png')),
-            'ttdDate'   => $this->formatTtdDate($record), // <-- method ini sekarang ADA
+            'logoPath'  => is_file($logo)  ? $logo  : null,
+            'stampPath' => is_file($stamp) ? $stamp : null,
+            'signPath'  => is_file($sign)  ? $sign  : null,
+            'ttdDate'   => $this->formatTtdDate($record),
         ];
     }
 
