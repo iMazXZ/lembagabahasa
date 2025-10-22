@@ -114,10 +114,11 @@ class EptSubmissionResource extends Resource
                 Tables\Actions\ViewAction::make(),
 
                 Action::make('print')
-                    ->label('Cetak PDF')
-                    ->icon('heroicon-o-printer')
+                    ->label('Unduh PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
                     ->visible(fn (EptSubmission $record) => $record->status === 'approved')
-                    ->url(fn (EptSubmission $record) => route('ept-submissions.pdf', $record))
+                    ->url(fn (EptSubmission $record) => route('ept-submissions.pdf', [$record, 'dl' => 1]))
                     ->openUrlInNewTab(),
 
                 Action::make('approve')

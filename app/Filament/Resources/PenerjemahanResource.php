@@ -337,7 +337,7 @@ class PenerjemahanResource extends Resource
                         $hasOutput = filled($record->translated_text) || filled($record->final_file_path);
                         return $okStatus && $hasOutput;
                     })
-                    ->url(fn (Penerjemahan $record) => route('penerjemahan.pdf', $record))
+                    ->url(fn (Penerjemahan $record) => route('penerjemahan.pdf', [$record, 'dl' => 1]))
                     ->openUrlInNewTab(),
 
                 Tables\Actions\ActionGroup::make([

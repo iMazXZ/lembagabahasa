@@ -315,8 +315,8 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                     ->visible(fn (EptSubmission $r) => $r->status === 'approved')
                     ->url(fn (EptSubmission $r) =>
                         filled($r->verification_code)
-                            ? route('verification.ept.pdf', ['code' => $r->verification_code])
-                            : route('ept-submissions.pdf', $r)
+                            ? route('verification.ept.pdf', ['code' => $r->verification_code, 'dl' => 1])
+                            : route('ept-submissions.pdf', [$r, 'dl' => 1])
                     )
                     ->openUrlInNewTab()
                     ->button(),
@@ -376,9 +376,10 @@ class SubmitEptScore extends Page implements HasForms, HasTable
         ];
 
         if ($rec = $this->approvedSubmission) {
+            // Paksa download: tambahkan dl=1 ke kedua kemungkinan route
             $pdfUrl = filled($rec->verification_code)
-                ? route('verification.ept.pdf', ['code' => $rec->verification_code])
-                : route('ept-submissions.pdf', $rec);
+                ? route('verification.ept.pdf', ['code' => $rec->verification_code, 'dl' => 1])
+                : route('ept-submissions.pdf', [$rec, 'dl' => 1]);
 
             $verifyUrl = $rec->verification_url
                 ?: (filled($rec->verification_code)
@@ -400,7 +401,6 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                 ->color('success')
                 ->url($pdfUrl)
                 ->openUrlInNewTab();
-
         }
 
         return $actions;

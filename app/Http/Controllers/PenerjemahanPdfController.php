@@ -18,27 +18,51 @@ class PenerjemahanPdfController extends Controller
         $record->load(['users', 'translator']);
 
         $viewData = $this->buildViewData($record);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
+        $filename = 'Surat_Terjemahan_' . \Illuminate\Support\Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
 
-        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
-        $filename = 'Surat_Terjemahan_' . Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
-
+        if (request()->boolean('dl')) {
+            // 100% force download + tampil progress di browser
+            $binary = $pdf->output();
+            return response()->streamDownload(
+                fn () => print $binary,
+                $filename,
+                [
+                    'Content-Type'              => 'application/pdf',
+                    'Content-Disposition'       => 'attachment; filename="'.$filename.'"',
+                    'X-Content-Type-Options'    => 'nosniff',
+                    'Cache-Control'             => 'private, max-age=0, must-revalidate',
+                    'Pragma'                    => 'public',
+                ]
+            );
+        }
         return $pdf->stream($filename);
-    }
+    }   
 
-    /**
-     * /verification/{code}/penerjemahan.pdf  (public by code, rate-limited)
-     */
     public function byCode(string $code)
     {
-        $record = Penerjemahan::where('verification_code', $code)->firstOrFail();
-
+        $record = \App\Models\Penerjemahan::where('verification_code', $code)->firstOrFail();
         $this->ensureCanExport($record);
         $record->load(['users', 'translator']);
 
         $viewData = $this->buildViewData($record);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
+        $filename = 'Surat_Terjemahan_' . \Illuminate\Support\Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
 
-        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
-        $filename = 'Surat_Terjemahan_' . Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
+        if (request()->boolean('dl')) {
+            $binary = $pdf->output();
+            return response()->streamDownload(
+                fn () => print $binary,
+                $filename,
+                [
+                    'Content-Type'            => 'application/pdf',
+                    'Content-Disposition'     => 'attachment; filename="'.$filename.'"',
+                    'X-Content-Type-Options'  => 'nosniff',
+                    'Cache-Control'           => 'private, max-age=0, must-revalidate',
+                    'Pragma'                  => 'public',
+                ]
+            );
+        }
 
         return $pdf->stream($filename);
     }

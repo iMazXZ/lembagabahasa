@@ -27,7 +27,7 @@
             <div class="mt-4 flex flex-wrap gap-2">
                 <x-filament::button
                     tag="a"
-                    href="{{ route('penerjemahan.pdf', $finished) }}"
+                    href="{{ route('penerjemahan.pdf', [$finished, 'dl' => 1]) }}"
                     target="_blank" rel="noopener"
                     color="success"
                     icon="heroicon-m-arrow-down-tray"
