@@ -28,26 +28,30 @@ class EptSubmissionPdfController extends Controller
     }
 
     public function byCode(string $code)
-    {
-        $submission = EptSubmission::with(['user.prody'])
-            ->where('verification_code', $code)
-            ->firstOrFail();
+        {
+            $submission = EptSubmission::query()
+                ->where('verification_code', $code)
+                ->firstOrFail();
 
-        // hanya boleh jika approved
-        abort_unless($submission->status === 'approved', 403, 'Belum disetujui');
+            abort_unless($submission->status === 'approved', 403, 'Belum disetujui');
 
-        $nomorSurat   = $submission->surat_nomor ?? ('001/II.3.AU/F/KET/LB_UMM/'.now()->year);
-        $tanggalSurat = optional($submission->approved_at)
-            ?->timezone(config('app.timezone','Asia/Jakarta'))
-            ?->translatedFormat('d F Y');
+            // Opsional: jika kamu ingin membatasi ke pemilik saja saat login
+            // abort_if(auth()->check() && auth()->id() !== $submission->user_id && !auth()->user()->hasAnyRole(['Admin','Staf Administrasi','Kepala Lembaga']), 403);
 
-        $pdf = Pdf::loadView('exports.surat-rekomendasi', [
-            'submission'   => $submission,
-            'nomorSurat'   => $nomorSurat,
-            'tanggalSurat' => $tanggalSurat,
-        ])->setPaper('A4');
+            $submission->load(['user.prody']);
 
-        // Pakai download agar jelas “unduh file”
-        return $pdf->download("Surat_Rekomendasi_{$submission->user->name}.pdf");
-    }
+            $nomorSurat   = $submission->surat_nomor ?? ('001/II.3.AU/F/KET/LB_UMM/' . now()->year);
+            $tanggalSurat = optional($submission->approved_at)
+                ?->timezone(config('app.timezone','Asia/Jakarta'))
+                ?->translatedFormat('d F Y');
+
+            $pdf = Pdf::loadView('exports.surat-rekomendasi', [
+                'submission'   => $submission,
+                'nomorSurat'   => $nomorSurat,
+                'tanggalSurat' => $tanggalSurat,
+            ])->setPaper('A4');
+
+            // Untuk public link, lebih enak inline → bisa dilihat di browser
+            return $pdf->stream("Surat_Rekomendasi_{$submission->user->name}.pdf");
+        }
 }

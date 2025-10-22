@@ -13,7 +13,12 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
+
+use Filament\Forms\Components\FileUpload;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use App\Support\ImageTransformer;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PenerjemahanResource extends Resource
 {
@@ -36,6 +41,20 @@ class PenerjemahanResource extends Resource
     |----------------------------------------------------------- */
     public static function form(Form $form): Form
     {
+        // Helper lokal untuk kompres → WebP
+        $compress = function (TemporaryUploadedFile $file, string $subdir = 'general', int $quality = 82, int $maxWidth = 2000) {
+            $tmp = $file->store('tmp');
+            $out = ImageTransformer::toWebp(
+                inputPath: storage_path('app/' . $tmp),
+                targetDisk: 'public',
+                targetDir: "penerjemahan/images/{$subdir}",
+                quality: $quality,
+                maxWidth: $maxWidth
+            );
+            Storage::delete($tmp);
+            return $out['path'];
+        };
+
         return $form->schema([
 
             // Identitas pemohon (readonly placeholders)
@@ -59,22 +78,27 @@ class PenerjemahanResource extends Resource
             Forms\Components\Hidden::make('user_id')->default(fn () => auth()->id()),
             Forms\Components\Hidden::make('status')->default('Menunggu'),
 
-            // Bukti pembayaran (gambar)
-            Forms\Components\FileUpload::make('bukti_pembayaran')
+            FileUpload::make('bukti_pembayaran')
                 ->label('Upload Bukti Pembayaran')
-                ->directory('bukti-penerjemahan')
                 ->image()
+                ->disk('public')
+                ->visibility('public')
+                ->acceptedFileTypes(['image/*'])
+                ->maxSize(8192)
                 ->downloadable()
-                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg'])
-                ->maxSize(2048)
-                ->required()
-                ->helperText('Format JPG/PNG, maksimal 2MB.')
-                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'pendaftar']))
-                ->reactive()
-                ->afterStateUpdated(function ($state, $set, $get) {
-                    if ($state && ($get('status') === 'Ditolak - Pembayaran Tidak Valid')) {
-                        $set('status', 'Menunggu');
-                    }
+                ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
+                    $nama = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
+                    $base = "proof_{$nama}.webp";
+                    return ImageTransformer::toWebpFromUploaded(
+                        uploaded: $file,
+                        targetDisk: 'public',
+                        targetDir: 'penerjemahan/images/payments',
+                        quality: 85,
+                        maxWidth: 1600,
+                        maxHeight: null,
+                        basename: $base
+                    )['path'];
                 }),
 
             // === TEKS SUMBER === (terlihat semua role)
@@ -96,12 +120,10 @@ class PenerjemahanResource extends Resource
                         ])
                         ->columnSpanFull()
                         ->required()
-                        // Pendaftar: editable saat create; saat edit terkunci.
-                        // Role lain (Admin, Penerjemah, Staf, Kepala): read-only.
                         ->disabled(function ($record) {
                             $u = auth()->user();
                             if ($u?->hasRole('pendaftar')) {
-                                return filled($record); // edit -> terkunci
+                                return filled($record); // pendaftar hanya isi saat create
                             }
                             return $u?->hasAnyRole(['Admin', 'Penerjemah', 'Staf Administrasi', 'Kepala Lembaga']);
                         })
@@ -117,7 +139,7 @@ class PenerjemahanResource extends Resource
                         ->hint(function ($record) {
                             $u = auth()->user();
                             if ($u?->hasRole('pendaftar') && filled($record)) {
-                                return 'Teks Absrak terkunci setelah diajukan.';
+                                return 'Teks Abstrak terkunci setelah diajukan.';
                             }
                             if ($u?->hasAnyRole(['Admin', 'Penerjemah'])) {
                                 return 'read-only';
@@ -130,8 +152,7 @@ class PenerjemahanResource extends Resource
                         ->content(fn (Get $get) => $get('source_word_count') ?? 0),
                 ])->collapsible(),
 
-            // === HASIL TERJEMAHAN ===
-            // Disembunyikan untuk pendaftar (lihat via PDF saja).
+            // === HASIL TERJEMAHAN === (disembunyikan dari pendaftar)
             Forms\Components\Section::make('Hasil Terjemahan')
                 ->schema([
                     Forms\Components\RichEditor::make('translated_text')
@@ -168,7 +189,7 @@ class PenerjemahanResource extends Resource
                         })
                         ->hint(function () {
                             $u = auth()->user();
-                            return $u?->hasAnyRole(['Admin','Penerjemah'])
+                            return $u?->hasAnyRole(['Admin', 'Penerjemah'])
                                 ? 'Isi/ubah hasil terjemahan di sini.'
                                 : null;
                         }),
@@ -235,7 +256,7 @@ class PenerjemahanResource extends Resource
                 Tables\Columns\TextColumn::make('bukti_pembayaran')
                     ->label('Bukti')
                     ->formatStateUsing(fn ($state) => $state ? 'Lihat' : '-')
-                    ->url(fn ($record) => $record->bukti_pembayaran ? Storage::url($record->bukti_pembayaran) : null, true)
+                    ->url(fn ($record) => $record->bukti_pembayaran ? Storage::url($record->bukti_pembayaran) : null)
                     ->openUrlInNewTab()
                     ->icon('heroicon-o-photo')
                     ->color('info')
@@ -305,19 +326,19 @@ class PenerjemahanResource extends Resource
                     }),
             ])
             ->actions([
+                // ===== Unduh PDF (Admin/Staf/Kepala/Penerjemah melihat; pendaftar tidak di sini) =====
                 Tables\Actions\Action::make('download_pdf')
                     ->label('Unduh PDF')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('danger')
-                    ->visible(function ($record) {
-                        $u = auth()->user();
-                        $adminOrStaff = $u->hasAnyRole(['Admin','Staf Administrasi','Kepala Lembaga']);
-                        $ownerDone    = $u->hasRole('pendaftar')
-                                        && $record->user_id === $u->id
-                                        && $record->status === 'Selesai';
-                        return ( $adminOrStaff && filled($record->translated_text) ) || $ownerDone;
+                    ->color('success')
+                    ->visible(function (Penerjemahan $record) {
+                        $status = strtolower((string) $record->status);
+                        $okStatus = in_array($status, ['selesai', 'disetujui', 'completed', 'approved'], true);
+                        $hasOutput = filled($record->translated_text) || filled($record->final_file_path);
+                        return $okStatus && $hasOutput;
                     })
-                    ->action(fn ($record) => redirect()->route('export.penerjemahan.pdf', $record)),
+                    ->url(fn (Penerjemahan $record) => route('penerjemahan.pdf', $record))
+                    ->openUrlInNewTab(),
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make(),
@@ -417,31 +438,20 @@ class PenerjemahanResource extends Resource
                             $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Selesai'));
                             Notification::make()->title("Notifikasi terkirim ke {$record->users?->email}")->success()->send();
                         }),
-                    
-                    Tables\Actions\Action::make('regenerate_pdf')
-                        ->label('Regenerate PDF')
-                        ->icon('heroicon-o-arrow-path')
-                        ->requiresConfirmation()
-                        ->visible(fn () => auth()->user()->hasAnyRole(['Admin','Staf Administrasi']))
-                        ->action(function (\App\Models\Penerjemahan $record) {
-                            // kamu bisa langsung panggil controller via route, atau taruh logika disini:
-                            $record->ensureVerification();
-                            $record->version = (int) $record->version + 1;
 
-                            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.terjemahan-pdf', [
-                                'record' => $record->load(['users','translator'])
-                            ])->setPaper('a4');
-
-                            $dir = 'penerjemahan/pdfs';
-                            $filename = $record->officialPdfFilename();
-                            $path = "{$dir}/{$filename}";
-                            \Storage::disk('public')->put($path, $pdf->output());
-
-                            $full = storage_path('app/public/'.$path);
-                            $record->pdf_path   = $path;
-                            $record->pdf_sha256 = hash_file('sha256', $full);
-                            $record->issued_at  = now();
-                            $record->save();
+                    // Link publik PDF (berdasar verification code)
+                    Tables\Actions\Action::make('copy_public_pdf')
+                        ->label('Salin Link Publik')
+                        ->icon('heroicon-o-link')
+                        ->visible(function (Penerjemahan $record) {
+                            $status = strtolower((string) $record->status);
+                            $okStatus = in_array($status, ['selesai', 'disetujui', 'completed', 'approved'], true);
+                            $hasOutput = filled($record->translated_text) || filled($record->final_file_path);
+                            return filled($record->verification_code) && $okStatus && $hasOutput;
+                        })
+                        ->action(function (Penerjemahan $record) {
+                            $url = route('verification.penerjemahan.pdf', $record->verification_code);
+                            Notification::make()->title('Link Publik PDF')->body($url)->success()->send();
                         }),
                 ])
                 ->label('Ubah Status')
@@ -456,9 +466,9 @@ class PenerjemahanResource extends Resource
                 ->icon('heroicon-s-academic-cap')
                 ->visible(fn ($record) => auth()->user()?->hasRole('Penerjemah') && $record->translator_id === auth()->id()),
 
-                // Aksi Edit standar untuk role lain
+                // Aksi Edit standar untuk role lain (mis. pendaftar tidak melihat action admin)
                 Tables\Actions\EditAction::make()
-                    ->visible(fn () => !auth()->user()?->hasAnyRole(['Admin', 'Penerjemah', 'Staf Administrasi'])),
+                    ->visible(fn () => ! auth()->user()?->hasAnyRole(['Admin', 'Penerjemah', 'Staf Administrasi'])),
             ])
             ->bulkActions(
                 auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])
@@ -494,7 +504,7 @@ class PenerjemahanResource extends Resource
     |----------------------------------------------------------- */
     public static function getNavigationBadge(): ?string
     {
-        if (!auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
+        if (! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
             return null;
         }
         $count = static::getModel()::where('status', 'Menunggu')->count();

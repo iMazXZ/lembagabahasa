@@ -29,6 +29,12 @@ use Filament\Actions\Action as PageAction;
 // ==== Misc ====
 use Filament\Notifications\Notification;
 
+// ==== Compress Image ====
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Support\Facades\Storage;
+use App\Support\ImageTransformer;
+use Illuminate\Support\Str;
+
 class SubmitEptScore extends Page implements HasForms, HasTable
 {
     use InteractsWithForms;
@@ -129,14 +135,34 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->label('Nilai Tes')
                             ->numeric()->required()
                             ->rule('integer')->rule('between:0,677'),
+
                         DatePicker::make('tanggal_tes_1')
                             ->label('Tanggal Tes')->required()
                             ->native(false)->displayFormat('d/m/Y'),
+
                         FileUpload::make('foto_path_1')
                             ->label('Screenshot Nilai Tes')->required()
-                            ->disk('public')->directory('ept_proofs')
-                            ->image()->imageEditor(false)->maxSize(2_048)
-                            ->imagePreviewHeight('180'),
+                            ->image()
+                            ->disk('public')->visibility('public')
+                            ->acceptedFileTypes(['image/*'])
+                            ->maxSize(8192) // 8 MB (PHP kamu sudah 16 MB)
+                            ->downloadable()
+                            ->imagePreviewHeight('180')
+                            ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
+                                $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
+                                $base  = "proof1_{$nama}.webp";
+
+                                return ImageTransformer::toWebpFromUploaded(
+                                    uploaded:   $file,
+                                    targetDisk: 'public',
+                                    targetDir:  'ept/proofs',
+                                    quality:    85,
+                                    maxWidth:   1600,
+                                    maxHeight:  null,
+                                    basename:   $base
+                                )['path']; // simpan path relatif ke kolom foto_path_1
+                            }),
                     ])->columns(3),
 
                 // TES 2
@@ -147,15 +173,35 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->label('Nilai Tes')
                             ->numeric()->required()
                             ->rule('integer')->rule('between:0,677'),
+
                         DatePicker::make('tanggal_tes_2')
                             ->label('Tanggal Tes')->required()
                             ->native(false)->displayFormat('d/m/Y')
                             ->rule('after_or_equal:tanggal_tes_1'),
+
                         FileUpload::make('foto_path_2')
                             ->label('Screenshot Nilai Tes')->required()
-                            ->disk('public')->directory('ept_proofs')
-                            ->image()->imageEditor(false)->maxSize(2_048)
-                            ->imagePreviewHeight('180'),
+                            ->image()
+                            ->disk('public')->visibility('public')
+                            ->acceptedFileTypes(['image/*'])
+                            ->maxSize(8192)
+                            ->downloadable()
+                            ->imagePreviewHeight('180')
+                            ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
+                                $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
+                                $base  = "proof2_{$nama}.webp";
+
+                                return ImageTransformer::toWebpFromUploaded(
+                                    uploaded:   $file,
+                                    targetDisk: 'public',
+                                    targetDir:  'ept/proofs',
+                                    quality:    85,
+                                    maxWidth:   1600,
+                                    maxHeight:  null,
+                                    basename:   $base
+                                )['path'];
+                            }),
                     ])->columns(3),
 
                 // TES 3
@@ -166,15 +212,35 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->label('Nilai Tes')
                             ->numeric()->required()
                             ->rule('integer')->rule('between:0,677'),
+
                         DatePicker::make('tanggal_tes_3')
                             ->label('Tanggal Tes')->required()
                             ->native(false)->displayFormat('d/m/Y')
                             ->rule('after_or_equal:tanggal_tes_2'),
+
                         FileUpload::make('foto_path_3')
                             ->label('Screenshot Nilai Tes')->required()
-                            ->disk('public')->directory('ept_proofs')
-                            ->image()->imageEditor(false)->maxSize(2_048)
-                            ->imagePreviewHeight('180'),
+                            ->image()
+                            ->disk('public')->visibility('public')
+                            ->acceptedFileTypes(['image/*'])
+                            ->maxSize(8192)
+                            ->downloadable()
+                            ->imagePreviewHeight('180')
+                            ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
+                                $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
+                                $base  = "proof3_{$nama}.webp";
+
+                                return ImageTransformer::toWebpFromUploaded(
+                                    uploaded:   $file,
+                                    targetDisk: 'public',
+                                    targetDir:  'ept/proofs',
+                                    quality:    85,
+                                    maxWidth:   1600,
+                                    maxHeight:  null,
+                                    basename:   $base
+                                )['path'];
+                            }),
                     ])->columns(3),
             ])
             ->statePath('data');

@@ -10,7 +10,7 @@ use App\Http\Controllers\PostController;
 use App\Http\Controllers\CetakGrupTesController;
 use App\Http\Controllers\CetakNilaiGrupController;
 use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\PdfExportController;
+use App\Http\Controllers\PenerjemahanPdfController;
 
 // Verifikasi & EPT PDF
 use App\Http\Controllers\VerificationController;
@@ -31,10 +31,8 @@ use App\Http\Controllers\BasicListeningQuizFibController;
 |--------------------------------------------------------------------------
 */
 
-// Beranda
 Route::get('/', [HomeController::class, 'index'])->name('front.home');
 
-// Daftar posting per kategori
 Route::get('/berita', [PostController::class, 'index'])
     ->defaults('type', 'news')
     ->name('front.news');
@@ -47,14 +45,11 @@ Route::get('/nilai-ujian', [PostController::class, 'index'])
     ->defaults('type', 'scores')
     ->name('front.scores');
 
-// Detail posting
 Route::get('/post/{slug}', [PostController::class, 'show'])
     ->name('front.post.show');
 
-// Login → arahkan ke halaman login Filament
 Route::get('/login', fn () => redirect()->route('filament.admin.auth.login'))
     ->name('login');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -76,35 +71,29 @@ Route::get('/laporan/export/all', [LaporanController::class, 'exportAllPdf'])
     ->middleware('auth')
     ->name('laporan.export.all.pdf');
 
-
 /*
 |--------------------------------------------------------------------------
-| Protected: Export PDF Penerjemahan
+| Penerjemahan PDF
 |--------------------------------------------------------------------------
-| - Hanya bisa diakses jika sudah login.
-| - Detail otorisasi di controller (admin/staf bebas; pendaftar hanya
-|   jika status = Selesai dan milik sendiri).
 */
+
 Route::middleware('auth')->group(function () {
-    // Canonical
-    Route::get('/penerjemahan/{penerjemahan}/pdf', [PdfExportController::class, 'penerjemahan'])
+    Route::get('/penerjemahan/{record}/pdf', [PenerjemahanPdfController::class, 'show'])
+        ->whereNumber('record')
         ->name('penerjemahan.pdf');
-
-    // Alias URL lama
-    Route::get('/export/penerjemahan/{penerjemahan}', [PdfExportController::class, 'penerjemahan'])
-        ->name('export.penerjemahan.pdf');
-
-    // Regenerate (Admin/Staf/Kepala) – gunakan POST
-    Route::post('/penerjemahan/{penerjemahan}/pdf/regenerate', [PdfExportController::class, 'regenerate'])
-        ->name('penerjemahan.pdf.regenerate');
 });
 
+Route::get('/verification/{code}/penerjemahan.pdf', [PenerjemahanPdfController::class, 'byCode'])
+    ->where('code', '[A-Za-z0-9\-_]+')
+    ->middleware('throttle:30,1')
+    ->name('verification.penerjemahan.pdf');
 
 /*
 |--------------------------------------------------------------------------
 | EPT Submission PDF (Protected)
 |--------------------------------------------------------------------------
 */
+
 Route::middleware('auth')->group(function () {
     Route::get('/ept-submissions/{submission}/pdf', [EptSubmissionPdfController::class, 'show'])
         ->name('ept-submissions.pdf');
@@ -115,6 +104,7 @@ Route::middleware('auth')->group(function () {
 | Verification (Public + Rate Limit)
 |--------------------------------------------------------------------------
 */
+
 Route::get('/verification/{code}/ept.pdf', [EptSubmissionPdfController::class, 'byCode'])
     ->where('code', '[A-Za-z0-9\-_]+')
     ->middleware('throttle:30,1')
@@ -128,12 +118,12 @@ Route::get('/verification/{code}', [VerificationController::class, 'show'])
     ->middleware('throttle:60,1')
     ->name('verification.show');
 
-
 /*
 |--------------------------------------------------------------------------
 | Basic Listening (index & sesi)
 |--------------------------------------------------------------------------
 */
+
 Route::get('/basic-listening', [BasicListeningController::class, 'index'])
     ->name('bl.index');
 
@@ -141,12 +131,12 @@ Route::get('/basic-listening/sessions/{session}', [BasicListeningController::cla
     ->whereNumber('session')
     ->name('bl.session.show');
 
-
 /*
 |--------------------------------------------------------------------------
 | Basic Listening – Connect Code (Protected)
 |--------------------------------------------------------------------------
 */
+
 Route::middleware('auth')->group(function () {
     Route::get('/basic-listening/sessions/{session}/code', [BasicListeningConnectController::class, 'showForm'])
         ->whereNumber('session')
@@ -157,12 +147,12 @@ Route::middleware('auth')->group(function () {
         ->name('bl.code.verify');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Basic Listening – Quiz Lama (MC / multi-soal) – Protected
 |--------------------------------------------------------------------------
 */
+
 Route::middleware('auth')->group(function () {
     Route::get('/basic-listening/quiz/{attempt}', [BasicListeningQuizController::class, 'show'])
         ->whereNumber('attempt')
@@ -179,17 +169,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/basic-listening/quiz/{attempt}/continue', [BasicListeningController::class, 'continue'])
         ->whereNumber('attempt')
         ->name('bl.quiz.continue');
-        
+
     Route::post('/bl-quiz/{attempt}/force-submit', [BasicListeningQuizController::class, 'forceSubmit'])
         ->name('bl.quiz.force-submit');
 });
-
 
 /*
 |--------------------------------------------------------------------------
 | Basic Listening – History (Protected)
 |--------------------------------------------------------------------------
 */
+
 Route::middleware('auth')->group(function () {
     Route::get('/basic-listening/history', [BasicListeningHistoryController::class, 'index'])
         ->name('bl.history');
@@ -199,29 +189,25 @@ Route::middleware('auth')->group(function () {
         ->name('bl.history.show');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Basic Listening – Quiz Baru (FIB 1 paragraf + timer) – Protected
 |--------------------------------------------------------------------------
-| Catatan:
-| - View: resources/views/bl/quiz_fib.blade.php
-| - Controller: BasicListeningQuizFibController
-| - Tidak bentrok dengan rute lama karena prefix berbeda (/bl/*).
 */
+
 Route::middleware('auth')->group(function () {
     Route::post('/bl/quiz/{quiz}/start',  [BasicListeningQuizFibController::class, 'start'])
         ->whereNumber('quiz')
         ->name('bl.start');
 
-    Route::get('/bl/quiz/{quiz}',         [BasicListeningQuizFibController::class, 'show'])
+    Route::get('/bl/quiz/{quiz}', [BasicListeningQuizFibController::class, 'show'])
         ->whereNumber('quiz')
         ->name('bl.quiz');
 
     Route::post('/bl/quiz/{attempt}/fib-answer', [BasicListeningQuizFibController::class, 'answer'])
         ->whereNumber('attempt')
         ->name('bl.quiz.fib.answer');
-        
+
     Route::post('/bl/quiz/{quiz}/submit', [BasicListeningQuizFibController::class, 'submit'])
         ->whereNumber('quiz')
         ->name('bl.submit');
