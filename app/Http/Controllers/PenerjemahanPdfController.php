@@ -15,11 +15,15 @@ class PenerjemahanPdfController extends Controller
     public function show(Penerjemahan $record)
     {
         $this->ensureCanExport($record);
+
+        // Pastikan ada verification_code & verification_url seperti perilaku lama
+        $this->ensureVerification($record);
+
         $record->load(['users', 'translator']);
 
         $viewData = $this->buildViewData($record);
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
-        $filename = 'Surat_Terjemahan_' . \Illuminate\Support\Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
+        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
+        $filename = 'Surat_Terjemahan_' . Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
 
         if (request()->boolean('dl')) {
             // 100% force download + tampil progress di browser
@@ -28,26 +32,35 @@ class PenerjemahanPdfController extends Controller
                 fn () => print $binary,
                 $filename,
                 [
-                    'Content-Type'              => 'application/pdf',
-                    'Content-Disposition'       => 'attachment; filename="'.$filename.'"',
-                    'X-Content-Type-Options'    => 'nosniff',
-                    'Cache-Control'             => 'private, max-age=0, must-revalidate',
-                    'Pragma'                    => 'public',
+                    'Content-Type'            => 'application/pdf',
+                    'Content-Disposition'     => 'attachment; filename="'.$filename.'"',
+                    'X-Content-Type-Options'  => 'nosniff',
+                    'Cache-Control'           => 'private, max-age=0, must-revalidate',
+                    'Pragma'                  => 'public',
                 ]
             );
         }
-        return $pdf->stream($filename);
-    }   
 
+        // Default: inline preview
+        return $pdf->stream($filename);
+    }
+
+    /**
+     * /verification/{code}/penerjemahan.pdf  (public by code)
+     */
     public function byCode(string $code)
     {
-        $record = \App\Models\Penerjemahan::where('verification_code', $code)->firstOrFail();
+        $record = Penerjemahan::where('verification_code', $code)->firstOrFail();
+
         $this->ensureCanExport($record);
+        // Pastikan verification_url terisi juga
+        $this->ensureVerification($record);
+
         $record->load(['users', 'translator']);
 
         $viewData = $this->buildViewData($record);
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
-        $filename = 'Surat_Terjemahan_' . \Illuminate\Support\Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
+        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
+        $filename = 'Surat_Terjemahan_' . Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
 
         if (request()->boolean('dl')) {
             $binary = $pdf->output();
@@ -87,11 +100,42 @@ class PenerjemahanPdfController extends Controller
         );
     }
 
+    /**
+     * Pastikan kolom verifikasi terisi (meniru perilaku lama PdfExportController).
+     * - Jika model punya method ensureVerification(), pakai itu.
+     * - Jika tidak, generate code & url dasar di sini.
+     */
+    private function ensureVerification(Penerjemahan $m): void
+    {
+        if (method_exists($m, 'ensureVerification')) {
+            $m->ensureVerification();
+            $m->refresh();
+            return;
+        }
+
+        // Generate code jika kosong
+        if (blank($m->verification_code)) {
+            $m->verification_code = 'TERJ-' . $m->getKey() . '-' . Str::upper(Str::random(6));
+            $m->save();
+        }
+
+        // Isi URL absolut jika kosong
+        if (blank($m->verification_url) && filled($m->verification_code)) {
+            // gunakan route resmi verifikasi (absolute URL)
+            $m->verification_url = route('verification.show', ['code' => $m->verification_code], true);
+            $m->save();
+        }
+
+        $m->refresh();
+    }
+
     private function buildViewData(Penerjemahan $record): array
     {
-        $verifyCode = $record->verification_code ?? null;
-        $verifyUrl  = $record->verification_url ?: ($verifyCode ? route('verification.show', $verifyCode) : null);
+        $verifyCode = $record->verification_code ?: null;
+        $verifyUrl  = $record->verification_url
+            ?: ($verifyCode ? route('verification.show', ['code' => $verifyCode], true) : null);
 
+        // Gambar lokal (bukan base64)
         $logo  = public_path('images/logo-um.png');
         $stamp = public_path('images/stempel.png');
         $sign  = public_path('images/ttd_ketua.png');
@@ -116,7 +160,7 @@ class PenerjemahanPdfController extends Controller
     }
 
     /**
-     * Ubah path gambar menjadi data URI; null bila tidak ada.
+     * (Tidak dipakai, tapi dibiarkan kalau suatu saat balik ke data URI)
      */
     private function toDataUriIfExists(?string $absolutePath): ?string
     {
