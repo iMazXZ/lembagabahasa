@@ -8,83 +8,118 @@ use App\Models\BasicListeningCodeUsage;
 use App\Models\BasicListeningConnectCode;
 use App\Models\BasicListeningSession;
 use App\Models\BasicListeningQuestion;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 class BasicListeningConnectController extends Controller
 {
     public function showForm(BasicListeningSession $session)
     {
-        if (!$session->isOpen()) {
+        if (! $session->isOpen()) {
             return back()->withErrors(['session' => 'Sesi belum dibuka atau sudah ditutup.']);
         }
+
         return view('bl.code', compact('session'));
     }
 
+    /**
+     * Verifikasi Connect Code & arahkan ke quiz yang tepat.
+     * Guardrail yang ditambahkan:
+     * - Validasi prodi jika connect code dibatasi (restrict_to_prody = true).
+     * - Cegah lintas-attempt aktif dalam 1 session untuk quiz berbeda.
+     */
     public function verify(Request $request, BasicListeningSession $session)
     {
-        if (!$session->isOpen()) {
+        if (! $session->isOpen()) {
             return back()->withErrors(['session' => 'Sesi belum dibuka atau sudah ditutup.']);
         }
 
-        $request->validate(['code' => ['required', 'string', 'max:64']]);
-        
-        $hash = hash('sha256', trim($request->input('code')));
+        $request->validate([
+            'code' => ['required', 'string', 'max:64'],
+        ], [
+            'code.required' => 'Silakan masukkan Kode Akses.',
+        ]);
 
-        $codes = BasicListeningConnectCode::where('session_id', $session->id)
+        $plain = trim((string) $request->input('code'));
+        $hash  = hash('sha256', $plain);
+
+        // Ambil daftar code aktif untuk session ini lalu cocokkan hash
+        $now = now();
+
+        $codes = BasicListeningConnectCode::query()
+            ->where('session_id', $session->id)
             ->where('is_active', true)
-            ->where('starts_at', '<=', now())
-            ->where('ends_at', '>=', now())
+            ->where(function ($q) use ($now) {
+                // starts_at NULL dianggap sudah aktif
+                $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function ($q) use ($now) {
+                // ends_at NULL dianggap belum kedaluwarsa
+                $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
+            })
             ->get();
 
+        /** @var \App\Models\BasicListeningConnectCode|null $connect */
         $connect = $codes->first(fn ($c) => hash_equals($c->code_hash, $hash));
-        
-        if (!$connect) {
+
+        if (! $connect) {
             return back()->withErrors(['code' => 'Kode salah atau kedaluwarsa.'])->withInput();
         }
 
-        if ($connect->max_uses) {
+        // ===== Guardrail: Validasi pembatasan prodi =====
+        if ($connect->restrict_to_prody && $connect->prody_id) {
+            $user = $request->user();
+
+            if (! $user || ! $user->prody_id) {
+                return back()
+                    ->withErrors(['code' => 'Kode ini khusus untuk mahasiswa prodi tertentu. Silakan login dan pastikan data prodi Anda sudah diisi.'])
+                    ->withInput();
+            }
+
+            if ((int) $user->prody_id !== (int) $connect->prody_id) {
+                $targetProdi = $connect->prody?->name ?? 'prodi tertentu';
+                return back()
+                    ->withErrors(['code' => "Kode ini hanya untuk mahasiswa {$targetProdi}."])
+                    ->withInput();
+            }
+        }
+        // ================================================
+
+        // Batas pemakaian
+        if (! is_null($connect->max_uses)) {
             $uses = BasicListeningCodeUsage::where('connect_code_id', $connect->id)->count();
-            if ($uses >= $connect->max_uses) {
+            if ($uses >= (int) $connect->max_uses) {
                 return back()->withErrors(['code' => 'Kode sudah mencapai batas pemakaian.'])->withInput();
             }
         }
 
-        BasicListeningCodeUsage::create([
-            'connect_code_id' => $connect->id,
-            'user_id'         => $request->user()->id,
-            'used_at'         => now(),
-            'ip'              => $request->ip(),
-            'ua'              => substr((string) $request->userAgent(), 0, 255),
-        ]);
-
-        // Ambil quiz yang dituju
+        // Tentukan quiz yang akan dibuka
         $quiz = $connect->quiz
             ?? $session->quizzes()->active()->latest('id')->first();
-            
-        if (!$quiz || !$quiz->is_active) {
+
+        if (! $quiz || ! $quiz->is_active) {
             return back()->withErrors(['code' => 'Quiz belum tersedia.'])->withInput();
         }
 
-        // 🆕 DETEKSI TIPE QUIZ: FIB atau MC
+        // Deteksi tipe: FIB atau MC
         $isFib = BasicListeningQuestion::where('quiz_id', $quiz->id)
             ->where('type', 'fib_paragraph')
             ->exists();
 
-        // 🆕 CEK ATTEMPT YANG SUDAH ADA - DENGAN QUIZ YANG SAMA
+        // Cek attempt aktif untuk quiz yang sama
         $existingAttempt = BasicListeningAttempt::where('user_id', $request->user()->id)
             ->where('session_id', $session->id)
-            ->where('quiz_id', $quiz->id) // 🆕 PASTIKAN QUIZ ID SAMA
+            ->where('quiz_id', $quiz->id)
             ->whereNull('submitted_at')
             ->first();
 
-        // 🆕 JIKA ADA ATTEMPT AKTIF UNTUK QUIZ INI, LANGSUNG REDIRECT
         if ($existingAttempt) {
-            return $this->redirectToCorrectQuizType($existingAttempt, $isFib, $quiz);
+            return $this->redirectToCorrectQuizType($existingAttempt, $isFib, $quiz->id);
         }
 
-        // 🆕 CEK APAKAH ADA ATTEMPT AKTIF UNTUK QUIZ LAIN DI SESSION YANG SAMA
+        // Cek attempt aktif untuk quiz lain dalam session yang sama
         $otherActiveAttempt = BasicListeningAttempt::where('user_id', $request->user()->id)
             ->where('session_id', $session->id)
-            ->where('quiz_id', '!=', $quiz->id) // 🆕 QUIZ BERBEDA
+            ->where('quiz_id', '!=', $quiz->id)
             ->whereNull('submitted_at')
             ->first();
 
@@ -94,54 +129,62 @@ class BasicListeningConnectController extends Controller
                 ->withInput();
         }
 
+        // Catat penggunaan code (audit)
+        BasicListeningCodeUsage::create([
+            'connect_code_id' => $connect->id,
+            'user_id'         => $request->user()->id,
+            'used_at'         => $now,
+            'ip'              => $request->ip(),
+            'ua'              => substr((string) $request->userAgent(), 0, 255),
+        ]);
+
+        // Buat (atau ambil) attempt lalu redirect sesuai tipe quiz
         try {
             if ($isFib) {
-                // ==== ALUR FIB ====
-                $durationSeconds = max(60, (int)($session->duration_minutes ?? 10) * 60);
+                // Alur FIB: gunakan durasi dari session (fallback 10 menit, min 60 detik)
+                $durationSeconds = max(60, (int) ($session->duration_minutes ?? 10) * 60);
 
                 $attempt = BasicListeningAttempt::firstOrCreate(
                     [
-                        'user_id' => $request->user()->id,
+                        'user_id'    => $request->user()->id,
                         'session_id' => $session->id,
-                        'quiz_id' => $quiz->id,
+                        'quiz_id'    => $quiz->id,
                     ],
                     [
-                        'connect_code_id' => $connect->id ?? null,
-                        'started_at' => now(),
-                        'expires_at' => now()->addSeconds($durationSeconds),
-                        'submitted_at' => null,
+                        'connect_code_id' => $connect->id,
+                        'started_at'      => now(),
+                        'expires_at'      => now()->addSeconds($durationSeconds),
+                        'submitted_at'    => null,
                     ]
                 );
 
-                // 🆕 REDIRECT KE ROUTE FIB
-                return redirect()->route('bl.quiz', $quiz->id);
+                return redirect()->route('bl.quiz', $quiz->id); // route FIB
             }
 
-            // ==== ALUR MC ====
+            // Alur MC
             $attempt = BasicListeningAttempt::firstOrCreate(
                 [
-                    'user_id' => $request->user()->id,
+                    'user_id'    => $request->user()->id,
                     'session_id' => $session->id,
-                    'quiz_id' => $quiz->id,
+                    'quiz_id'    => $quiz->id,
                 ],
                 [
-                    'connect_code_id' => $connect->id ?? null,
-                    'started_at' => now(),
-                    'submitted_at' => null,
+                    'connect_code_id' => $connect->id,
+                    'started_at'      => now(),
+                    'submitted_at'    => null,
                 ]
             );
 
-            return redirect()->route('bl.quiz.show', $attempt);
-
-        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
-            // Fallback: cari attempt yang sudah ada
+            return redirect()->route('bl.quiz.show', $attempt); // route MC
+        } catch (UniqueConstraintViolationException $e) {
+            // Fallback: kalau race condition, ambil attempt yang sudah ada
             $existingAttempt = BasicListeningAttempt::where('user_id', $request->user()->id)
                 ->where('session_id', $session->id)
                 ->where('quiz_id', $quiz->id)
                 ->first();
 
             if ($existingAttempt) {
-                return $this->redirectToCorrectQuizType($existingAttempt, $isFib, $quiz);
+                return $this->redirectToCorrectQuizType($existingAttempt, $isFib, $quiz->id);
             }
 
             return back()
@@ -151,16 +194,14 @@ class BasicListeningConnectController extends Controller
     }
 
     /**
-     * 🆕 METHOD BARU: Redirect ke tipe quiz yang benar
+     * Redirect ke route yang sesuai tipe quiz.
      */
-    private function redirectToCorrectQuizType($attempt, $isFib, $quiz)
+    private function redirectToCorrectQuizType(BasicListeningAttempt $attempt, bool $isFib, int $quizId)
     {
         if ($isFib) {
-            // Redirect ke route FIB
-            return redirect()->route('bl.quiz', $quiz->id);
-        } else {
-            // Redirect ke route MC
-            return redirect()->route('bl.quiz.show', $attempt);
+            return redirect()->route('bl.quiz', $quizId);      // FIB
         }
+
+        return redirect()->route('bl.quiz.show', $attempt);    // MC
     }
 }

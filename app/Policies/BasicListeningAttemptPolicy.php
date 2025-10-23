@@ -11,98 +11,134 @@ class BasicListeningAttemptPolicy
     use HandlesAuthorization;
 
     /**
-     * Determine whether the user can view any models.
+     * Catatan:
+     * - Admin akan di-override oleh Gate::before di AuthServiceProvider (return true).
+     * - Tutor: hanya boleh view/viewAny untuk attempts dari prodi yang dia ampu.
+     * - Tutor tidak boleh create/update/delete attempts (dibuat sistem saat mahasiswa mengerjakan).
+     */
+
+    /**
+     * Boleh lihat daftar attempts?
+     * Tutor: hanya jika dia mengampu minimal 1 prodi.
+     * Peran lain: false (kecuali admin via Gate::before).
      */
     public function viewAny(User $user): bool
     {
+        if ($user->hasRole('tutor')) {
+            return \count($user->assignedProdyIds()) > 0;
+        }
+
+        // fallback untuk peran lain (non-admin): gunakan izin Shield bila ada
         return $user->can('view_any_basic::listening::attempt');
     }
 
     /**
-     * Determine whether the user can view the model.
+     * Boleh lihat 1 attempt?
+     * Tutor: hanya jika attempt milik mahasiswa dari prodi yang dia ampu.
      */
-    public function view(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function view(User $user, BasicListeningAttempt $attempt): bool
     {
+        if ($user->hasRole('tutor')) {
+            $prodyId = $attempt->user?->prody_id;
+            return $prodyId !== null && \in_array($prodyId, $user->assignedProdyIds(), true);
+        }
+
+        // fallback untuk peran lain (non-admin)
         return $user->can('view_basic::listening::attempt');
     }
 
     /**
-     * Determine whether the user can create models.
+     * Attempt dibuat oleh sistem (mahasiswa mengerjakan).
+     * Tutor tidak perlu membuat attempt manual.
      */
     public function create(User $user): bool
     {
+        // blokir tutor walau Shield-nya centang create
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('create_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function update(User $user, BasicListeningAttempt $attempt): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('update_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function delete(User $user, BasicListeningAttempt $attempt): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('delete_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can bulk delete.
-     */
     public function deleteAny(User $user): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('delete_any_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can permanently delete.
-     */
-    public function forceDelete(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function forceDelete(User $user, BasicListeningAttempt $attempt): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('force_delete_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can permanently bulk delete.
-     */
     public function forceDeleteAny(User $user): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('force_delete_any_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can restore.
-     */
-    public function restore(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function restore(User $user, BasicListeningAttempt $attempt): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('restore_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can bulk restore.
-     */
     public function restoreAny(User $user): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('restore_any_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can replicate.
-     */
-    public function replicate(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function replicate(User $user, BasicListeningAttempt $attempt): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('replicate_basic::listening::attempt');
     }
 
-    /**
-     * Determine whether the user can reorder.
-     */
     public function reorder(User $user): bool
     {
+        if ($user->hasRole('tutor')) {
+            return false;
+        }
+
         return $user->can('reorder_basic::listening::attempt');
     }
 }

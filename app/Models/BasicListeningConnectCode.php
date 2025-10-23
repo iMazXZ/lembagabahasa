@@ -43,4 +43,15 @@ class BasicListeningConnectCode extends Model
         return $this->hasMany(BasicListeningAttempt::class, 'connect_code_id');
     }
 
+    // app/Models/BasicListeningConnectCode.php (tambahkan di dalam class)
+    public function prody()
+    {
+        return $this->belongsTo(\App\Models\Prody::class, 'prody_id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
+
 }

@@ -11,7 +11,10 @@ use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Storage;
 use Filament\Models\Contracts\HasAvatar;
+
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable implements HasAvatar
 {
@@ -19,7 +22,7 @@ class User extends Authenticatable implements HasAvatar
     use HasFactory, Notifiable, HasRoles;
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi mass-assignment.
      *
      * @var list<string>
      */
@@ -31,11 +34,11 @@ class User extends Authenticatable implements HasAvatar
         'prody_id',
         'year',
         'image',
-        'nilaibasiclistening'
+        'nilaibasiclistening',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
+     * Kolom yang disembunyikan saat serialisasi.
      *
      * @var list<string>
      */
@@ -45,7 +48,7 @@ class User extends Authenticatable implements HasAvatar
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * Casting kolom.
      *
      * @return array<string, string>
      */
@@ -57,31 +60,82 @@ class User extends Authenticatable implements HasAvatar
         ];
     }
 
-    public function prody()
+    /**
+     * Relasi ke Prodi (FK: prody_id).
+     */
+    public function prody(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Prody::class);
+        return $this->belongsTo(\App\Models\Prody::class, 'prody_id');
     }
 
-    // Relationship untuk database notifications
+    /**
+     * Relasi ke notifikasi database (urut terbaru).
+     */
     public function notifications()
     {
-        return $this->morphMany(DatabaseNotification::class, 'notifiable')->orderBy('created_at', 'desc');
+        return $this->morphMany(DatabaseNotification::class, 'notifiable')
+            ->orderBy('created_at', 'desc');
     }
 
+    /**
+     * Avatar untuk Filament Admin.
+     */
     public function getFilamentAvatarUrl(): ?string
     {
-        // Cek apakah ada nilai di kolom 'image'
         if ($this->image) {
-            // Jika ada, buat URL publiknya
             return Storage::url($this->image);
         }
 
-        // Jika tidak ada, kembalikan null (Filament akan menampilkan inisial)
-        return null;
+        return null; // Filament akan tampilkan inisial
     }
 
+    /**
+     * Contoh relasi ke pengajuan EPT (biarkan sesuai kebutuhanmu).
+     */
     public function eptSubmissions(): HasMany
     {
-        return $this->hasMany(EptSubmission::class);
+        return $this->hasMany(\App\Models\EptSubmission::class);
     }
+
+    /**
+     * Relasi many-to-many: Tutor ↔ Prodi yang diampu.
+     * Pivot: tutor_prody (user_id, prody_id).
+     */
+    public function tutorProdies(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Prody::class, 'tutor_prody')
+            ->withTimestamps();
+    }
+
+    /**
+     * Relasi ke attempts Basic Listening milik user (peserta).
+     */
+    public function basicListeningAttempts(): HasMany
+    {
+        return $this->hasMany(\App\Models\BasicListeningAttempt::class, 'user_id');
+    }
+
+    /**
+     * Helper: ambil array ID prodi yang diampu tutor (memoized per-request).
+     * Menggunakan pluck('id') dari tabel relasi (prodies).
+     */
+    public function assignedProdyIds(): array
+    {
+        static $cacheByUser = [];
+
+        if (! isset($cacheByUser[$this->id])) {
+            // Ambil dari pivot untuk menghindari ambiguitas kolom 'id'
+            $ids = $this->tutorProdies()
+                ->pluck('tutor_prody.prody_id')   // <- penting: kwalifikasi kolom
+                ->unique()
+                ->map(fn ($v) => (int) $v)
+                ->values()
+                ->all();
+
+            $cacheByUser[$this->id] = $ids;
+        }
+
+        return $cacheByUser[$this->id];
+    }
+
 }

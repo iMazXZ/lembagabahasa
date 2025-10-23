@@ -1,8 +1,9 @@
+{{-- resources/views/partials/navbar.blade.php --}}
 <nav class="bg-white/95 backdrop-blur border-b sticky top-0 z-50">
   @php
-    // helper active untuk route verifikasi
+    // Helper active untuk route verifikasi
     $isVerification = request()->routeIs('verification.*');
-    $linkBase = 'text-gray-700 hover:text-um-blue font-medium transition-colors';
+    $linkBase   = 'text-gray-700 hover:text-um-blue font-medium transition-colors';
     $linkActive = $isVerification ? 'text-um-blue' : '';
   @endphp
 
@@ -32,25 +33,36 @@
 
       {{-- Desktop menu --}}
       <div class="hidden lg:flex items-center gap-6">
-        <a href="{{ route('front.home') }}#berita" class="{{ $linkBase }}">Cek Jadwal dan Nilai</a>
-        <a href="{{ route('front.home') }}#profil" class="{{ $linkBase }}">Profil</a>
-        <a href="{{ route('front.home') }}#kontak" class="{{ $linkBase }}">Kontak</a>
+        <a href="{{ route('front.home') }}#berita"  class="{{ $linkBase }}">Cek Jadwal dan Nilai</a>
+        <a href="{{ route('front.home') }}#profil"  class="{{ $linkBase }}">Profil</a>
+        <a href="{{ route('front.home') }}#kontak"  class="{{ $linkBase }}">Kontak</a>
 
         {{-- Verifikasi: halaman sendiri, bisa diberi state active --}}
-        <a href="{{ route('verification.index') }}"
-           class="{{ $linkBase }} {{ $linkActive }}">
+        <a href="{{ route('verification.index') }}" class="{{ $linkBase }} {{ $linkActive }}">
           Verifikasi Dokumen
         </a>
 
         @guest
-          <a href="{{ route('filament.admin.auth.login') }}"
-             class="inline-flex items-center gap-2 bg-gradient-to-r from-um-gold to-purple-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md hover:scale-[1.02] transition">
-            <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
-            <span>Login</span>
-          </a>
+          <div class="flex items-center gap-3">
+            {{-- Register (outline) --}}
+            @if (Route::has('filament.admin.auth.register'))
+              <a href="{{ route('filament.admin.auth.register') }}"
+                class="inline-flex items-center gap-2 bg-white text-um-blue border border-um-blue px-5 py-2.5 rounded-full shadow-sm hover:bg-blue-50 transition">
+                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                <span>Register</span>
+              </a>
+            @endif
+
+            {{-- Login (gradient) --}}
+            <a href="{{ route('filament.admin.auth.login') }}"
+              class="inline-flex items-center gap-2 bg-gradient-to-r from-um-gold to-purple-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md hover:scale-[1.02] transition">
+              <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+              <span>Login</span>
+            </a>
+          </div>
         @else
           <a href="{{ route('filament.admin.pages.2') }}"
-             class="inline-flex items-center gap-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md hover:scale-[1.02] transition">
+            class="inline-flex items-center gap-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md hover:scale-[1.02] transition">
             <i class="fas fa-user-circle" aria-hidden="true"></i>
             <span class="truncate max-w-[180px]">{{ Auth::user()->name }}</span>
           </a>
@@ -63,34 +75,43 @@
             </button>
           </form>
         @endguest
+
       </div>
 
       {{-- Mobile toggle --}}
-      <button id="menuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" aria-controls="mobileMenu" aria-expanded="false">
-        <i class="fas fa-bars text-gray-600 text-xl"></i>
-        <span class="sr-only">Toggle menu</span>
+      <button id="menuToggle"
+              class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-controls="mobileMenu" aria-expanded="false" aria-label="Toggle menu">
+        <i class="fas fa-bars text-gray-600 text-xl" aria-hidden="true"></i>
       </button>
     </div>
   </div>
 
   {{-- Mobile menu --}}
-  <div id="mobileMenu" class="hidden lg:hidden bg-white border-t px-4 py-3" style="display: none;">
+  <div id="mobileMenu" class="hidden lg:hidden bg-white border-t px-4 py-3">
     <div class="flex flex-col gap-2">
-      <a href="{{ route('front.home') }}#beranda" class="py-2 {{ $linkBase }}">Beranda</a>
-      <a href="{{ route('front.home') }}#layanan" class="py-2 {{ $linkBase }}">Layanan</a>
-      <a href="{{ route('front.home') }}#tentang" class="py-2 {{ $linkBase }}">Tentang</a>
-      <a href="{{ route('front.home') }}#kontak" class="py-2 {{ $linkBase }}">Kontak</a>
+      <a href="{{ route('front.home') }}#berita"  class="py-2 {{ $linkBase }}">Cek Jadwal dan Nilai</a>
+      <a href="{{ route('front.home') }}#profil"  class="py-2 {{ $linkBase }}">Profil</a>
+      <a href="{{ route('front.home') }}#kontak"  class="py-2 {{ $linkBase }}">Kontak</a>
       <a href="{{ route('verification.index') }}" class="py-2 {{ $linkBase }} {{ $linkActive }}">Verifikasi Dokumen</a>
 
       @guest
+        @if (Route::has('filament.admin.auth.register'))
+          <a href="{{ route('filament.admin.auth.register') }}"
+            class="mt-2 inline-flex items-center justify-center gap-2 bg-white text-um-blue border border-um-blue px-5 py-2.5 rounded-full shadow-sm hover:bg-blue-50 transition">
+            <i class="fas fa-user-plus" aria-hidden="true"></i>
+            <span>Register</span>
+          </a>
+        @endif
+
         <a href="{{ route('filament.admin.auth.login') }}"
-           class="mt-2 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-um-gold to-purple-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md transition">
+          class="mt-2 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-um-gold to-purple-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md transition">
           <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
           <span>Login</span>
         </a>
       @else
         <a href="{{ route('filament.admin.pages.2') }}"
-           class="mt-2 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md transition">
+          class="mt-2 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md transition">
           <i class="fas fa-user-circle" aria-hidden="true"></i>
           <span class="truncate max-w-[180px]">{{ Auth::user()->name }}</span>
         </a>
@@ -103,71 +124,7 @@
           </button>
         </form>
       @endguest
+
     </div>
   </div>
 </nav>
-
-{{-- Script toggle mobile menu --}}
-<script>
-  console.log('Navbar script loaded');
-  
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded');
-    
-    const toggle = document.getElementById('menuToggle');
-    const menu = document.getElementById('mobileMenu');
-    
-    console.log('Toggle element:', toggle);
-    console.log('Menu element:', menu);
-    
-    if (!toggle || !menu) {
-      console.error('Toggle atau Menu tidak ditemukan!');
-      return;
-    }
-
-    // Toggle menu saat button diklik
-    toggle.addEventListener('click', function(e) {
-      console.log('Toggle clicked!');
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Cek apakah menu sedang ditampilkan
-      const isCurrentlyHidden = menu.style.display === 'none';
-      console.log('Menu currently hidden?', isCurrentlyHidden);
-      
-      if (isCurrentlyHidden) {
-        // Buka menu
-        menu.classList.remove('hidden');
-        menu.style.display = 'block';
-        toggle.setAttribute('aria-expanded', 'true');
-        console.log('Menu dibuka');
-      } else {
-        // Tutup menu
-        menu.classList.add('hidden');
-        menu.style.display = 'none';
-        toggle.setAttribute('aria-expanded', 'false');
-        console.log('Menu ditutup');
-      }
-    });
-
-    // Auto-close saat klik link di dalam menu
-    menu.querySelectorAll('a').forEach(function(link) {
-      link.addEventListener('click', function() {
-        menu.classList.add('hidden');
-        menu.style.display = 'none';
-        toggle.setAttribute('aria-expanded', 'false');
-      });
-    });
-
-    // Close menu saat klik di luar
-    document.addEventListener('click', function(event) {
-      const isClickInside = toggle.contains(event.target) || menu.contains(event.target);
-      
-      if (!isClickInside && menu.style.display !== 'none') {
-        menu.classList.add('hidden');
-        menu.style.display = 'none';
-        toggle.setAttribute('aria-expanded', 'false');
-      }
-    });
-  });
-</script>

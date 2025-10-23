@@ -3,18 +3,20 @@
 namespace App\Filament\Pages;
 
 use App\Models\Prody;
+use App\Support\ImageTransformer;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Filament\Notifications\Notification;
-use Filament\Actions\Action;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class Biodata extends Page
 {
@@ -32,13 +34,13 @@ class Biodata extends Page
         $this->user = Auth::user();
 
         $this->form->fill([
-            'name' => $this->user->name,
-            'email' => $this->user->email,
-            'srn' => $this->user->srn,
-            'prody_id' => $this->user->prody_id,
-            'year' => $this->user->year,
+            'name'                => $this->user->name,
+            'email'               => $this->user->email,
+            'srn'                 => $this->user->srn,
+            'prody_id'            => $this->user->prody_id,
+            'year'                => $this->user->year,
             'nilaibasiclistening' => $this->user->nilaibasiclistening,
-            'image' => $this->user->image,
+            'image'               => $this->user->image, // path relatif di disk 'public'
         ]);
     }
 
@@ -65,7 +67,8 @@ class Biodata extends Page
                             'required' => 'Wajib Diisi.',
                         ])
                         ->helperText(str('Isi dengan **nama lengkap** disini.')->inlineMarkdown()->toHtmlString())
-                         ->dehydrateStateUsing(fn (string $state): string => ucwords(strtolower($state))),
+                        ->dehydrateStateUsing(fn (string $state): string => ucwords(strtolower($state))),
+
                     TextInput::make('email')
                         ->required()
                         ->email()
@@ -73,12 +76,14 @@ class Biodata extends Page
                             'required' => 'Wajib Diisi.',
                         ])
                         ->helperText(str('Isi dengan **email** aktif, email ini digunakan untuk mengirim **notifikasi** dan **reset password**.')->inlineMarkdown()->toHtmlString()),
+
                     TextInput::make('password')
                         ->password()
                         ->revealable(filament()->arePasswordsRevealable())
                         ->nullable()
                         ->hint('Lupa Password? Ganti Disini')
                         ->hintColor('danger'),
+
                     TextInput::make('srn')
                         ->label('Nomor Pokok Mahasiswa')
                         ->helperText(str('Jika Anda **Mahasiswa** isi NPM disini, jika **Dosen** isi NIDN, jika **Umum** isi dengan NIK.')->inlineMarkdown()->toHtmlString()),
@@ -100,36 +105,88 @@ class Biodata extends Page
                         ->minValue(0)
                         ->maxValue(100),
 
-                    FileUpload::make('image')->image()
+                    FileUpload::make('image')
                         ->label('Foto Profil')
-                        ->helperText(str('Upload foto profil Anda disini. Ukuran maksimal 2MB.')->inlineMarkdown()->toHtmlString())
-                        ->directory('profile_pictures')
-                        ->maxSize(2048)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp']),
-                ])
-            ])->statePath('data');
+                        ->image()
+                        ->imageEditor() // user bisa crop manual jika mau
+                        ->imageEditorAspectRatios(['1:1'])
+                        ->imagePreviewHeight('200')
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(8192)
+                        ->disk('public')
+                        ->visibility('public')
+                        ->downloadable()
+                        ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $get) {
+                            // Ambil state lama; bisa string atau array
+                            $old = $get('image');
+                            if (is_array($old)) {
+                                $old = $old['path'] ?? ($old[0]['path'] ?? null);
+                            }
+
+                            // Hapus file lama bila ada
+                            if (is_string($old) && $old !== '' && Storage::disk('public')->exists($old)) {
+                                Storage::disk('public')->delete($old);
+                            }
+
+                            // Nama file konsisten per user (overwrite)
+                            $base = 'avatar_' . str(Auth::id())->padLeft(6, '0') . '.webp';
+
+                            // Kompres ke WebP + resize (tanpa cropSquare)
+                            $result = ImageTransformer::toWebpFromUploaded(
+                                uploaded:   $file,
+                                targetDisk: 'public',
+                                targetDir:  'profile_pictures',
+                                quality:    82,
+                                maxWidth:   600,
+                                maxHeight:  600,
+                                basename:   $base
+                            );
+
+                            return $result['path']; // path relatif pada disk 'public'
+                        })
+                        ->deleteUploadedFileUsing(function (string $file) {
+                            if (Storage::disk('public')->exists($file)) {
+                                Storage::disk('public')->delete($file);
+                            }
+                        })
+                        ->helperText('PNG/JPG/WebP ≤ 8MB'),
+                ]),
+            ])
+            ->statePath('data');
     }
 
     public function edit(): void
     {
-        $validatedData = $this->form->getState();
+        $validated = $this->form->getState();
 
-        $this->user->name = $validatedData['name'];
-        $this->user->email = $validatedData['email'];
-        $this->user->srn = $validatedData['srn'];
-        $this->user->prody_id = $validatedData['prody_id'];
-        $this->user->year = $validatedData['year'];
-        $this->user->nilaibasiclistening = $validatedData['nilaibasiclistening'];
+        $this->user->name                = $validated['name'];
+        $this->user->email               = $validated['email'];
+        $this->user->srn                 = $validated['srn'];
+        $this->user->prody_id            = $validated['prody_id'];
+        $this->user->year                = $validated['year'];
+        $this->user->nilaibasiclistening = $validated['nilaibasiclistening'];
 
-        if (!empty($validatedData['password'])) {
-            $this->user->password = Hash::make($validatedData['password']);
+        if (!empty($validated['password'])) {
+            $this->user->password = Hash::make($validated['password']);
         }
 
-        if (isset($validatedData['image'])) {
-            if ($this->user->image) {
-                Storage::delete($this->user->image);
+        // Normalisasi nilai 'image' (string / array) sebelum simpan
+        if (array_key_exists('image', $validated)) {
+            $newImage = $validated['image'];
+            if (is_array($newImage)) {
+                $newImage = $newImage['path'] ?? ($newImage[0]['path'] ?? null);
             }
-            $this->user->image = $validatedData['image'];
+
+            // Jika ada perbedaan, hapus file lama untuk berjaga-jaga
+            if ($this->user->image && $this->user->image !== $newImage) {
+                if (Storage::disk('public')->exists($this->user->image)) {
+                    Storage::disk('public')->delete($this->user->image);
+                }
+            }
+
+            if (is_string($newImage) && $newImage !== '') {
+                $this->user->image = $newImage;
+            }
         }
 
         $this->user->save();
@@ -144,14 +201,13 @@ class Biodata extends Page
     public function getSubheading(): ?string
     {
         $user = Auth::user();
-        
+
         if ($user->hasRole('pendaftar')) {
-            $isComplete = 
+            $isComplete =
                 !is_null($user->nilaibasiclistening) &&
                 ($user->prody !== null && $user->prody !== '') &&
                 ($user->srn !== null && $user->srn !== '') &&
                 ($user->year !== null && $user->year !== '');
-
 
             if (!$isComplete) {
                 return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk bisa melakukan proses pendaftaran.';

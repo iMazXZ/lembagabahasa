@@ -10,6 +10,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use App\Models\Prody;
 
 class BasicListeningConnectCodeResource extends Resource
 {
@@ -61,6 +63,35 @@ class BasicListeningConnectCodeResource extends Resource
                         ->required()
                         ->label('Berakhir')
                         ->after('starts_at'),
+                
+                Forms\Components\Section::make('Target & Pembatasan')
+                    ->schema([
+                        Forms\Components\Select::make('prody_id')
+                            ->label('Prodi Target')
+                            ->required()
+                            ->options(function () {
+                                $user = auth()->user();
+
+                                if ($user?->hasRole('tutor')) {
+                                    return Prody::query()
+                                        ->whereIn('id', $user->assignedProdyIds())
+                                        ->orderBy('name')
+                                        ->pluck('name', 'id');
+                                }
+
+                                return Prody::query()->orderBy('name')->pluck('name', 'id');
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Kode hanya bisa dipakai oleh mahasiswa prodi ini bila pembatasan aktif.'),
+
+                        Forms\Components\Toggle::make('restrict_to_prody')
+                            ->label('Batasi penggunaan ke prodi ini')
+                            ->default(true)
+                            ->disabled(fn() => auth()->user()?->hasRole('tutor')) // tutor tidak bisa mengubah
+                            ->dehydrated(),
+                    ])
+                    ->columns(2),
                 ]),
 
                 Forms\Components\TextInput::make('max_uses')
@@ -107,6 +138,22 @@ class BasicListeningConnectCodeResource extends Resource
                     ->relationship('session', 'title')
                     ->label('Session'),
                 Tables\Filters\TernaryFilter::make('is_active')->label('Aktif'),
+                Tables\Filters\SelectFilter::make('prody_id')
+                    ->label('Prodi')
+                    ->options(function () {
+                        $user = auth()->user();
+
+                        if ($user?->hasRole('tutor')) {
+                            return Prody::query()
+                                ->whereIn('id', $user->assignedProdyIds())
+                                ->orderBy('name')
+                                ->pluck('name', 'id');
+                        }
+
+                        return Prody::query()->orderBy('name')->pluck('name', 'id');
+                    })
+                    ->attribute('prody_id'),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -136,10 +183,31 @@ class BasicListeningConnectCodeResource extends Resource
         return mb_substr($code, 0, 2) . '•••' . mb_substr($code, -2);
     }
 
-    /** Hash & hint sebelum create */
+   /** Hash & hint + set created_by + default restrict_to_prody (saat CREATE) */
     public static function mutateFormDataBeforeCreate(array $data): array
     {
-        // Ambil plaintext dari request (karena field tidak didehydrate)
+        // 1) Set pembuat & default pembatasan prodi
+        $data['created_by'] = auth()->id();
+        $data['restrict_to_prody'] = $data['restrict_to_prody'] ?? true;
+
+        if (auth()->user()?->hasRole('tutor')) {
+            $data['restrict_to_prody'] = true;
+        }
+        // 2) Tutor hanya boleh memilih prodi yang dia ampu
+        if (auth()->user()?->hasRole('tutor')) {
+            $allowed = auth()->user()->assignedProdyIds(); // dari User::assignedProdyIds()
+            if (empty($allowed)) {
+                abort(403, 'Anda belum ditetapkan mengampu prodi mana pun.');
+            }
+            // Validasi prody_id wajib & termasuk daftar allowed
+            validator($data, [
+                'prody_id' => 'required|in:' . implode(',', $allowed),
+            ], [
+                'prody_id.in' => 'Prodi yang dipilih tidak termasuk prodi yang Anda ampu.',
+            ])->validate();
+        }
+
+        // 3) Hash plain_code -> code_hash + code_hint (tetap seperti punyamu)
         $plain = request()->input('data.plain_code') ?? ($data['plain_code'] ?? null);
         if ($plain) {
             $plain = trim($plain);
@@ -147,7 +215,7 @@ class BasicListeningConnectCodeResource extends Resource
             $data['code_hint'] = self::makeCodeHint($plain);
         }
 
-        // Parse rules jika string JSON
+        // 4) Parse rules jika string JSON (tetap seperti punyamu)
         if (!empty($data['rules']) && is_string($data['rules'])) {
             $decoded = json_decode($data['rules'], true);
             if (json_last_error() === JSON_ERROR_NONE) {
@@ -155,13 +223,36 @@ class BasicListeningConnectCodeResource extends Resource
             }
         }
 
-        unset($data['plain_code']); // pastikan tidak ikut tersimpan
+        unset($data['plain_code']); // jangan simpan plaintext
         return $data;
     }
 
-    /** Hash & hint saat update (jika admin isi plain code baru) */
+    /** Hash & hint saat UPDATE (jangan ubah created_by) */
     public static function mutateFormDataBeforeSave(array $data): array
     {
+        // 1) Jangan izinkan mengubah created_by di update
+        unset($data['created_by']);
+
+        if (auth()->user()?->hasRole('tutor')) {
+            $data['restrict_to_prody'] = true;
+        }
+
+        // 2) Tutor tidak boleh mengganti prodi_id ke prodi yang tidak dia ampu
+        if (auth()->user()?->hasRole('tutor') && array_key_exists('prody_id', $data)) {
+            $allowed = auth()->user()->assignedProdyIds();
+            if (!empty($allowed)) {
+                validator($data, [
+                    'prody_id' => 'in:' . implode(',', $allowed),
+                ], [
+                    'prody_id.in' => 'Prodi yang dipilih tidak termasuk prodi yang Anda ampu.',
+                ])->validate();
+            } else {
+                // kalau tutor tidak punya prodi, cegah perubahan
+                unset($data['prody_id']);
+            }
+        }
+
+        // 3) Perbarui hash kalau admin/tutor mengisi plain_code baru
         $plain = request()->input('data.plain_code') ?? ($data['plain_code'] ?? null);
         if ($plain) {
             $plain = trim($plain);
@@ -169,6 +260,7 @@ class BasicListeningConnectCodeResource extends Resource
             $data['code_hint'] = self::makeCodeHint($plain);
         }
 
+        // 4) Parse rules jika string JSON
         if (!empty($data['rules']) && is_string($data['rules'])) {
             $decoded = json_decode($data['rules'], true);
             if (json_last_error() === JSON_ERROR_NONE) {
@@ -178,6 +270,34 @@ class BasicListeningConnectCodeResource extends Resource
 
         unset($data['plain_code']);
         return $data;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()->with(['prody', 'creator']);
+
+        $user = auth()->user();
+
+        // Admin: semua
+        if ($user && $user->hasRole('admin')) {
+            return $query;
+        }
+
+        // Tutor: hanya prodi yang dia ampu ATAU code yang dia buat
+        if ($user && $user->hasRole('tutor')) {
+            $ids = $user->assignedProdyIds();
+            if (empty($ids)) {
+                return $query->where('created_by', $user->id);
+            }
+
+            return $query->where(function (Builder $q) use ($ids, $user) {
+                $q->whereIn('prody_id', $ids)
+                ->orWhere('created_by', $user->id);
+            });
+        }
+
+        // Peran lain: kosong
+        return $query->whereRaw('1=0');
     }
 
     public static function getPages(): array

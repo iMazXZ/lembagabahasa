@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
+use Filament\Forms\Get;
+use App\Models\Prody;
 
 class UserResource extends Resource
 {
@@ -78,6 +80,20 @@ class UserResource extends Resource
                     ->image()
                     ->default(null)
                     ->columnSpanFull(),
+                Forms\Components\Section::make('Tugas Tutor')
+                    ->description('Atur prodi yang diampu oleh tutor.')
+                    ->schema([
+                        Forms\Components\Select::make('tutorProdies')
+                            ->label('Prodi yang Diampu')
+                            ->relationship('tutorProdies', 'name') // relasi many-to-many ke Prody
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->helperText('Tutor bisa mengampu lebih dari satu prodi, dan satu prodi bisa diampu banyak tutor.')
+                            // tampilkan hanya untuk admin (biar tutor tidak bisa mengubah sendiri)
+                            ->visible(fn () => auth()->user()?->hasRole('Admin') === true),
+                    ])
+                    ->visible(fn () => auth()->user()?->hasRole('Admin') === true),
             ]);
     }
 

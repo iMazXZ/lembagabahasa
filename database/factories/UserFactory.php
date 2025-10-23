@@ -16,18 +16,19 @@ class UserFactory extends Factory
      */
     protected static ?string $password;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
+        $this->faker->locale('id_ID');
+
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'name' => $this->faker->name(),
+            'email' => $this->faker->unique()->safeEmail(),
+            'password' => 'password', // Laravel 11: akan di-hash oleh cast "hashed"
+            'srn' => null,            // kita isi di state khusus
+            'prody_id' => null,       // kita isi di state khusus
+            'year' => null,
+            'image' => null,
+            'nilaibasiclistening' => null,
             'remember_token' => Str::random(10),
         ];
     }
@@ -39,6 +40,14 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    public function studentForPrody(int $prodyId, string $srn): static
+    {
+        return $this->state(fn () => [
+            'prody_id' => $prodyId,
+            'srn'      => $srn,
         ]);
     }
 }
