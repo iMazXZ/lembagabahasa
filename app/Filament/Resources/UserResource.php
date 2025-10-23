@@ -3,8 +3,8 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
-use App\Filament\Resources\UserResource\RelationManagers;
 use App\Models\User;
+use App\Models\Prody;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,9 +15,10 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Hash;
-use Livewire\Livewire;
 use Filament\Forms\Get;
-use App\Models\Prody;
+use Spatie\Permission\Models\Role;
+use Illuminate\Support\Collection;
+use Filament\Notifications\Notification;
 
 class UserResource extends Resource
 {
@@ -73,24 +74,30 @@ class UserResource extends Resource
                     ->label('Nilai Basic Listening')
                     ->numeric()
                     ->default(null),
+
+                // Per-record role editor (multi)
                 Forms\Components\Select::make('roles')
-                    ->relationship('roles', 'name'),
+                    ->label('Roles')
+                    ->relationship('roles', 'name')
+                    ->preload()
+                    ->searchable(),
+
                 Forms\Components\FileUpload::make('image')
                     ->label('Foto Profil')
                     ->image()
                     ->default(null)
                     ->columnSpanFull(),
+
                 Forms\Components\Section::make('Tugas Tutor')
                     ->description('Atur prodi yang diampu oleh tutor.')
                     ->schema([
                         Forms\Components\Select::make('tutorProdies')
                             ->label('Prodi yang Diampu')
-                            ->relationship('tutorProdies', 'name') // relasi many-to-many ke Prody
+                            ->relationship('tutorProdies', 'name')
                             ->multiple()
                             ->preload()
                             ->searchable()
                             ->helperText('Tutor bisa mengampu lebih dari satu prodi, dan satu prodi bisa diampu banyak tutor.')
-                            // tampilkan hanya untuk admin (biar tutor tidak bisa mengubah sendiri)
                             ->visible(fn () => auth()->user()?->hasRole('Admin') === true),
                     ])
                     ->visible(fn () => auth()->user()?->hasRole('Admin') === true),
@@ -148,6 +155,39 @@ class UserResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('assignRole')
+                        ->label('Terapkan Role')
+                        ->icon('heroicon-o-user-plus')
+                        ->requiresConfirmation()
+                        ->form([
+                            Forms\Components\Select::make('role_id')
+                                ->label('Pilih Role')
+                                ->options(fn () => Role::query()->orderBy('name')->pluck('name', 'id'))
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $role = Role::find($data['role_id'] ?? null);
+                            if (! $role) {
+                                Notification::make()
+                                    ->title('Role tidak ditemukan.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            foreach ($records as $user) {
+                                /** @var \App\Models\User $user */
+                                $user->syncRoles([$role->name]); // pastikan hanya 1 role
+                            }
+
+                            Notification::make()
+                                ->title('Role telah diset untuk pengguna terpilih.')
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn () => auth()->user()?->hasRole('Admin') === true),
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
