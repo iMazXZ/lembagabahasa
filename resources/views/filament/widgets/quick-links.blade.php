@@ -82,12 +82,7 @@
             class="w-full sm:w-auto" icon="heroicon-o-user-group">
           Data Mahasiswa Diampu
         </x-filament::button>
-
-        <x-filament::button tag="a" href="{{ route('filament.admin.resources.users.index') }}" size="lg" color="success"
-            class="w-full sm:w-auto" icon="heroicon-o-users">
-          Data Pendaftar
-        </x-filament::button>
-
+        
         <x-filament::button tag="a" href="{{ route('filament.admin.resources.basic-listening-connect-codes.index') }}" size="lg" color="success"
             class="w-full sm:w-auto" icon="heroicon-o-link">
           Connect Code

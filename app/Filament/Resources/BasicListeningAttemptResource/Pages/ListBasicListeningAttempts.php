@@ -4,14 +4,21 @@ namespace App\Filament\Resources\BasicListeningAttemptResource\Pages;
 
 use App\Filament\Resources\BasicListeningAttemptResource;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Pages\Actions as Actions;
 
 class ListBasicListeningAttempts extends ListRecords
 {
     protected static string $resource = BasicListeningAttemptResource::class;
 
-    // Attempt read-only → tidak ada CreateAction
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Actions\Action::make('dashboard')
+                ->label('Kembali ke Dasbor')
+                ->url(route('filament.admin.pages.2'))
+                ->color('gray')
+                ->icon('heroicon-o-arrow-left'),
+            Actions\CreateAction::make(),
+        ];
     }
 }

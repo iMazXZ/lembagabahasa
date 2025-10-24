@@ -12,6 +12,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Pages\Actions\Action;
 
 /**
  * Page ini menampilkan daftar mahasiswa yang:
@@ -165,5 +166,16 @@ class TutorMahasiswa extends Page implements HasTable
         }
 
         return $query->whereRaw('1=0');
+    }
+
+    protected function getActions(): array
+    {
+        return [
+            Action::make('dashboard')
+                ->label('Kembali ke Dasbor')
+                ->url(route('filament.admin.pages.2'))
+                ->color('gray')
+                ->icon('heroicon-o-arrow-left'),
+        ];
     }
 }

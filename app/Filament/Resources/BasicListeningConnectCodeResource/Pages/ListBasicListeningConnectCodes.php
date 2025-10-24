@@ -13,6 +13,11 @@ class ListBasicListeningConnectCodes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('dashboard')
+                ->label('Kembali ke Dasbor')
+                ->url(route('filament.admin.pages.2'))
+                ->color('gray')
+                ->icon('heroicon-o-arrow-left'),
             Actions\CreateAction::make(),
         ];
     }
