@@ -279,7 +279,7 @@ class BasicListeningConnectCodeResource extends Resource
         $user = auth()->user();
 
         // Admin: semua
-        if ($user && $user->hasRole('admin')) {
+        if ($user && $user->hasRole('Admin')) {
             return $query;
         }
 

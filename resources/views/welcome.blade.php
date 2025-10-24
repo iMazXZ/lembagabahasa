@@ -33,11 +33,12 @@
     <p class="text-lg md:text-xl lg:text-2xl text-blue-100 font-medium">Universitas Muhammadiyah Metro</p>
     <p class="text-base md:text-lg text-blue-200 italic mb-10">"Supports Your Success"</p>
 
-    {{-- CTA: Register + Login --}}
-    <div class="flex flex-row gap-3 justify-center items-center mb-10">
+    {{-- CTA: Register / Login (guest) atau Profil (auth) --}}
+  <div class="flex flex-row gap-3 justify-center items-center mb-10">
+    @guest
       @if (Route::has('filament.admin.auth.register'))
         <a href="{{ route('filament.admin.auth.register') }}"
-           class="w-full sm:w-auto inline-flex items-center justify-center gap-2
+          class="w-full sm:w-auto inline-flex items-center justify-center gap-2
                   bg-white text-um-blue border border-um-blue
                   px-6 py-3.5 rounded-full font-semibold
                   shadow-md hover:shadow-lg sm:hover:scale-105 transition">
@@ -47,14 +48,24 @@
       @endif
 
       <a href="{{ route('filament.admin.auth.login') }}"
-         class="w-full sm:w-auto inline-flex items-center justify-center gap-2
+        class="w-full sm:w-auto inline-flex items-center justify-center gap-2
                 bg-gradient-to-r from-um-gold to-purple-600 text-white
                 px-6 py-3.5 rounded-full font-semibold
                 shadow-md hover:shadow-lg sm:hover:scale-105 transition">
         <i class="fas fa-sign-in-alt"></i>
         <span>Login</span>
       </a>
-    </div>
+    @else
+      {{-- HANYA 1 tombol setelah login: nama profil --}}
+      <a href="{{ route('filament.admin.pages.2') }}"
+        class="w-full sm:w-auto inline-flex items-center justify-center gap-2
+                bg-gradient-to-r from-um-green to-teal-600 text-white
+                px-6 py-3.5 rounded-full font-semibold shadow-md transition">
+        <i class="fas fa-user-circle"></i>
+        <span>{{ Auth::user()->name }}</span>
+      </a>
+    @endguest
+  </div>
 
     {{-- CTA sekunder --}}
     <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">

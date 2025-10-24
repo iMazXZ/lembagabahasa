@@ -10,7 +10,7 @@
   <div class="max-w-7xl mx-auto px-4">
     <div class="flex justify-between items-center py-3 lg:py-4">
 
-      {{-- BRAND: background putih, tanpa lingkaran di balik logo --}}
+      {{-- BRAND --}}
       <a href="{{ route('front.home') }}" class="group flex items-center gap-1">
         <img
           src="{{ asset('images/logo-um.png') }}"
@@ -33,9 +33,9 @@
 
       {{-- Desktop menu --}}
       <div class="hidden lg:flex items-center gap-6">
-        <a href="{{ route('front.home') }}#berita"  class="{{ $linkBase }}">Cek Jadwal dan Nilai</a>
-        <a href="{{ route('front.home') }}#profil"  class="{{ $linkBase }}">Profil</a>
-        <a href="{{ route('front.home') }}#kontak"  class="{{ $linkBase }}">Kontak</a>
+        {{-- HAPUS: Profil & Kontak --}}
+        {{-- TAMBAH: Basic Listening --}}
+        <a href="{{ route('bl.index') }}" class="{{ $linkBase }}">Basic Listening</a>
 
         {{-- Verifikasi: halaman sendiri, bisa diberi state active --}}
         <a href="{{ route('verification.index') }}" class="{{ $linkBase }} {{ $linkActive }}">
@@ -90,9 +90,9 @@
   {{-- Mobile menu --}}
   <div id="mobileMenu" class="hidden lg:hidden bg-white border-t px-4 py-3">
     <div class="flex flex-col gap-2">
-      <a href="{{ route('front.home') }}#berita"  class="py-2 {{ $linkBase }}">Cek Jadwal dan Nilai</a>
-      <a href="{{ route('front.home') }}#profil"  class="py-2 {{ $linkBase }}">Profil</a>
-      <a href="{{ route('front.home') }}#kontak"  class="py-2 {{ $linkBase }}">Kontak</a>
+      {{-- HAPUS: Profil & Kontak --}}
+      {{-- TAMBAH: Basic Listening --}}
+      <a href="{{ route('bl.index') }}" class="py-2 {{ $linkBase }}">Basic Listening</a>
       <a href="{{ route('verification.index') }}" class="py-2 {{ $linkBase }} {{ $linkActive }}">Verifikasi Dokumen</a>
 
       @guest

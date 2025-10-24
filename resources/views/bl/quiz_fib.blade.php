@@ -88,49 +88,44 @@
     </ul>
   </div>
 
-  {{-- ===== Paragraf dengan blank ===== --}}
-  <div class="para" id="para">
-    @php
-      /**
-       * PRIORITAS:
-       * 1) $processedParagraph dari controller (sudah ganti [blank]/[[1]] -> input + load jawaban)
-       * 2) Fallback: proses cepat dari $question->paragraph_text di Blade (agar tidak kosong jika 1) tak ada)
-       */
-      $html = '';
-      if (!empty($processedParagraph) && str_contains($processedParagraph, '<input')) {
-          $html = $processedParagraph;
-      } else {
-          $src = $question->paragraph_text ?? $question->paragraph ?? '';
-          // convert \n ke <br> agar format paragraf terjaga
-          $src = nl2br($src);
-
-          $i = 0;
-          // support [[number]] ATAU [blank]
-          $html = preg_replace_callback('/\[\[(\d+)\]\]|\[blank\]/', function($m) use (&$i){
-              $idx = $i++;
-              $name = "answers[$idx]";
-              $ph   = '...';
-              return '<input type="text" class="fib-input" name="'.$name.'" value="" placeholder="'.$ph.'">';
-          }, $src);
-
-          // kalau tidak ada token, tetap tampilkan teks as-is
-          if ($i === 0) {
-              $html .= '';
-          }
-      }
-      echo $html;
-    @endphp
-  </div>
-
-  <div class="chips">
-    <div class="chip">Kosong: <span id="empty">0</span></div>
-    <div class="chip">Terisi: <span id="filled">0</span></div>
-  </div>
-
-  {{-- form: default = save --}}
+  {{-- form: default = save (PARAGRAF & CHIPS DIPINDAH KE DALAM FORM) --}}
   <form id="f" method="POST" action="{{ route('bl.quiz.fib.answer', $attempt) }}">
     @csrf
     <input type="hidden" name="question_id" value="{{ $question->id }}">
+
+    {{-- ===== Paragraf dengan blank ===== --}}
+    <div class="para" id="para">
+      @php
+        /**
+        * PRIORITAS:
+        * 1) $processedParagraph dari controller (sudah ganti [blank]/[[1]] -> <input> + preload jawaban)
+        * 2) Fallback: proses cepat dari $question->paragraph_text di Blade (agar tetap tampil)
+        */
+        $html = '';
+        if (!empty($processedParagraph) && str_contains($processedParagraph, '<input')) {
+            $html = $processedParagraph;
+        } else {
+            $src = $question->paragraph_text ?? $question->paragraph ?? '';
+            // jaga baris baru
+            $src = nl2br($src);
+
+            $i = 0;
+            // support [[number]] ATAU [blank]
+            $html = preg_replace_callback('/\[\[(\d+)\]\]|\[blank\]/', function($m) use (&$i){
+                $idx = $i++;
+                $name = "answers[$idx]";
+                $ph   = '...';
+                return '<input type="text" class="fib-input" name="'.$name.'" value="" placeholder="'.$ph.'">';
+            }, $src) ?? $src;
+        }
+        echo $html;
+      @endphp
+    </div>
+
+    <div class="chips">
+      <div class="chip">Kosong: <span id="empty">0</span></div>
+      <div class="chip">Terisi: <span id="filled">0</span></div>
+    </div>
 
     <div class="btns">
       <button type="submit" class="btn save" id="saveBtn">Simpan Sementara</button>
@@ -140,11 +135,10 @@
         if (!$backUrl || $backUrl === url()->current()) {
             $backUrl = route('bl.index');
         }
-        @endphp
-        <a href="{{ $backUrl }}" class="btn gray">Kembali</a>
+      @endphp
+      <a href="{{ $backUrl }}" class="btn gray">Kembali</a>
     </div>
   </form>
-</div>
 
 {{-- modal konfirmasi --}}
 <div class="backdrop" id="md">
@@ -244,7 +238,7 @@
   function disable(v){ [saveBtn, finalBtn].forEach(b=>b && (b.disabled=v)); inputs().forEach(i=> i.readOnly = v); }
 
   // bersihkan localStorage setelah submit berhasil (indikasi dengan beforeunload)
-  window.addEventListener('beforeunload', ()=>{ if(form?.dataset.locked==='1') localStorage.removeItem(key); });
+  // window.addEventListener('beforeunload', ()=>{ if(form?.dataset.locked==='1') localStorage.removeItem(key); });
 })();
 (function fitFibWidths(){
   const PADDING_EXTRA = 12; // px, buffer untuk border+padding kecil

@@ -22,11 +22,11 @@ class BasicListeningHistoryController extends Controller
         abort_unless($attempt->user_id === $request->user()->id, 403);
         $attempt->load(['session', 'quiz.questions', 'answers']);
         $questions = $attempt->quiz->questions()->orderBy('order')->get();
-        $answers   = $attempt->answers()->get(); 
+        $answers = $attempt->answers()->get();
 
         return view('bl.history-show', [
             'attempt'   => $attempt,
-            'questions' => $attempt->quiz->questions,
+            'questions' => $questions,
             'answers'   => $answers,
         ]);
     }
