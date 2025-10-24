@@ -80,6 +80,7 @@ class UserResource extends Resource
                     ->label('Roles')
                     ->relationship('roles', 'name')
                     ->preload()
+                    ->multiple()
                     ->searchable(),
 
                 Forms\Components\FileUpload::make('image')
