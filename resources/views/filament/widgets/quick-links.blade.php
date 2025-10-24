@@ -1,8 +1,24 @@
 <x-filament-widgets::widget>
   <x-filament::section>
+
     @php
       $user = filament()->auth()->user();
     @endphp
+    
+    @role('tutor')
+      <div
+        class="mb-4 rounded-lg border border-green-300/60 bg-green-50 px-4 py-3 text-sm text-green-800
+               dark:border-green-600/60 dark:bg-green-500/10 dark:text-green-400">
+        <div class="flex items-start gap-2">
+          <x-filament::icon icon="heroicon-o-academic-cap" class="h-5 w-5 mt-0.5"/>
+          <p>
+            Hai, <strong>{{ $user->name }}</strong> 👋 — kamu login sebagai
+            <span class="font-semibold">Tutor</span>. Gunakan tautan cepat di bawah untuk
+            mengelola mahasiswa binaan, connect code, dan memantau pengerjaan quiz.
+          </p>
+        </div>
+      </div>
+    @endrole
 
     <div class="flex flex-wrap gap-3">
       {{-- =========================
@@ -46,7 +62,6 @@
           Pengajuan Surat Rekomendasi
         </x-filament::button>
 
-        {{-- Jika heroicon-o-language tidak tersedia di versi kamu, ganti ke heroicon-o-globe-alt --}}
         <x-filament::button tag="a" href="{{ route('filament.admin.resources.penerjemahan.index') }}" size="lg" color="success"
             class="w-full sm:w-auto" icon="heroicon-o-language">
           Penerjemahan Abstrak
@@ -91,7 +106,7 @@
         <x-filament::button tag="a" href="{{ route('filament.admin.resources.basic-listening-attempts.index') }}" size="lg" color="success"
             class="w-full sm:w-auto" icon="heroicon-o-clipboard-document-check">
           Data Quiz Dikerjakan
-        </x-filiment::button>
+        </x-filament::button>
 
         <x-filament::button tag="a" href="{{ route('front.home') }}" size="lg" color="primary"
             class="w-full sm:w-auto" icon="heroicon-o-home">
@@ -100,7 +115,7 @@
       @endrole
 
 
-      {{-- Opsional: fallback jika user tidak punya salah satu role di atas --}}
+      {{-- Fallback bila tidak punya salah satu role di atas --}}
       @unlessrole('pendaftar|Admin|tutor')
         <x-filament::button tag="a" href="{{ route('front.home') }}" size="lg" color="primary"
             class="w-full sm:w-auto" icon="heroicon-o-home">
