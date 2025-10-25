@@ -16,14 +16,14 @@
   @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
   .note{background:#f8fafc;border:1px dashed var(--line);border-radius:14px;padding:12px;margin:.75rem 0}
   .para{line-height:1.9;color:#0f172a;font-size:1.05rem;border:1px solid var(--line);border-radius:16px;padding:14px 16px;white-space:pre-line}
-.fib-input{
-  text-align:left;        /* dulu center → bikin sisi kanan kelihatan longgar */
-  padding:.12rem .40rem;  /* tipis */
-  min-width:0;            /* jangan paksa lebar minimum */
-  width:auto;             /* izinkan dikecilkan oleh JS */
-  line-height:1.1;
-  margin:0 .08rem;
-}
+  .fib-input{
+    text-align:left;
+    padding:.12rem .40rem;
+    min-width:0;
+    width:auto;
+    line-height:1.1;
+    margin:0 .08rem;
+  }
   .fib-input:focus{outline:none;border-color:#60a5fa;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
   .fib-input.filled{background:#f0f9ff;border-color:#38bdf8}
   .chips{display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0}
@@ -88,7 +88,7 @@
     </ul>
   </div>
 
-  {{-- form: default = save (PARAGRAF & CHIPS DIPINDAH KE DALAM FORM) --}}
+  {{-- form: default = save --}}
   <form id="f" method="POST" action="{{ route('bl.quiz.fib.answer', $attempt) }}">
     @csrf
     <input type="hidden" name="question_id" value="{{ $question->id }}">
@@ -96,21 +96,13 @@
     {{-- ===== Paragraf dengan blank ===== --}}
     <div class="para" id="para">
       @php
-        /**
-        * PRIORITAS:
-        * 1) $processedParagraph dari controller (sudah ganti [blank]/[[1]] -> <input> + preload jawaban)
-        * 2) Fallback: proses cepat dari $question->paragraph_text di Blade (agar tetap tampil)
-        */
         $html = '';
         if (!empty($processedParagraph) && str_contains($processedParagraph, '<input')) {
             $html = $processedParagraph;
         } else {
             $src = $question->paragraph_text ?? $question->paragraph ?? '';
-            // jaga baris baru
             $src = nl2br($src);
-
             $i = 0;
-            // support [[number]] ATAU [blank]
             $html = preg_replace_callback('/\[\[(\d+)\]\]|\[blank\]/', function($m) use (&$i){
                 $idx = $i++;
                 $name = "answers[$idx]";
@@ -140,17 +132,18 @@
     </div>
   </form>
 
-{{-- modal konfirmasi --}}
-<div class="backdrop" id="md">
-  <div class="modal" role="dialog" aria-modal="true">
-    <div class="mhd">Kumpulkan Jawaban?</div>
-    <div class="mbd">
-      <p class="small">Setelah dikumpulkan, kamu akan diarahkan ke halaman riwayat.</p>
-      <p class="small">Terisi: <strong id="mf">0</strong> • Kosong: <strong id="me" style="color:#9a3412">0</strong></p>
-    </div>
-    <div class="mft">
-      <button type="button" class="btn gray" id="mc">Batal</button>
-      <button type="button" class="btn submit" id="my">Ya, Kumpulkan</button>
+  {{-- modal konfirmasi --}}
+  <div class="backdrop" id="md">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="mhd">Kumpulkan Jawaban?</div>
+      <div class="mbd">
+        <p class="small">Setelah dikumpulkan, kamu akan diarahkan ke halaman riwayat.</p>
+        <p class="small">Terisi: <strong id="mf">0</strong> • Kosong: <strong id="me" style="color:#9a3412">0</strong></p>
+      </div>
+      <div class="mft">
+        <button type="button" class="btn gray" id="mc">Batal</button>
+        <button type="button" class="btn submit" id="my">Ya, Kumpulkan</button>
+      </div>
     </div>
   </div>
 </div>
@@ -159,12 +152,12 @@
 @push('scripts')
 <script>
 (function(){
+  // ======= DOM refs
   const qid = {{ (int) $question->id }};
   const att = {{ (int) $attempt->id }};
   const key = `BL_FIB_ATTEMPT_${att}_Q${qid}`;
 
   const form  = document.getElementById('f');
-  const para  = document.getElementById('para');
   const bar   = document.getElementById('bar');
   const tbox  = document.getElementById('timerBox');
   const ttxt  = document.getElementById('t');
@@ -178,73 +171,154 @@
 
   function inputs(){ return Array.from(document.querySelectorAll('.fib-input')); }
 
-  // restore from localStorage
+  // ======= Restore from localStorage
   try{
     const raw = localStorage.getItem(key);
     if(raw){
       const obj = JSON.parse(raw);
-      inputs().forEach((el, i)=>{ if(obj && (i in obj)) el.value = obj[i]; el.classList.toggle('filled', (el.value||'').trim().length>0); });
+      inputs().forEach((el, i)=>{
+        if(obj && Object.prototype.hasOwnProperty.call(obj, i)) el.value = obj[i];
+        if (el.value && el.value.trim().length>0) el.classList.add('filled');
+      });
     }
-  }catch(e){}
+  }catch(e){ /* ignore */ }
 
-  // recount
+  // ======= Recount helper
   function recount(){
     const vals = inputs().map(el => (el.value||'').trim());
     const filled = vals.filter(v=>v.length>0).length;
     const empty  = vals.length - filled;
-    emptyEl.textContent = empty; filledEl.textContent = filled;
+    if (emptyEl)  emptyEl.textContent  = empty;
+    if (filledEl) filledEl.textContent = filled;
     return {filled, empty};
   }
   recount();
 
-  // autosave
-  document.addEventListener('input', e=>{
-    if(!e.target.classList?.contains('fib-input')) return;
-    e.target.classList.toggle('filled', (e.target.value||'').trim().length>0);
-    const obj = {}; inputs().forEach((el,i)=>obj[i]=el.value||''); localStorage.setItem(key, JSON.stringify(obj));
+  // ======= Local autosave
+  document.addEventListener('input', function(e){
+    if(!e.target.classList || !e.target.classList.contains('fib-input')) return;
+    if ((e.target.value||'').trim().length>0) e.target.classList.add('filled'); else e.target.classList.remove('filled');
+    const obj = {}; inputs().forEach((el,i)=>obj[i]=el.value||'');
+    try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(_) {}
     recount();
   });
 
-  // timer + progress
+  // ======= Server autosave (minimal, aman)
+  let lastAutoSaveAt = 0;
+  function autoSave(){
+    if(!form) return;
+    const now = Date.now();
+    if (now - lastAutoSaveAt < 1000) return; // throttle
+    lastAutoSaveAt = now;
+
+    try {
+      const saveUrl = "{{ route('bl.quiz.fib.answer', $attempt) }}";
+      const fd = new FormData(form);
+      // Non-blocking; gunakan keepalive agar tetap terkirim saat unload
+      fetch(saveUrl, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+        keepalive: true,
+      }).catch(()=>{});
+    } catch(e) { /* ignore */ }
+  }
+
+  // ======= Timer + progress (dipertahankan seperti versi awal)
   const remaining = {{ (int)($remainingSeconds ?? 0) }};
   const total     = {{ (int)($totalSeconds ?? ($remainingSeconds ?? 0)) }};
   let secs = remaining>0 ? remaining : 0;
-  function fmt(n){ const m=Math.floor(n/60), s=n%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` }
+
+  function fmt(n){
+    const m=Math.floor(n/60), s=n%60;
+    return (m<10?'0':'')+m+':' + (s<10?'0':'')+s;
+  }
+
+  let didAutoSaveBeforeTimeout = false;
   function tick(){
     if(ttxt) ttxt.textContent = fmt(secs);
-    if(bar && total>0){ const used = total - secs; bar.style.width = Math.max(0, Math.min(100,(used/total)*100)) + '%'; }
-    if(secs <= 30) tbox?.classList.add('warn');
-    if(secs <= 0){ finalize(); return; }
-    secs--; setTimeout(tick, 1000);
-  }
-  if(remaining>0) tick(); else if(ttxt) ttxt.textContent='--:--';
+    if(bar && total>0){
+      const used = total - secs;
+      const pct = Math.max(0, Math.min(100, (used/total)*100));
+      bar.style.width = pct + '%';
+    }
+    if(secs <= 30 && tbox) tbox.classList.add('warn');
 
-  // submit modes
-  form?.addEventListener('submit', ()=>{ disable(true); });
-  finalBtn?.addEventListener('click', (e)=>{ e.preventDefault(); const {filled,empty} = recount(); document.getElementById('mf').textContent=filled; document.getElementById('me').textContent=empty; md.style.display='flex'; });
-  mc?.addEventListener('click', ()=> md.style.display='none');
-  md?.addEventListener('click', (e)=>{ if(e.target===md) md.style.display='none'; });
-  my?.addEventListener('click', ()=>{ md.style.display='none'; finalize(); });
+    // simpan sekali saat <= 5 detik
+    if (secs <= 5 && !didAutoSaveBeforeTimeout){
+      didAutoSaveBeforeTimeout = true;
+      autoSave();
+    }
+
+    if(secs <= 0){
+      // beri micro-delay agar autosave terkirim
+      setTimeout(finalize, 120);
+      return;
+    }
+    secs--;
+    setTimeout(tick, 1000);
+  }
+  if(remaining>0){ tick(); } else if(ttxt){ ttxt.textContent='--:--'; }
+
+  // ======= Submit modes
+  if(form){
+    form.addEventListener('submit', function(){ disable(true); });
+  }
+
+  if(finalBtn){
+    finalBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      const mF = document.getElementById('mf');
+      const mE = document.getElementById('me');
+      const {filled, empty} = recount();
+      if(mF) mF.textContent = filled;
+      if(mE) mE.textContent = empty;
+      if(md) md.style.display = 'flex';
+    });
+  }
+
+  if(mc){ mc.addEventListener('click', function(){ md.style.display='none'; }); }
+  if(md){
+    md.addEventListener('click', function(e){
+      if(e.target === md) md.style.display='none';
+    });
+  }
+
+  if(my){
+    my.addEventListener('click', function(){
+      md.style.display='none';
+      autoSave();
+      setTimeout(finalize, 120);
+    });
+  }
 
   function finalize(){
     if(!form || form.dataset.locked==='1') return;
     form.dataset.locked='1';
     disable(true);
-    // alihkan ke endpoint finalisasi yang melakukan penilaian & redirect ke history
     form.setAttribute('action', "{{ route('bl.submit', $attempt->quiz_id) }}");
     form.submit();
   }
 
-  function disable(v){ [saveBtn, finalBtn].forEach(b=>b && (b.disabled=v)); inputs().forEach(i=> i.readOnly = v); }
+  function disable(v){
+    if(saveBtn) saveBtn.disabled = v;
+    if(finalBtn) finalBtn.disabled = v;
+    inputs().forEach(function(i){ i.readOnly = v; });
+  }
 
-  // bersihkan localStorage setelah submit berhasil (indikasi dengan beforeunload)
-  // window.addEventListener('beforeunload', ()=>{ if(form?.dataset.locked==='1') localStorage.removeItem(key); });
+  // bersihkan localStorage setelah submit (indikasi: form dikunci)
+  window.addEventListener('beforeunload', function(){
+    if(form && form.dataset.locked === '1'){
+      try{ localStorage.removeItem(key); }catch(_){}
+    }
+  });
 })();
+
+// ======= Auto-fit lebar input
 (function fitFibWidths(){
-  const PADDING_EXTRA = 12; // px, buffer untuk border+padding kecil
+  const PADDING_EXTRA = 12;
   function fit(el){
     const temp = document.createElement('span');
-    // copy font styling agar ukuran akurat
     const cs = window.getComputedStyle(el);
     temp.style.visibility = 'hidden';
     temp.style.whiteSpace = 'pre';
@@ -254,14 +328,13 @@
     document.body.appendChild(temp);
     const w = Math.ceil(temp.getBoundingClientRect().width) + PADDING_EXTRA;
     document.body.removeChild(temp);
-    // batasi minimum biar tetap bisa di-tap
     el.style.width = Math.max(36, w) + 'px';
   }
 
-  const fields = Array.from(document.querySelectorAll('.fib-input'));
-  fields.forEach(el => {
+  const fields = Array.prototype.slice.call(document.querySelectorAll('.fib-input'));
+  fields.forEach(function(el){
     fit(el);
-    el.addEventListener('input', () => fit(el));
+    el.addEventListener('input', function(){ fit(el); });
   });
 })();
 </script>
