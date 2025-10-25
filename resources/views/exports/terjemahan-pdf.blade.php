@@ -2,8 +2,7 @@
     /** @var \App\Models\Penerjemahan $record */
 
     // Relasi utama
-    $pemohon    = $record->users;
-    $translator = $record->translator;
+    $pemohon = $record->users;
 
     // Path absolut aman (fallback kalau controller belum kirim variabel)
     $logoPathFs  = realpath($logoPath  ?? public_path('images/logo-um.png'));
@@ -41,71 +40,243 @@
     <meta charset="utf-8">
     <title>Hasil Penerjemahan — Lembaga Bahasa UM Metro</title>
     <style>
-        :root{ --primary:#1e40af; --primary-dark:#1e3a8a; --accent:#3b82f6;
-               --soft:#eff6ff; --line:#dfe6ff; --ink:#0f172a; --muted:#475569; }
+        :root{ 
+            --primary: #2563eb; 
+            --primary-dark: #1e40af; 
+            --accent: #60a5fa;
+            --soft: #f8fafc; 
+            --ink: #0f172a; 
+            --muted: #64748b;
+            --shadow: rgba(30, 64, 175, 0.08);
+            --shadow-md: rgba(30, 64, 175, 0.12);
+        }
 
-        @page { margin: 20mm 16mm; size: A4 portrait; }
-        *{ margin:0; padding:0; box-sizing:border-box; }
-        body{ font-family:"DejaVu Sans", Arial, Helvetica, sans-serif; font-size:10.5px; color:var(--ink); line-height:1.6; background:#fff; }
+        @page { margin: 20mm 18mm; size: A4 portrait; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: "DejaVu Sans", Arial, Helvetica, sans-serif; 
+            font-size: 10px; 
+            color: var(--ink); 
+            line-height: 1.3; 
+            background: var(--soft);
+        }
 
-        /* Header */
-        .header{ border:1px solid var(--line); border-radius:10px; padding:2px; margin-bottom:2px; background:#fff; }
-        .h-tbl{ width:100%; border-collapse:collapse; }
-        .h-tbl td{ vertical-align:middle; }
-        .logo-cell{ width:110px; padding-left:25px; }
-        .logo{ width:95px; height:95px; object-fit:contain; display:block; margin:0 auto; }
-        .kop{ text-align:center; }
-        .univ{ font-size:25px; font-weight:800; color:var(--primary-dark); text-transform:uppercase; letter-spacing:.5px; }
-        .dept{ font-size:20px; font-weight:800; color:var(--primary); letter-spacing:10px; }
-        .addr{ font-size:12px; color:var(--muted); }
-        .rib{ height:6px; border-radius:4px; background: linear-gradient(90deg,#d9e6ff 0%, #eff6ff 100%); }
+        /* Header - Clean & Floating */
+        .header { 
+            background: #fff;
+            margin-bottom: 16px; 
+            padding: 16px 20px;
+            box-shadow: 0 2px 12px var(--shadow);
+            border-radius: 12px;
+        }
+        .h-tbl { width: 100%; border-collapse: collapse; }
+        .h-tbl td { vertical-align: middle; }
+        .logo-cell { width: 80px; }
+        .logo { 
+            width: 65px; 
+            height: 65px; 
+            object-fit: contain; 
+            display: block;
+            filter: drop-shadow(0 1px 3px var(--shadow));
+        }
+        .kop { text-align: center; padding-left: 12px; }
+        .header-line2 { 
+            font-size: 16px; 
+            font-weight: 800; 
+            color: var(--primary-dark); 
+            text-transform: uppercase; 
+            letter-spacing: 0.4px;
+            line-height: 1.3;
+            margin-top: 2px;
+        }
+        .addr { 
+            font-size: 9px; 
+            color: var(--muted); 
+            margin-top: 6px;
+            line-height: 1.3;
+        }
 
-        /* Section header */
-        .section{ margin:14px 0 10px; border-left:4px solid var(--primary); background: linear-gradient(90deg, var(--soft) 0%, #ffffff 100%); border-radius:6px; padding:8px 12px; }
-        .section .title{ font-size:13px; font-weight:700; color:var(--primary-dark); text-transform:uppercase; letter-spacing:.4px; }
-        .section .sub{ font-size:10px; color:var(--muted); margin-top:2px; }
+        /* Info Card - Floating Style */
+        .info-card { 
+            background: #fff;
+            margin-bottom: 16px;
+            padding: 14px 18px;
+            box-shadow: 0 2px 8px var(--shadow);
+            border-radius: 10px;
+        }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .info-table tr td {
+            padding: 6px 0;
+            vertical-align: top;
+        }
+        .info-label {
+            width: 140px;
+            font-weight: 700;
+            font-size: 9px;
+            color: var(--primary-dark);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .info-sep {
+            width: 20px;
+            text-align: center;
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 10px;
+        }
+        .info-value {
+            font-size: 10px;
+            color: var(--ink);
+            word-wrap: break-word;
+        }
 
-        /* Info card */
-        .card{ border:1.6px solid var(--line); border-radius:10px; overflow:hidden; }
-        .info{ width:100%; border-collapse:collapse; }
-        .info tr + tr{ border-top:1px solid var(--line); }
-        .info .lab{ width:185px; background:var(--soft); color:var(--primary-dark); font-weight:700; padding:5px 6px; }
-        .info .col{ width:16px; text-align:center; color:var(--primary); font-weight:700; background:var(--soft); }
-        .info .val{ padding:9px 12px; color:var(--ink); }
+        /* Section Label - Minimal */
+        .section-label { 
+            font-size: 11px; 
+            font-weight: 700; 
+            color: var(--primary-dark); 
+            text-transform: uppercase; 
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+            padding-left: 4px;
+            border-left: 3px solid var(--primary);
+            padding-left: 10px;
+        }
 
-        /* Konten terjemahan */
-        .content{ border:1.6px solid var(--line); border-radius:10px; padding:14px; page-break-inside:auto; }
-        .rich *{ max-width:100%; }
-        .rich p{ margin:9px 0; text-align:justify; line-height:1.7; }
-        .break-word{ word-wrap:break-word; word-break:break-word; }
+        /* Content Card - Main Translation */
+        .content-card { 
+            background: #fff;
+            padding: 16px 20px;
+            box-shadow: 0 2px 10px var(--shadow-md);
+            border-radius: 10px;
+            page-break-inside: auto;
+            margin-bottom: 16px;
+        }
+        .rich * { max-width: 100%; }
+        .rich p { 
+            margin: 8px 0; 
+            text-align: justify; 
+            line-height: 1.2; 
+        }
 
-        /* Panels: Verification & Signature */
-        .panels{ margin-top:10px; }
-        .p-grid{ width:100%; border-collapse:collapse; table-layout:fixed; }
-        .p-grid td{ width:50%; vertical-align:top; }
-        .p-l{ padding-right:7px; } .p-r{ padding-left:7px; }
-        .panel{ border:1.6px solid var(--line); border-radius:10px; padding:12px; background:#fff; page-break-inside:avoid; }
-        .p-title{ font-size:11px; font-weight:700; color:var(--primary-dark); text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px; padding-bottom:6px; border-bottom:1.6px solid var(--line); }
+        /* Footer Cards */
+        .footer-grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .footer-grid td {
+            vertical-align: top;
+            width: 50%;
+        }
+        .f-left { padding-right: 8px; }
+        .f-right { padding-left: 8px; }
 
-        .v-text{ font-size:10px; color:var(--muted); line-height:1.5; }
-        .v-url{ display:inline-block; margin-top:6px; padding:7px 9px; background:var(--soft); border:1px dashed var(--accent); border-radius:6px; color:var(--primary); font-size:9.5px; text-decoration:none; word-break:break-all; }
+        /* Verification Card */
+        .verify-card {
+            background: #fff;
+            padding: 14px 16px;
+            box-shadow: 0 2px 8px var(--shadow);
+            border-radius: 10px;
+        }
+        .card-title {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .verify-text {
+            font-size: 8.5px;
+            color: var(--muted);
+            line-height: 1.3;
+            margin-bottom: 8px;
+        }
+        .verify-badge {
+            display: inline-block;
+            background: var(--soft);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 7px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 2px;
+            box-shadow: 0 1px 3px var(--shadow);
+        }
+        .verify-url {
+            display: block;
+            margin-top: 6px;
+            font-size: 7.5px;
+            color: var(--accent);
+            word-break: break-all;
+            text-decoration: none;
+        }
 
-        /* Signature block */
-        .sig-date{ text-align:right; font-size:10px; color:var(--ink); }
-        .sig-pad{ position: relative; height: 20mm; margin: 2px auto 6px; width: 100%; overflow: visible; }
-        .sig-stamp{ position: absolute; top: 50%; left: 65%; transform: translate(-50%, -50%) rotate(-10deg); width: 28mm; height: auto; z-index: 1; }
-        .sig-sign{ position: absolute; top: 50%; left: 80%; transform: translate(-50%, -50%) rotate(-2deg); z-index: 2; }
-        .sig-sign img{ display: block; width: 35mm; height: auto; }
-        .sig-name{ margin-top: 0; text-align: right; font-weight: 700; font-size:10px; line-height:1.3; }
-        .sig-nip{  margin-top: 0; text-align: right; font-size: 9px; color: var(--muted); }
+        /* Signature Card */
+        .sig-card {
+            background: #fff;
+            padding: 14px 16px;
+            box-shadow: 0 2px 8px var(--shadow);
+            border-radius: 10px;
+        }
+        .sig-location { 
+            text-align: right; 
+            font-size: 9px; 
+            color: var(--ink);
+            margin-bottom: 8px;
+        }
+        .sig-area {
+            position: relative;
+            height: 52px;
+            margin: 8px 0;
+        }
+        .sig-stamp { 
+            position: absolute; 
+            top: 50%; 
+            left: 65%; 
+            transform: translate(-50%, -50%) rotate(-10deg); 
+            width: 24mm; 
+            height: auto; 
+            z-index: 1;
+            opacity: 0.95;
+        }
+        .sig-sign { 
+            position: absolute; 
+            top: 50%; 
+            left: 78%; 
+            transform: translate(-50%, -50%) rotate(-2deg); 
+            z-index: 2; 
+        }
+        .sig-sign img { 
+            display: block; 
+            width: 28mm; 
+            height: auto;
+            filter: drop-shadow(0 1px 2px var(--shadow));
+        }
+        .sig-name { 
+            text-align: right; 
+            font-weight: 700; 
+            font-size: 9.5px; 
+            line-height: 1;
+            color: var(--ink);
+        }
+        .sig-nip { 
+            text-align: right; 
+            font-size: 8.5px; 
+            color: var(--muted); 
+            margin-top: 2px;
+        }
 
         /* Page-break helpers */
-        .avoid-break{ page-break-inside: avoid; }
+        .avoid-break { page-break-inside: avoid; }
     </style>
 </head>
 <body>
 
-    {{-- HEADER --}}
+    {{-- HEADER CARD --}}
     <div class="header avoid-break">
         <table class="h-tbl">
             <tr>
@@ -115,81 +286,73 @@
                     @endif
                 </td>
                 <td class="kop">
-                    <div class="univ">Universitas Muhammadiyah Metro</div>
-                    <div class="dept">Lembaga Bahasa</div>
+                    <div class="header-line2">Lembaga Bahasa Universitas Muhammadiyah Metro</div>
                     <div class="addr">Jl. Gatot Subroto No.100, Yosodadi, Kec. Metro Timur, Kota Metro, Lampung 34124</div>
                 </td>
             </tr>
         </table>
-        <div class="rib"></div>
     </div>
 
-    {{-- INFORMASI PEMOHON --}}
-    <div class="card avoid-break">
-        <table class="info">
+    {{-- INFO CARD --}}
+    <div class="info-card avoid-break">
+        <table class="info-table">
             <tr>
-                <td class="lab">Nama / NPM</td>
-                <td class="col">:</td>
-                <td class="val break-word">{{ $pemohon?->name ?? '-' }} / {{ $pemohon?->srn ?? '-' }}</td>
+                <td class="info-label">Nama / NPM</td>
+                <td class="info-sep">:</td>
+                <td class="info-value">{{ $pemohon?->name ?? '-' }} / {{ $pemohon?->srn ?? '-' }}</td>
             </tr>
             <tr>
-                <td class="lab">Program Studi</td>
-                <td class="col">:</td>
-                <td class="val break-word">{{ $pemohon?->prody?->name ?? '-' }}</td>
+                <td class="info-label">Program Studi</td>
+                <td class="info-sep">:</td>
+                <td class="info-value">{{ $pemohon?->prody?->name ?? '-' }}</td>
             </tr>
             @if($verifyCode)
             <tr>
-                <td class="lab">Kode Verifikasi</td>
-                <td class="col">:</td>
-                <td class="val"><strong>{{ $verifyCode }}</strong></td>
+                <td class="info-label">Kode Verifikasi</td>
+                <td class="info-sep">:</td>
+                <td class="info-value"><strong>{{ $verifyCode }}</strong></td>
             </tr>
             @endif
         </table>
     </div>
 
-    {{-- HASIL TERJEMAHAN --}}
-    <div class="section avoid-break">
-        <div class="title">Hasil Terjemahan</div>
-        <div class="sub">Translation Result</div>
-    </div>
-    <div class="content">
+    {{-- TRANSLATION CONTENT --}}
+    <div class="section-label">HASIL TERJEMAHAN</div>
+    <div class="content-card">
         <div class="rich">{!! $rich !== '' ? $rich : '<p><em>Tidak ada konten terjemahan.</em></p>' !!}</div>
     </div>
 
-    {{-- VERIFICATION & SIGNATURE --}}
-    <div class="panels">
-        <table class="p-grid">
-            <tr>
-                <td class="p-l">
-                    <div class="panel">
-                        <div class="p-title">Verifikasi Dokumen</div>
-                        @if($verifyUrl)
-                            <div class="v-text">Buka tautan berikut untuk memverifikasi keaslian dokumen ini:</div>
-                            <a class="v-url" href="{{ $verifyUrl }}" target="_blank" rel="noopener noreferrer">{{ $verifyUrl }}</a>
-                        @else
-                            <div class="v-text">Tidak ada tautan verifikasi tersedia untuk dokumen ini.</div>
+    {{-- FOOTER: VERIFICATION & SIGNATURE --}}
+    <table class="footer-grid">
+        <tr>
+            <td class="f-left">
+                <div class="verify-card">
+                    <div class="card-title">Link Verifikasi Dokumen</div>
+                    @if($verifyUrl)
+                        <a class="verify-badge" href="{{ $verifyUrl }}" target="_blank">{{ $verifyUrl }}</a>
+                    @else
+                        <div class="verify-text">Tidak ada tautan verifikasi tersedia untuk dokumen ini.</div>
+                    @endif
+                </div>
+            </td>
+            <td class="f-right">
+                <div class="sig-card">
+                    <div class="sig-location">Metro, {{ $ttdDate }}</div>
+                    <div class="sig-area">
+                        @if($stampSrc)
+                            <img class="sig-stamp" src="{{ $stampSrc }}" alt="Stempel">
+                        @endif
+                        @if($signSrc)
+                            <div class="sig-sign">
+                                <img src="{{ $signSrc }}" alt="Tanda Tangan">
+                            </div>
                         @endif
                     </div>
-                </td>
-                <td class="p-r">
-                    <div class="panel">
-                        <div class="sig-date">Metro, {{ $ttdDate }}</div>
-                        <div class="sig-pad">
-                            @if($stampSrc)
-                                <img class="sig-stamp" src="{{ $stampSrc }}" alt="Stempel">
-                            @endif
-                            @if($signSrc)
-                                <div class="sig-sign">
-                                    <img src="{{ $signSrc }}" alt="Tanda Tangan">
-                                </div>
-                            @endif
-                        </div>
-                        <div class="sig-name">{{ $chairName }}</div>
-                        <div class="sig-nip">NIP. {{ $chairNip }}</div>
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </div>
+                    <div class="sig-name">{{ $chairName }}</div>
+                    <div class="sig-nip">NIP. {{ $chairNip }}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
