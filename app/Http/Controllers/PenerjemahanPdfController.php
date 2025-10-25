@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Penerjemahan;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 
@@ -11,8 +12,10 @@ class PenerjemahanPdfController extends Controller
 {
     /**
      * /penerjemahan/{record}/pdf  (protected)
+     * Default: force download (attachment).
+     * Untuk preview inline, tambahkan query ?inline=1
      */
-    public function show(Penerjemahan $record)
+    public function show(Request $request, Penerjemahan $record)
     {
         $this->ensureCanExport($record);
 
@@ -22,33 +25,35 @@ class PenerjemahanPdfController extends Controller
         $record->load(['users', 'translator']);
 
         $viewData = $this->buildViewData($record);
-        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
+
+        // Render PDF di memori (tanpa simpan), opsi Dompdf dioptimalkan
+        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)
+            ->setPaper('A4')
+            ->setOptions($this->dompdfOptions());
+
+        $binary   = $pdf->output(); // <- penting agar bisa set Content-Length
         $filename = 'Surat_Terjemahan_' . Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
 
-        if (request()->boolean('dl')) {
-            // 100% force download + tampil progress di browser
-            $binary = $pdf->output();
-            return response()->streamDownload(
-                fn () => print $binary,
-                $filename,
-                [
-                    'Content-Type'            => 'application/pdf',
-                    'Content-Disposition'     => 'attachment; filename="'.$filename.'"',
-                    'X-Content-Type-Options'  => 'nosniff',
-                    'Cache-Control'           => 'private, max-age=0, must-revalidate',
-                    'Pragma'                  => 'public',
-                ]
-            );
-        }
+        // Default: attachment (download). Jika ?inline=1 maka inline preview.
+        $disposition = $request->boolean('inline') ? 'inline' : 'attachment';
 
-        // Default: inline preview
-        return $pdf->stream($filename);
+        return response($binary, 200, [
+            'Content-Type'            => 'application/pdf',
+            'Content-Disposition'     => $disposition . '; filename="' . $filename . '"',
+            'Content-Length'          => (string) strlen($binary), // <- cegah throttling 100 KB/s
+            'Cache-Control'           => 'private, max-age=0, must-revalidate',
+            'Pragma'                  => 'public',
+            'X-Content-Type-Options'  => 'nosniff',
+            'X-Accel-Buffering'       => 'no',
+        ]);
     }
 
     /**
      * /verification/{code}/penerjemahan.pdf  (public by code)
+     * Default: force download (attachment).
+     * Untuk preview inline, tambahkan query ?inline=1
      */
-    public function byCode(string $code)
+    public function byCode(Request $request, string $code)
     {
         $record = Penerjemahan::where('verification_code', $code)->firstOrFail();
 
@@ -59,30 +64,46 @@ class PenerjemahanPdfController extends Controller
         $record->load(['users', 'translator']);
 
         $viewData = $this->buildViewData($record);
-        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)->setPaper('A4');
+
+        $pdf = Pdf::loadView('exports.terjemahan-pdf', $viewData)
+            ->setPaper('A4')
+            ->setOptions($this->dompdfOptions());
+
+        $binary   = $pdf->output();
         $filename = 'Surat_Terjemahan_' . Str::of($record->users?->name ?? 'Pemohon')->slug('_') . '.pdf';
 
-        if (request()->boolean('dl')) {
-            $binary = $pdf->output();
-            return response()->streamDownload(
-                fn () => print $binary,
-                $filename,
-                [
-                    'Content-Type'            => 'application/pdf',
-                    'Content-Disposition'     => 'attachment; filename="'.$filename.'"',
-                    'X-Content-Type-Options'  => 'nosniff',
-                    'Cache-Control'           => 'private, max-age=0, must-revalidate',
-                    'Pragma'                  => 'public',
-                ]
-            );
-        }
+        $disposition = $request->boolean('inline') ? 'inline' : 'attachment';
 
-        return $pdf->stream($filename);
+        return response($binary, 200, [
+            'Content-Type'            => 'application/pdf',
+            'Content-Disposition'     => $disposition . '; filename="' . $filename . '"',
+            'Content-Length'          => (string) strlen($binary),
+            'Cache-Control'           => 'private, max-age=0, must-revalidate',
+            'Pragma'                  => 'public',
+            'X-Content-Type-Options'  => 'nosniff',
+            'X-Accel-Buffering'       => 'no',
+        ]);
     }
 
     /* ============================================================
      | Helpers
      |============================================================ */
+
+    /**
+     * Opsi Dompdf optimal untuk shared hosting:
+     * - isRemoteEnabled=false: pastikan semua aset (logo/stempel/ttd) adalah path lokal.
+     * - isFontSubsettingEnabled=true: ukuran PDF lebih kecil.
+     * - isHtml5ParserEnabled=true: parser HTML lebih andal.
+     */
+    private function dompdfOptions(): array
+    {
+        return [
+            'isHtml5ParserEnabled'    => true,
+            'isRemoteEnabled'         => false,
+            'isFontSubsettingEnabled' => true,
+            'chroot'                  => public_path(), // <- IZINKAN akses public/*
+        ];
+    }
 
     /**
      * Pastikan dokumen boleh diekspor (status & ada hasil).
@@ -119,9 +140,8 @@ class PenerjemahanPdfController extends Controller
             $m->save();
         }
 
-        // Isi URL absolut jika kosong
+        // Isi URL absolut jika kosong (menuju halaman verifikasi, bukan PDF)
         if (blank($m->verification_url) && filled($m->verification_code)) {
-            // gunakan route resmi verifikasi (absolute URL)
             $m->verification_url = route('verification.show', ['code' => $m->verification_code], true);
             $m->save();
         }
@@ -135,7 +155,7 @@ class PenerjemahanPdfController extends Controller
         $verifyUrl  = $record->verification_url
             ?: ($verifyCode ? route('verification.show', ['code' => $verifyCode], true) : null);
 
-        // Gambar lokal (bukan base64)
+        // Gambar lokal (bukan base64, bukan URL)
         $logo  = public_path('images/logo-um.png');
         $stamp = public_path('images/stempel.png');
         $sign  = public_path('images/ttd_ketua.png');
@@ -157,31 +177,5 @@ class PenerjemahanPdfController extends Controller
     {
         $date = $record->completion_date ?? $record->updated_at ?? now();
         return Carbon::parse($date)->locale('id')->translatedFormat('d F Y');
-    }
-
-    /**
-     * (Tidak dipakai, tapi dibiarkan kalau suatu saat balik ke data URI)
-     */
-    private function toDataUriIfExists(?string $absolutePath): ?string
-    {
-        if (!$absolutePath || !is_file($absolutePath)) {
-            return null;
-        }
-
-        $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
-        $mime = match ($ext) {
-            'png' => 'image/png',
-            'jpg', 'jpeg' => 'image/jpeg',
-            'gif' => 'image/gif',
-            'svg' => 'image/svg+xml',
-            default => 'application/octet-stream',
-        };
-
-        $data = @file_get_contents($absolutePath);
-        if ($data === false) {
-            return null;
-        }
-
-        return 'data:' . $mime . ';base64,' . base64_encode($data);
     }
 }
