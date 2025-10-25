@@ -6,7 +6,6 @@
 @section('content')
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center px-4 py-12">
   <div class="w-full max-w-md">
-
     {{-- Header Card --}}
     <div class="bg-white rounded-t-2xl shadow-xl p-8 border-b-4 border-blue-600">
       <div class="text-center mb-6">
@@ -19,39 +18,18 @@
         </div>
 
         {{-- Title --}}
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Verifikasi Keaslian Dokumen</h1>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Cek Keaslian Dokumen</h1>
 
         {{-- Subtext --}}
-        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg text-left">
-          <div class="flex items-start gap-3">
-            <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                clip-rule="evenodd" />
-            </svg>
-            <div class="text-sm text-gray-700">
-              <p class="font-medium">Masukkan <strong>kode verifikasi</strong>.</p>
-              <p class="text-gray-600">Dokumen Terjemahan dan Surat Rekomendasi</p>
-            </div>
+        <div class="ext-center">
+          <div class="text-sm text-gray-700">
+            <p class="font-medium">Masukkan <strong>kode verifikasi</strong></p>
+            <p class="text-gray-600">Penerjemahan dan Surat Rekomendasi</p>
           </div>
         </div>
       </div>
-
-      {{-- Session / Badge (opsional, bisa dihapus) --}}
-      <div class="text-center">
-        <div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full text-xs font-semibold shadow-md">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path
-              d="M2 5a2 2 0 012-2h2a2 2 0 012 2v1h4V5a2 2 0 012-2h2a2 2 0 012 2v2H2V5zm0 4h16v6a2 2 0 01-2 2H4a2 2 0 01-2-2V9z" />
-          </svg>
-          Secure verification
-        </div>
-      </div>
-    </div>
-
     {{-- Form Card --}}
     <div class="bg-white rounded-b-2xl shadow-xl p-8">
-
       {{-- Error flash (opsional: tampilkan dari session) --}}
       @if (session('verification_error'))
         <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg animate-shake" role="alert" aria-live="assertive">
@@ -115,19 +93,6 @@
           Cek Sekarang
         </button>
       </form>
-
-      {{-- Security Note --}}
-      <div class="mt-6 text-center">
-        <div class="inline-flex items-center gap-2 text-xs text-gray-500">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path fill-rule="evenodd"
-              d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-              clip-rule="evenodd"/>
-          </svg>
-          Koneksi aman & terenkripsi
-        </div>
-      </div>
-
     </div>
   </div>
 </div>

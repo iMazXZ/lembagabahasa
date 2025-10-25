@@ -23,7 +23,7 @@ class VerificationController extends Controller
 
             $vm = [
                 'type'             => 'penerjemahan',
-                'title'            => 'Verifikasi Dokumen Penerjemahan Abstrak',
+                'title'            => 'Cek Dokumen Penerjemahan Abstrak',
                 'status'           => $status,
                 'reason'           => $reason,
                 'applicant_name'   => $rec->users->name ?? '-',
@@ -35,7 +35,6 @@ class VerificationController extends Controller
                 'verification_url' => $rec->verification_url,
                 'pdf_url'          => ($rec->pdf_path && \Storage::disk('public')->exists($rec->pdf_path))
                                         ? asset('storage/'.$rec->pdf_path) : null,
-                // khusus penerjemahan tidak butuh nilai/nomor surat
                 'nomor_surat'      => null,
                 'tanggal_surat'    => null,
                 'scores'           => null,
@@ -48,12 +47,12 @@ class VerificationController extends Controller
         if ($rec = EptSubmission::with(['user.prody'])->where('verification_code', $code)->first()) {
             $status = $rec->status === 'approved' ? 'VALID' : 'PENDING';
             $reason = $status === 'VALID'
-                ? 'Surat telah disetujui (approved).'
+                ? 'Surat telah disetujui.'
                 : 'Pengajuan ditemukan, namun belum disetujui.';
 
             $vm = [
                 'type'             => 'ept',
-                'title'            => 'Verifikasi Surat Rekomendasi EPT',
+                'title'            => 'Cek Surat Rekomendasi EPT',
                 'status'           => $status,
                 'reason'           => $reason,
                 'applicant_name'   => $rec->user->name ?? '-',
