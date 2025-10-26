@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\Prody;
+use App\Models\BasicListeningGrade;
 use App\Support\ImageTransformer;
+use App\Support\BlGrading;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -40,7 +42,7 @@ class Biodata extends Page
             'prody_id'            => $this->user->prody_id,
             'year'                => $this->user->year,
             'nilaibasiclistening' => $this->user->nilaibasiclistening,
-            'image'               => $this->user->image, // path relatif di disk 'public'
+            'image'               => $this->user->image,
         ]);
     }
 
@@ -66,7 +68,7 @@ class Biodata extends Page
                         ->validationMessages([
                             'required' => 'Wajib Diisi.',
                         ])
-                        ->helperText(str('Isi dengan **nama lengkap** disini.')->inlineMarkdown()->toHtmlString())
+                        ->helperText(str('Isi dengan **nama lengkap** di sini.')->inlineMarkdown()->toHtmlString())
                         ->dehydrateStateUsing(fn (string $state): string => ucwords(strtolower($state))),
 
                     TextInput::make('email')
@@ -75,18 +77,18 @@ class Biodata extends Page
                         ->validationMessages([
                             'required' => 'Wajib Diisi.',
                         ])
-                        ->helperText(str('Isi dengan **email** aktif, email ini digunakan untuk mengirim **notifikasi** dan **reset password**.')->inlineMarkdown()->toHtmlString()),
+                        ->helperText(str('Gunakan **email aktif**, dipakai untuk notifikasi dan reset password.')->inlineMarkdown()->toHtmlString()),
 
                     TextInput::make('password')
                         ->password()
                         ->revealable(filament()->arePasswordsRevealable())
                         ->nullable()
-                        ->hint('Lupa Password? Ganti Disini')
+                        ->hint('Lupa Password? Ganti di sini')
                         ->hintColor('danger'),
 
                     TextInput::make('srn')
                         ->label('Nomor Pokok Mahasiswa')
-                        ->helperText(str('Jika Anda **Mahasiswa** isi NPM disini, jika **Dosen** isi NIDN, jika **Umum** isi dengan NIK.')->inlineMarkdown()->toHtmlString()),
+                        ->helperText(str('Jika Anda **Mahasiswa**, isi NPM. Jika **Dosen**, isi NIDN. Jika **Umum**, isi NIK.')->inlineMarkdown()->toHtmlString()),
 
                     Select::make('prody_id')
                         ->label('Program Studi')
@@ -94,21 +96,37 @@ class Biodata extends Page
                         ->searchable()
                         ->helperText(str('Pilih **Dosen** atau **Umum** jika bukan Mahasiswa.')->inlineMarkdown()->toHtmlString()),
 
-                    TextInput::make('year')
+                    // ===== DROPDOWN TAHUN DENGAN LOGIKA REAKTIF =====
+                    Select::make('year')
                         ->label('Tahun Angkatan')
-                        ->helperText('Isi dengan Tahun Sekarang jika bukan Mahasiswa.'),
+                        ->options(function () {
+                            $now = (int) date('Y');
+                            return collect(range(2020, $now + 1))
+                                ->reverse()
+                                ->mapWithKeys(fn ($y) => [$y => $y]);
+                        })
+                        ->placeholder('Pilih Tahun')
+                        ->searchable()
+                        ->required()
+                        ->reactive()
+                        ->helperText('Pilih tahun angkatan Anda. '
+                            . 'Jika bukan mahasiswa, pilih tahun sekarang.'),
 
+                    // ===== KONDISIONAL NILAI BASIC LISTENING =====
                     TextInput::make('nilaibasiclistening')
-                        ->label('Masukan Nilai Basic Listening')
-                        ->helperText('Isi dengan angka 0 jika belum/tidak mempunyai nilai.')
+                        ->label('Nilai Basic Listening (angkatan ≤ 2024)')
                         ->numeric()
                         ->minValue(0)
-                        ->maxValue(100),
+                        ->maxValue(100)
+                        ->visible(fn (callable $get) => ($year = (int) $get('year')) && $year <= 2024)
+                        ->required(fn (callable $get) => ($year = (int) $get('year')) && $year <= 2024)
+                        ->helperText('Wajib diisi untuk angkatan 2024 ke bawah. '
+                            . 'Angkatan 2025 ke atas diisi otomatis dari sistem.'),
 
                     FileUpload::make('image')
                         ->label('Foto Profil')
                         ->image()
-                        ->imageEditor() // user bisa crop manual jika mau
+                        ->imageEditor()
                         ->imageEditorAspectRatios(['1:1'])
                         ->imagePreviewHeight('200')
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
@@ -117,21 +135,16 @@ class Biodata extends Page
                         ->visibility('public')
                         ->downloadable()
                         ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $get) {
-                            // Ambil state lama; bisa string atau array
                             $old = $get('image');
                             if (is_array($old)) {
                                 $old = $old['path'] ?? ($old[0]['path'] ?? null);
                             }
-
-                            // Hapus file lama bila ada
                             if (is_string($old) && $old !== '' && Storage::disk('public')->exists($old)) {
                                 Storage::disk('public')->delete($old);
                             }
 
-                            // Nama file konsisten per user (overwrite)
                             $base = 'avatar_' . str(Auth::id())->padLeft(6, '0') . '.webp';
 
-                            // Kompres ke WebP + resize (tanpa cropSquare)
                             $result = ImageTransformer::toWebpFromUploaded(
                                 uploaded:   $file,
                                 targetDisk: 'public',
@@ -142,7 +155,7 @@ class Biodata extends Page
                                 basename:   $base
                             );
 
-                            return $result['path']; // path relatif pada disk 'public'
+                            return $result['path'];
                         })
                         ->deleteUploadedFileUsing(function (string $file) {
                             if (Storage::disk('public')->exists($file)) {
@@ -164,20 +177,19 @@ class Biodata extends Page
         $this->user->srn                 = $validated['srn'];
         $this->user->prody_id            = $validated['prody_id'];
         $this->user->year                = $validated['year'];
-        $this->user->nilaibasiclistening = $validated['nilaibasiclistening'];
+        $this->user->nilaibasiclistening = $validated['nilaibasiclistening'] ?? null;
 
         if (!empty($validated['password'])) {
             $this->user->password = Hash::make($validated['password']);
         }
 
-        // Normalisasi nilai 'image' (string / array) sebelum simpan
+        // Normalisasi dan hapus foto lama bila berbeda
         if (array_key_exists('image', $validated)) {
             $newImage = $validated['image'];
             if (is_array($newImage)) {
                 $newImage = $newImage['path'] ?? ($newImage[0]['path'] ?? null);
             }
 
-            // Jika ada perbedaan, hapus file lama untuk berjaga-jaga
             if ($this->user->image && $this->user->image !== $newImage) {
                 if (Storage::disk('public')->exists($this->user->image)) {
                     Storage::disk('public')->delete($this->user->image);
@@ -190,6 +202,24 @@ class Biodata extends Page
         }
 
         $this->user->save();
+
+        // ===== SINKRONISASI CACHE UNTUK ANGKATAN ≤ 2024 =====
+        if ((int) $this->user->year <= 2024) {
+            $num = is_numeric($this->user->nilaibasiclistening)
+                ? (float) $this->user->nilaibasiclistening
+                : null;
+
+            if ($num !== null) {
+                $grade = BasicListeningGrade::firstOrCreate([
+                    'user_id'   => $this->user->id,
+                    'user_year' => $this->user->year,
+                ]);
+
+                $grade->final_numeric_cached = $num;
+                $grade->final_letter_cached  = BlGrading::letter($num);
+                $grade->save();
+            }
+        }
 
         Notification::make()
             ->title('Informasi Terupdate')
@@ -204,13 +234,18 @@ class Biodata extends Page
 
         if ($user->hasRole('pendaftar')) {
             $isComplete =
-                !is_null($user->nilaibasiclistening) &&
                 ($user->prody !== null && $user->prody !== '') &&
                 ($user->srn !== null && $user->srn !== '') &&
-                ($user->year !== null && $user->year !== '');
+                ($user->year !== null && $user->year !== '') &&
+                (
+                    (int) $user->year <= 2024
+                        ? is_numeric($user->nilaibasiclistening)
+                        : true
+                );
 
             if (!$isComplete) {
-                return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. Pastikan seluruh data telah terisi dengan benar untuk bisa melakukan proses pendaftaran.';
+                return '⚠️ Silakan lengkapi terlebih dahulu data biodata Anda. '
+                    . 'Pastikan seluruh data telah terisi dengan benar.';
             }
         }
 

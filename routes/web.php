@@ -25,6 +25,8 @@ use App\Http\Controllers\BasicListeningHistoryController;
 // Basic Listening (baru: FIB 1 paragraf)
 use App\Http\Controllers\BasicListeningQuizFibController;
 
+use App\Http\Controllers\CertificateController;
+
 /*
 |--------------------------------------------------------------------------
 | Front pages
@@ -212,3 +214,13 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('quiz')
         ->name('bl.submit');
 });
+
+Route::middleware(['auth'])->group(function () {
+    // pendaftar download miliknya sendiri (Admin/tutor boleh untuk testing)
+    Route::get('/bl/certificate', [CertificateController::class, 'basicListening'])
+        ->name('bl.certificate.download');
+});
+
+// Public (tanpa login): download/preview berdasar kode verifikasi
+Route::get('/verification/{code}/basic-listening.pdf', [CertificateController::class, 'basicListeningByCode'])
+    ->name('bl.certificate.bycode');

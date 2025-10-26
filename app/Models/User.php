@@ -15,6 +15,7 @@ use Filament\Models\Contracts\HasAvatar;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable implements HasAvatar
 {
@@ -113,6 +114,28 @@ class User extends Authenticatable implements HasAvatar
     public function basicListeningAttempts(): HasMany
     {
         return $this->hasMany(\App\Models\BasicListeningAttempt::class, 'user_id');
+    }
+
+    public function basicListeningGrade(): HasOne
+    {
+        return $this->hasOne(\App\Models\BasicListeningGrade::class);
+    }
+
+    public function basicListeningManualScores()
+    {
+        return $this->hasMany(\App\Models\BasicListeningManualScore::class);
+    }
+
+    public function getBlFinalNumericAttribute(): ?float
+    {
+        [$n, ] = \App\Support\BlSource::finalFor($this);
+        return $n;
+    }
+
+    public function getBlFinalLetterAttribute(): ?string
+    {
+        [, $l] = \App\Support\BlSource::finalFor($this);
+        return $l;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\EptSubmission;
+use App\Models\BasicListeningGrade;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 
@@ -28,8 +29,6 @@ use Filament\Actions\Action as PageAction;
 
 // ==== Misc ====
 use Filament\Notifications\Notification;
-
-// ==== Compress Image ====
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ImageTransformer;
@@ -37,8 +36,7 @@ use Illuminate\Support\Str;
 
 class SubmitEptScore extends Page implements HasForms, HasTable
 {
-    use InteractsWithForms;
-    use InteractsWithTable;
+    use InteractsWithForms, InteractsWithTable;
 
     protected static ?string $navigationIcon  = 'heroicon-o-document-plus';
     protected static ?string $navigationLabel = 'Pengajuan Surat Rekomendasi';
@@ -46,14 +44,12 @@ class SubmitEptScore extends Page implements HasForms, HasTable
     protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
     protected static string  $view            = 'filament.pages.submit-ept-score';
 
-    /** sembunyikan form jika user sudah punya pengajuan (pending/approved) */
+    /** state */
     public bool $hasSubmissions = false;
-
-    /** state form */
+    public bool $hasApproved = false;
     public ?array $data = [];
 
-    public bool $hasApproved = false;
-    
+    /** 🔒 Navigasi hanya untuk pendaftar */
     public static function shouldRegisterNavigation(): bool
     {
         return auth()->check() && auth()->user()->hasRole('pendaftar');
@@ -64,15 +60,53 @@ class SubmitEptScore extends Page implements HasForms, HasTable
         return auth()->check() && auth()->user()->hasRole('pendaftar');
     }
 
+    /**
+     * ✅ Biodata dasar harus lengkap untuk semua angkatan.
+     * - ≤ 2024: WAJIB punya nilai basic listening (manual).
+     * - ≥ 2025: TIDAK wajib nilai manual, tapi akan dicek kelulusan BL di tempat lain.
+     */
     protected function userHasCompleteBiodata(): bool
     {
         $u = Auth::user();
+        if (! $u) return false;
 
-        return $u
-            && $u->prody !== null && $u->prody !== ''
-            && $u->srn   !== null && $u->srn   !== ''
-            && $u->year  !== null && $u->year  !== ''
-            && ! is_null($u->nilaibasiclistening); // 0 tetap valid
+        $hasBasicInfo = !empty($u->prody) && !empty($u->srn) && !empty($u->year);
+        if (! $hasBasicInfo) return false;
+
+        $year = (int) $u->year;
+
+        if ($year <= 2024) {
+            // angkatan lama: wajib isi nilai manual
+            return is_numeric($u->nilaibasiclistening);
+        }
+
+        // angkatan baru: biodata dasar cukup (nilai manual tidak diperlukan di tahap ini)
+        return true;
+    }
+
+    /**
+     * ✅ Kelulusan / keikutsertaan Basic Listening untuk angkatan ≥ 2025.
+     * Dianggap sudah "mengikuti" jika attendance & final_test numerik.
+     */
+    protected function userHasCompletedBasicListening(): bool
+    {
+        $u = Auth::user();
+        if (! $u) return false;
+
+        $year = (int) $u->year;
+        if ($year < 2025) {
+            // Untuk ≤ 2024 tidak relevan (mereka pakai nilai manual).
+            return true;
+        }
+
+        $grade = BasicListeningGrade::query()
+            ->where('user_id', $u->id)
+            ->where('user_year', $u->year)
+            ->first();
+
+        return $grade !== null
+            && is_numeric($grade->attendance)
+            && is_numeric($grade->final_test);
     }
 
     public function mount(): void
@@ -99,13 +133,18 @@ class SubmitEptScore extends Page implements HasForms, HasTable
         ];
     }
 
+    /** 🔹 Form utama pengajuan */
     public function form(Form $form): Form
     {
+        // 1) Kalau biodata belum lengkap
         if (! $this->userHasCompleteBiodata()) {
             return $form
                 ->schema([
                     Section::make('⚠️ Biodata Belum Lengkap')
-                        ->description('Silakan lengkapi Prodi, NPM, Tahun Angkatan, dan Nilai Basic Listening sebelum mengajukan.')
+                        ->description(
+                            'Silakan lengkapi Prodi, NPM, dan Tahun Angkatan. ' .
+                            'Untuk angkatan 2024 ke bawah, juga wajib mengisi nilai Basic Listening.'
+                        )
                         ->schema([
                             FormActions::make([
                                 FormAction::make('go_biodata')
@@ -121,10 +160,23 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                 ->statePath('data');
         }
 
+        // 2) Untuk angkatan ≥ 2025: wajib sudah mengikuti Basic Listening
+        if (! $this->userHasCompletedBasicListening()) {
+            return $form
+                ->schema([
+                    Section::make('⚠️ Anda belum mengikuti Basic Listening')
+                        ->description('Silakan ikuti kegiatan Basic Listening terlebih dahulu. Setelah nilai Attendance dan Final Test terisi, Anda dapat mengajukan surat rekomendasi.')
+                        ->extraAttributes(['class' => 'flex flex-col items-center justify-center text-center']),
+                ])
+                ->statePath('data');
+        }
+
+        // 3) Jika sudah punya submission pending/approved, sembunyikan form
         if ($this->hasSubmissions) {
             return $form->schema([])->statePath('data');
         }
 
+        // 4) Form normal
         return $form
             ->schema([
                 // TES 1
@@ -135,33 +187,28 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->label('Nilai Tes')
                             ->numeric()->required()
                             ->rule('integer')->rule('between:0,677'),
-
                         DatePicker::make('tanggal_tes_1')
                             ->label('Tanggal Tes')->required()
                             ->native(false)->displayFormat('d/m/Y'),
-
                         FileUpload::make('foto_path_1')
                             ->label('Screenshot Nilai Tes')->required()
-                            ->image()
-                            ->disk('public')->visibility('public')
+                            ->image()->disk('public')->visibility('public')
                             ->acceptedFileTypes(['image/*'])
-                            ->maxSize(8192) // 8 MB (PHP kamu sudah 16 MB)
-                            ->downloadable()
+                            ->maxSize(8192)->downloadable()
                             ->imagePreviewHeight('180')
                             ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
-                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
+                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file) {
                                 $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
                                 $base  = "proof1_{$nama}.webp";
-
                                 return ImageTransformer::toWebpFromUploaded(
-                                    uploaded:   $file,
+                                    uploaded: $file,
                                     targetDisk: 'public',
-                                    targetDir:  'ept/proofs',
-                                    quality:    85,
-                                    maxWidth:   1600,
-                                    maxHeight:  null,
-                                    basename:   $base
-                                )['path']; // simpan path relatif ke kolom foto_path_1
+                                    targetDir: 'ept/proofs',
+                                    quality: 85,
+                                    maxWidth: 1600,
+                                    maxHeight: null,
+                                    basename: $base
+                                )['path'];
                             }),
                     ])->columns(3),
 
@@ -173,33 +220,28 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->label('Nilai Tes')
                             ->numeric()->required()
                             ->rule('integer')->rule('between:0,677'),
-
                         DatePicker::make('tanggal_tes_2')
                             ->label('Tanggal Tes')->required()
                             ->native(false)->displayFormat('d/m/Y')
                             ->rule('after_or_equal:tanggal_tes_1'),
-
                         FileUpload::make('foto_path_2')
                             ->label('Screenshot Nilai Tes')->required()
-                            ->image()
-                            ->disk('public')->visibility('public')
+                            ->image()->disk('public')->visibility('public')
                             ->acceptedFileTypes(['image/*'])
-                            ->maxSize(8192)
-                            ->downloadable()
+                            ->maxSize(8192)->downloadable()
                             ->imagePreviewHeight('180')
                             ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
-                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
+                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file) {
                                 $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
                                 $base  = "proof2_{$nama}.webp";
-
                                 return ImageTransformer::toWebpFromUploaded(
-                                    uploaded:   $file,
+                                    uploaded: $file,
                                     targetDisk: 'public',
-                                    targetDir:  'ept/proofs',
-                                    quality:    85,
-                                    maxWidth:   1600,
-                                    maxHeight:  null,
-                                    basename:   $base
+                                    targetDir: 'ept/proofs',
+                                    quality: 85,
+                                    maxWidth: 1600,
+                                    maxHeight: null,
+                                    basename: $base
                                 )['path'];
                             }),
                     ])->columns(3),
@@ -212,33 +254,28 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->label('Nilai Tes')
                             ->numeric()->required()
                             ->rule('integer')->rule('between:0,677'),
-
                         DatePicker::make('tanggal_tes_3')
                             ->label('Tanggal Tes')->required()
                             ->native(false)->displayFormat('d/m/Y')
                             ->rule('after_or_equal:tanggal_tes_2'),
-
                         FileUpload::make('foto_path_3')
                             ->label('Screenshot Nilai Tes')->required()
-                            ->image()
-                            ->disk('public')->visibility('public')
+                            ->image()->disk('public')->visibility('public')
                             ->acceptedFileTypes(['image/*'])
-                            ->maxSize(8192)
-                            ->downloadable()
+                            ->maxSize(8192)->downloadable()
                             ->imagePreviewHeight('180')
                             ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
-                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
+                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file) {
                                 $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
                                 $base  = "proof3_{$nama}.webp";
-
                                 return ImageTransformer::toWebpFromUploaded(
-                                    uploaded:   $file,
+                                    uploaded: $file,
                                     targetDisk: 'public',
-                                    targetDir:  'ept/proofs',
-                                    quality:    85,
-                                    maxWidth:   1600,
-                                    maxHeight:  null,
-                                    basename:   $base
+                                    targetDir: 'ept/proofs',
+                                    quality: 85,
+                                    maxWidth: 1600,
+                                    maxHeight: null,
+                                    basename: $base
                                 )['path'];
                             }),
                     ])->columns(3),
@@ -246,6 +283,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
             ->statePath('data');
     }
 
+    /** 🔹 Simpan pengajuan */
     public function submit(): void
     {
         $existing = EptSubmission::where('user_id', Auth::id())
@@ -267,12 +305,16 @@ class SubmitEptScore extends Page implements HasForms, HasTable
 
         EptSubmission::create($formData);
 
-        Notification::make()->title('Data berhasil dikirim!')->success()->send();
+        Notification::make()
+            ->title('Data berhasil dikirim!')
+            ->success()
+            ->send();
 
         $this->form->fill([]);
         $this->hasSubmissions = true;
     }
 
+    /** 🔹 Tabel pengajuan */
     public function table(Table $table): Table
     {
         return $table
@@ -287,27 +329,25 @@ class SubmitEptScore extends Page implements HasForms, HasTable
 
                 TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => match ($state) {
+                    ->formatStateUsing(fn (string $state) => match ($state) {
                         'pending'  => 'Menunggu',
                         'approved' => 'Disetujui',
                         'rejected' => 'Ditolak',
                         default    => (string) $state,
                     })
-                    ->color(fn ($state) => match ($state) {
+                    ->color(fn (string $state) => match ($state) {
                         'pending'  => 'warning',
                         'approved' => 'success',
                         'rejected' => 'danger',
                         default    => 'gray',
                     }),
 
-                // Kolom tambahan disembunyikan default (bisa ditampilkan via toggle)
                 TextColumn::make('nilai_tes_1')->label('Tes I')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('nilai_tes_2')->label('Tes II')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('nilai_tes_3')->label('Tes III')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('catatan_admin')->label('Catatan Staf')->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
-                // Download sebagai tombol
                 \Filament\Tables\Actions\Action::make('download_pdf')
                     ->label('Download PDF')
                     ->icon('heroicon-o-arrow-down-tray')
@@ -321,7 +361,6 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                     ->openUrlInNewTab()
                     ->button(),
 
-                // Verifikasi sebagai link
                 \Filament\Tables\Actions\Action::make('verify')
                     ->label('Lihat Verifikasi')
                     ->icon('heroicon-o-link')
@@ -337,7 +376,13 @@ class SubmitEptScore extends Page implements HasForms, HasTable
 
     protected function getFormActions(): array
     {
-        if (! $this->userHasCompleteBiodata() || $this->hasSubmissions) {
+        // Sembunyikan tombol ajukan jika:
+        // - biodata belum lengkap, atau
+        // - untuk angkatan ≥ 2025, BL belum diikuti, atau
+        // - sudah ada pengajuan pending/approved.
+        if (! $this->userHasCompleteBiodata()
+            || ! $this->userHasCompletedBasicListening()
+            || $this->hasSubmissions) {
             return [];
         }
 
@@ -349,24 +394,9 @@ class SubmitEptScore extends Page implements HasForms, HasTable
         ];
     }
 
-    public function getApprovedSubmissionProperty(): ?EptSubmission
-    {
-        return EptSubmission::where('user_id', Auth::id())
-            ->where('status', 'approved')
-            ->orderByRaw('COALESCE(approved_at, created_at) DESC')
-            ->first();
-    }
-
-    public function getLatestSubmissionProperty(): ?EptSubmission
-    {
-        return EptSubmission::where('user_id', Auth::id())
-            ->latest('created_at')
-            ->first();
-    }
-
+    /** 🔹 Header actions (download/verify) */
     protected function getHeaderActions(): array
     {
-        // tombol "Kembali" selalu ada
         $actions = [
             \Filament\Actions\Action::make('back_to_dashboard')
                 ->label('Kembali ke Dasbor')
@@ -376,7 +406,6 @@ class SubmitEptScore extends Page implements HasForms, HasTable
         ];
 
         if ($rec = $this->approvedSubmission) {
-            // Paksa download: tambahkan dl=1 ke kedua kemungkinan route
             $pdfUrl = filled($rec->verification_code)
                 ? route('verification.ept.pdf', ['code' => $rec->verification_code, 'dl' => 1])
                 : route('ept-submissions.pdf', [$rec, 'dl' => 1]);
@@ -404,5 +433,21 @@ class SubmitEptScore extends Page implements HasForms, HasTable
         }
 
         return $actions;
+    }
+
+    /** 🔹 Helper properties */
+    public function getApprovedSubmissionProperty(): ?EptSubmission
+    {
+        return EptSubmission::where('user_id', Auth::id())
+            ->where('status', 'approved')
+            ->orderByRaw('COALESCE(approved_at, created_at) DESC')
+            ->first();
+    }
+
+    public function getLatestSubmissionProperty(): ?EptSubmission
+    {
+        return EptSubmission::where('user_id', Auth::id())
+            ->latest('created_at')
+            ->first();
     }
 }

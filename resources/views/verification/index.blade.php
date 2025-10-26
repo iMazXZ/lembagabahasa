@@ -1,4 +1,3 @@
-{{-- resources/views/verification/index.blade.php --}}
 @extends('layouts.front')
 
 @section('title', 'Cek Verifikasi Dokumen')
