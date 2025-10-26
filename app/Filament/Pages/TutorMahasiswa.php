@@ -18,6 +18,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
 
 class TutorMahasiswa extends Page implements HasTable
@@ -156,7 +157,29 @@ class TutorMahasiswa extends Page implements HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                // Hanya filter Prodi saja, filter angkatan dihapus karena sudah dihandle di baseQuery()
+                // Filter Angkatan via prefix SRN
+                Filter::make('angkatan')
+                    ->label('Prefix Angkatan (SRN)')
+                    ->form([
+                        Forms\Components\TextInput::make('prefix')
+                            ->placeholder('mis. 25')
+                            ->default('25')
+                            ->maxLength(2)
+                            ->datalist(['25', '24', '23']),
+                    ])
+                    ->indicateUsing(fn (array $data): ?string =>
+                        filled($data['prefix'] ?? null)
+                            ? 'Angkatan: ' . $data['prefix']
+                            : null
+                    )
+                    ->query(function (Builder $query, array $data) {
+                        $prefix = trim((string)($data['prefix'] ?? ''));
+                        if ($prefix !== '') {
+                            $query->where('srn', 'like', $prefix . '%');
+                        }
+                    }),
+
+                // Filter Prodi
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
                     ->options(function () use ($user) {
@@ -293,7 +316,7 @@ class TutorMahasiswa extends Page implements HasTable
             ])
             ->bulkActions([])
             ->emptyStateHeading('Belum ada data')
-            ->emptyStateDescription('Pastikan prodi yang Anda ampu sudah diatur.');
+            ->emptyStateDescription('Ubah filter angkatan atau pastikan prodi yang Anda ampu sudah diatur.');
     }
 
     /** Scope: Admin lihat semua; tutor hanya prodi binaannya + SRN prefix 25 default. */
