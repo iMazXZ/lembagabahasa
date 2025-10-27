@@ -20,6 +20,9 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class TutorMahasiswa extends Page implements HasTable
 {
@@ -61,6 +64,34 @@ class TutorMahasiswa extends Page implements HasTable
                     ->label('Prodi')
                     ->sortable()
                     ->badge(),
+
+                Tables\Columns\TextColumn::make('attempt_status')
+                    ->label('Daily Online')
+                    ->badge()
+                    ->state(function (User $record) {
+                        // Hitung berapa sesi (S1–S5) yang sudah submit
+                        $count = $record->basicListeningAttempts()
+                            ->whereNotNull('submitted_at')
+                            ->distinct('session_id')
+                            ->count('session_id');
+
+                        if ($count === 0) {
+                            return 'Belum attempt';
+                        }
+
+                        return $count . ' ' . Str::plural('daily', $count);
+                    })
+                    ->colors([
+                        // 0 = abu-abu, 1-4 = warning, 5 = hijau
+                        'gray'    => fn (string $state): bool =>
+                            str_starts_with(strtolower($state), 'belum'),
+                        'success' => fn (string $state): bool =>
+                            ((int) (explode(' ', $state)[0] ?? 0)) === 5,
+                        'warning' => fn (string $state): bool => 
+                            (($n = (int) (explode(' ', $state)[0] ?? 0)) > 0 && $n < 5),
+                    ])
+                    ->toggleable(),
+
 
                 // Attendance
                 Tables\Columns\TextColumn::make('attendance_display')
@@ -201,59 +232,120 @@ class TutorMahasiswa extends Page implements HasTable
                     }),
             ])
             ->actions([
-                // === Edit Daily per meeting (S1..S5)
                 Tables\Actions\Action::make('edit_daily')
                     ->label('Edit Daily')
                     ->icon('heroicon-o-pencil')
                     ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor']))
-                    ->form([
-                        Forms\Components\Grid::make(5)->schema([
-                            TextInput::make('m1')->label('S1')->numeric()->minValue(0)->maxValue(100),
-                            TextInput::make('m2')->label('S2')->numeric()->minValue(0)->maxValue(100),
-                            TextInput::make('m3')->label('S3')->numeric()->minValue(0)->maxValue(100),
-                            TextInput::make('m4')->label('S4')->numeric()->minValue(0)->maxValue(100),
-                            TextInput::make('m5')->label('S5')->numeric()->minValue(0)->maxValue(100),
-                        ]),
-                    ])
-                    ->mountUsing(function (ComponentContainer $form, User $record) {
-                        // Prefill dari manual atau attempt
-                        $manual = BasicListeningManualScore::query()
-                            ->where('user_id', $record->id)
-                            ->where('user_year', $record->year)
-                            ->whereIn('meeting', [1,2,3,4,5])
-                            ->pluck('score', 'meeting')
-                            ->all();
+                    ->form(function (User $record) {
+                        // === Status attempt & nilai manual per meeting
+                        $attemptStatus = [];
+                        $currentScores = [];
+                        $attemptScores = [];
 
-                        $prefill = [];
-                        foreach ([1,2,3,4,5] as $m) {
-                            $prefill[$m] = $manual[$m] ?? null;
-                            if (!is_numeric($prefill[$m])) {
-                                $attemptScore = \App\Models\BasicListeningAttempt::query()
-                                    ->where('user_id', $record->id)
-                                    ->where('session_id', $m)
-                                    ->whereNotNull('submitted_at')
-                                    ->orderByDesc('updated_at')
-                                    ->value('score');
-                                if (is_numeric($attemptScore)) {
-                                    $prefill[$m] = (float) $attemptScore;
-                                }
-                            }
+                        // Ambil attempt terbaru per meeting
+                        $attempts = $record->basicListeningAttempts()
+                            ->whereNotNull('submitted_at')
+                            ->select(['user_id', 'session_id', 'score', 'submitted_at'])
+                            ->orderByDesc('submitted_at')
+                            ->get()
+                            ->groupBy('session_id')
+                            ->map(function ($g) {
+                                return $g->first();
+                            });
+
+                        foreach ([1,2,3,4,5] as $meeting) {
+                            $attempt = $attempts->get($meeting);
+                            $hasAttempt = !is_null($attempt);
+
+                            $attemptStatus[$meeting] = $hasAttempt;
+                            $attemptScores[$meeting] = $hasAttempt ? $attempt->score : null;
+
+                            $manualScore = BasicListeningManualScore::query()
+                                ->where('user_id', $record->id)
+                                ->where('user_year', $record->year)
+                                ->where('meeting', $meeting)
+                                ->value('score');
+
+                            $currentScores[$meeting] = $manualScore;
                         }
 
-                        $form->fill([
-                            'm1' => $prefill[1],
-                            'm2' => $prefill[2],
-                            'm3' => $prefill[3],
-                            'm4' => $prefill[4],
-                            'm5' => $prefill[5],
-                        ]);
+                        // === UI
+                        return [
+                            Forms\Components\Placeholder::make('info')
+                                ->label('Untuk Apa Ini?')
+                                ->content(function () use ($attemptStatus) {
+                                    $lockedMeetings = [];
+                                    foreach ($attemptStatus as $meeting => $hasAttempt) {
+                                        if ($hasAttempt) $lockedMeetings[] = "S{$meeting}";
+                                    }
+                                    if (!empty($lockedMeetings)) {
+                                        return "Form ini digunakan untuk input nilai untuk setiap meeting (1-5) ketika tidak menggunakan fitur quiz. Nilai Meeting " . implode(', ', $lockedMeetings) . " terkunci karena sudah mengikuti Quiz Online.";
+                                    }
+                                    return "Form ini digunakan untuk input nilai untuk setiap meeting (1-5) ketika tidak menggunakan fitur quiz.";
+                                })
+                                ->extraAttributes(['class' => 'bg-gray-50 p-4 rounded']),
+
+                            Forms\Components\Grid::make(5)->schema([
+                                TextInput::make('m1')
+                                    ->label('Meeting 1')
+                                    ->numeric()->minValue(0)->maxValue(100)
+                                    ->disabled($attemptStatus[1])
+                                    ->helperText($attemptStatus[1] ? 'Terkunci' : 'Input Nilai')
+                                    ->placeholder(is_numeric($currentScores[1]) ? "Nilai sekarang: {$currentScores[1]}" : (is_numeric($attemptScores[1]) ? "Nilai attempt: {$attemptScores[1]}" : '0-100'))
+                                    ->default(is_numeric($currentScores[1]) ? $currentScores[1] : (is_numeric($attemptScores[1]) ? $attemptScores[1] : null)),
+
+                                TextInput::make('m2')
+                                    ->label('Meeting 2')
+                                    ->numeric()->minValue(0)->maxValue(100)
+                                    ->disabled($attemptStatus[2])
+                                    ->helperText($attemptStatus[2] ? 'Terkunci' : 'Input Nilai')
+                                    ->placeholder(is_numeric($currentScores[2]) ? "Nilai sekarang: {$currentScores[2]}" : (is_numeric($attemptScores[2]) ? "Nilai attempt: {$attemptScores[2]}" : '0-100'))
+                                    ->default(is_numeric($currentScores[2]) ? $currentScores[2] : (is_numeric($attemptScores[2]) ? $attemptScores[2] : null)),
+
+                                TextInput::make('m3')
+                                    ->label('Meeting 3')
+                                    ->numeric()->minValue(0)->maxValue(100)
+                                    ->disabled($attemptStatus[3])
+                                    ->helperText($attemptStatus[3] ? 'Terkunci' : 'Input Nilai')
+                                    ->placeholder(is_numeric($currentScores[3]) ? "Nilai sekarang: {$currentScores[3]}" : (is_numeric($attemptScores[3]) ? "Nilai attempt: {$attemptScores[3]}" : '0-100'))
+                                    ->default(is_numeric($currentScores[3]) ? $currentScores[3] : (is_numeric($attemptScores[3]) ? $attemptScores[3] : null)),
+
+                                TextInput::make('m4')
+                                    ->label('Meeting 4')
+                                    ->numeric()->minValue(0)->maxValue(100)
+                                    ->disabled($attemptStatus[4])
+                                    ->helperText($attemptStatus[4] ? 'Terkunci' : 'Input Nilai')
+                                    ->placeholder(is_numeric($currentScores[4]) ? "Nilai sekarang: {$currentScores[4]}" : (is_numeric($attemptScores[4]) ? "Nilai attempt: {$attemptScores[4]}" : '0-100'))
+                                    ->default(is_numeric($currentScores[4]) ? $currentScores[4] : (is_numeric($attemptScores[4]) ? $attemptScores[4] : null)),
+
+                                TextInput::make('m5')
+                                    ->label('Meeting 5')
+                                    ->numeric()->minValue(0)->maxValue(100)
+                                    ->disabled($attemptStatus[5])
+                                    ->helperText($attemptStatus[5] ? 'Terkunci' : 'Input Nilai')
+                                    ->placeholder(is_numeric($currentScores[5]) ? "Nilai sekarang: {$currentScores[5]}" : (is_numeric($attemptScores[5]) ? "Nilai attempt: {$attemptScores[5]}" : '0-100'))
+                                    ->default(is_numeric($currentScores[5]) ? $currentScores[5] : (is_numeric($attemptScores[5]) ? $attemptScores[5] : null)),
+                            ]),
+                        ];
                     })
                     ->action(function (User $record, array $data) {
                         $year = $record->year;
+                        $updatedCount = 0;
 
                         foreach (['m1'=>1,'m2'=>2,'m3'=>3,'m4'=>4,'m5'=>5] as $key => $meeting) {
                             $val = $data[$key] ?? null;
 
+                            // Skip jika meeting ini ada attempt (field akan disabled jadi tidak bisa diubah)
+                            $hasAttempt = $record->basicListeningAttempts()
+                                ->where('session_id', $meeting)
+                                ->whereNotNull('submitted_at')
+                                ->exists();
+
+                            if ($hasAttempt) {
+                                continue;
+                            }
+
+                            // Hanya simpan untuk meeting yang tidak ada attempt
                             $row = BasicListeningManualScore::firstOrCreate([
                                 'user_id'   => $record->id,
                                 'user_year' => $year,
@@ -262,21 +354,28 @@ class TutorMahasiswa extends Page implements HasTable
 
                             $row->score = is_numeric($val) ? max(0, min(100, (int)$val)) : null;
                             $row->save();
+                            $updatedCount++;
                         }
 
-                        // Perbarui cache otomatis
+                        // Update cache
                         $grade = BasicListeningGrade::firstOrCreate([
                             'user_id'   => $record->id,
                             'user_year' => $year,
                         ]);
                         $grade->save();
+
+                        Notification::make()
+                            ->title('Nilai daily berhasil diperbarui')
+                            ->body($updatedCount > 0 ? "{$updatedCount} meeting diupdate." : 'Tidak ada perubahan (semua meeting terkunci).')
+                            ->success()
+                            ->send();
                     })
-                    ->modalWidth('md')
+                    ->modalWidth('xl')
                     ->slideOver(),
 
                 // === Edit Attendance & Final
                 Tables\Actions\Action::make('edit_scores')
-                    ->label('Edit Nilai')
+                    ->label('Insert Final')
                     ->icon('heroicon-o-pencil-square')
                     ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor']))
                     ->form(function (User $record) {
@@ -287,10 +386,15 @@ class TutorMahasiswa extends Page implements HasTable
                                 ->content($record->srn . ' — ' . $record->name),
 
                             TextInput::make('attendance')
-                                ->label('Attendance (0–100)')
+                                ->label('Attendance (Nilai Kehadiran) (0–100)')
                                 ->numeric()
                                 ->minValue(0)
                                 ->maxValue(100)
+                                ->validationMessages([
+                                        'numeric' => 'Nilai harus berupa angka',
+                                        'min'     => 'Nilai minimal 0',
+                                        'max'     => 'Nilai maksimal 100',
+                                    ])
                                 ->default($g?->attendance),
 
                             TextInput::make('final_test')
@@ -298,6 +402,11 @@ class TutorMahasiswa extends Page implements HasTable
                                 ->numeric()
                                 ->minValue(0)
                                 ->maxValue(100)
+                                ->validationMessages([
+                                        'numeric' => 'Nilai harus berupa angka',
+                                        'min'     => 'Nilai minimal 0',
+                                        'max'     => 'Nilai maksimal 100',
+                                    ])
                                 ->default($g?->final_test),
                         ];
                     })
@@ -310,11 +419,466 @@ class TutorMahasiswa extends Page implements HasTable
                         $grade->attendance = $data['attendance'] !== null ? (int) $data['attendance'] : null;
                         $grade->final_test = $data['final_test'] !== null ? (int) $data['final_test'] : null;
                         $grade->save(); // model auto-update cache
+
+                        Notification::make()
+                            ->title('Nilai berhasil diperbarui')
+                            ->success()
+                            ->send();
                     })
-                    ->modalWidth('md')
+                    ->modalWidth('xl')
                     ->slideOver(),
             ])
-            ->bulkActions([])
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('bulk_edit_daily')
+                    ->label('Edit Daily')
+                    ->icon('heroicon-o-pencil')
+                    ->form(function (Collection $records) {
+                        $studentsData = [];
+
+                        // Preload
+                        $records->load([
+                            'basicListeningAttempts' => function ($query) {
+                                $query->whereNotNull('submitted_at')
+                                    ->select(['id', 'user_id', 'session_id', 'score', 'submitted_at']);
+                            },
+                            'basicListeningManualScores',
+                        ]);
+
+                        foreach ($records as $record) {
+                            $attemptsBySession = $record->basicListeningAttempts
+                                ->groupBy('session_id')
+                                ->map(function ($attempts) {
+                                    return $attempts->sortByDesc('submitted_at')->first();
+                                });
+
+                            $attemptStatus = [];
+                            $currentScores = [];
+                            $attemptScores = [];
+
+                            foreach ([1, 2, 3, 4, 5] as $meeting) {
+                                $attempt = $attemptsBySession->get($meeting);
+                                $hasAttempt = ! is_null($attempt);
+
+                                $attemptStatus[$meeting] = $hasAttempt;
+
+                                $manualScore = $record->basicListeningManualScores
+                                    ->where('meeting', $meeting)
+                                    ->first()
+                                    ?->score;
+
+                                $currentScores[$meeting] = $manualScore;
+                                $attemptScores[$meeting] = $hasAttempt ? $attempt->score : null;
+                            }
+
+                            // manual kalau ada; jika tidak ada, pakai attempt score
+                            $studentsData[] = [
+                                'user_id' => $record->id,
+                                'name'    => $record->name,
+                                'srn'     => $record->srn,
+
+                                'm1' => is_numeric($currentScores[1]) ? $currentScores[1] : (is_numeric($attemptScores[1]) ? $attemptScores[1] : null),
+                                'm2' => is_numeric($currentScores[2]) ? $currentScores[2] : (is_numeric($attemptScores[2]) ? $attemptScores[2] : null),
+                                'm3' => is_numeric($currentScores[3]) ? $currentScores[3] : (is_numeric($attemptScores[3]) ? $attemptScores[3] : null),
+                                'm4' => is_numeric($currentScores[4]) ? $currentScores[4] : (is_numeric($attemptScores[4]) ? $attemptScores[4] : null),
+                                'm5' => is_numeric($currentScores[5]) ? $currentScores[5] : (is_numeric($attemptScores[5]) ? $attemptScores[5] : null),
+
+                                'attempt_1' => $attemptStatus[1],
+                                'attempt_2' => $attemptStatus[2],
+                                'attempt_3' => $attemptStatus[3],
+                                'attempt_4' => $attemptStatus[4],
+                                'attempt_5' => $attemptStatus[5],
+
+                                'attempt_score_1' => $attemptScores[1],
+                                'attempt_score_2' => $attemptScores[2],
+                                'attempt_score_3' => $attemptScores[3],
+                                'attempt_score_4' => $attemptScores[4],
+                                'attempt_score_5' => $attemptScores[5],
+                            ];
+                        }
+
+                        return [
+                            Forms\Components\Repeater::make('students')
+                                ->label('Data Mahasiswa')
+                                ->schema([
+                                    Forms\Components\Hidden::make('user_id'),
+                                    Forms\Components\Hidden::make('name'),
+                                    Forms\Components\Hidden::make('srn'),
+                                    Forms\Components\Hidden::make('attempt_1'),
+                                    Forms\Components\Hidden::make('attempt_2'),
+                                    Forms\Components\Hidden::make('attempt_3'),
+                                    Forms\Components\Hidden::make('attempt_4'),
+                                    Forms\Components\Hidden::make('attempt_5'),
+                                    Forms\Components\Hidden::make('attempt_score_1'),
+                                    Forms\Components\Hidden::make('attempt_score_2'),
+                                    Forms\Components\Hidden::make('attempt_score_3'),
+                                    Forms\Components\Hidden::make('attempt_score_4'),
+                                    Forms\Components\Hidden::make('attempt_score_5'),
+
+                                    Forms\Components\Grid::make(5)->schema([
+                                        TextInput::make('m1')
+                                            ->label('Meeting 1')
+                                            ->numeric()->minValue(0)->maxValue(100)
+                                            ->validationMessages([
+                                                'numeric' => 'Nilai harus berupa angka',
+                                                'min'     => 'Nilai minimal 0',
+                                                'max'     => 'Nilai maksimal 100',
+                                            ])
+                                            ->disabled(fn ($get) => filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN))
+                                            ->suffixIcon(function ($get) {
+                                                $locked = filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'heroicon-o-lock-closed';
+                                                return is_numeric($get('m1')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                            })
+                                            ->suffixIconColor(function ($get) {
+                                                $locked = filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'gray';
+                                                return is_numeric($get('m1')) ? 'success' : 'info';
+                                            })
+                                            ->helperText(function ($get) {
+                                                if (filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN)) {
+                                                    $attemptScore = $get('attempt_score_1');
+                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                }
+                                                return is_numeric($get('m1')) ? 'Sudah diisi' : 'Perlu diisi';
+                                            })
+                                            ->placeholder(fn ($get) => is_numeric($get('m1')) ? "Nilai sekarang: {$get('m1')}" : '0-100'),
+
+                                        TextInput::make('m2')
+                                            ->label('Meeting 2')
+                                            ->numeric()->minValue(0)->maxValue(100)
+                                            ->validationMessages([
+                                                'numeric' => 'Nilai harus berupa angka',
+                                                'min'     => 'Nilai minimal 0',
+                                                'max'     => 'Nilai maksimal 100',
+                                            ])
+                                            ->disabled(fn ($get) => filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN))
+                                            ->suffixIcon(function ($get) {
+                                                $locked = filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'heroicon-o-lock-closed';
+                                                return is_numeric($get('m2')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                            })
+                                            ->suffixIconColor(function ($get) {
+                                                $locked = filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'gray';
+                                                return is_numeric($get('m2')) ? 'success' : 'info';
+                                            })
+                                            ->helperText(function ($get) {
+                                                if (filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN)) {
+                                                    $attemptScore = $get('attempt_score_2');
+                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                }
+                                                return is_numeric($get('m2')) ? 'Sudah diisi' : 'Perlu diisi';
+                                            })
+                                            ->placeholder(fn ($get) => is_numeric($get('m2')) ? "Nilai sekarang: {$get('m2')}" : '0-100'),
+
+                                        TextInput::make('m3')
+                                            ->label('Meeting 3')
+                                            ->numeric()->minValue(0)->maxValue(100)
+                                            ->validationMessages([
+                                                'numeric' => 'Nilai harus berupa angka',
+                                                'min'     => 'Nilai minimal 0',
+                                                'max'     => 'Nilai maksimal 100',
+                                            ])
+                                            ->disabled(fn ($get) => filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN))
+                                            ->suffixIcon(function ($get) {
+                                                $locked = filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'heroicon-o-lock-closed';
+                                                return is_numeric($get('m3')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                            })
+                                            ->suffixIconColor(function ($get) {
+                                                $locked = filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'gray';
+                                                return is_numeric($get('m3')) ? 'success' : 'info';
+                                            })
+                                            ->helperText(function ($get) {
+                                                if (filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN)) {
+                                                    $attemptScore = $get('attempt_score_3');
+                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                }
+                                                return is_numeric($get('m3')) ? 'Sudah diisi' : 'Perlu diisi';
+                                            })
+                                            ->placeholder(fn ($get) => is_numeric($get('m3')) ? "Nilai sekarang: {$get('m3')}" : '0-100'),
+
+                                        TextInput::make('m4')
+                                            ->label('Meeting 4')
+                                            ->numeric()->minValue(0)->maxValue(100)
+                                            ->validationMessages([
+                                                'numeric' => 'Nilai harus berupa angka',
+                                                'min'     => 'Nilai minimal 0',
+                                                'max'     => 'Nilai maksimal 100',
+                                            ])
+                                            ->disabled(fn ($get) => filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN))
+                                            ->suffixIcon(function ($get) {
+                                                $locked = filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'heroicon-o-lock-closed';
+                                                return is_numeric($get('m4')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                            })
+                                            ->suffixIconColor(function ($get) {
+                                                $locked = filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'gray';
+                                                return is_numeric($get('m4')) ? 'success' : 'info';
+                                            })
+                                            ->helperText(function ($get) {
+                                                if (filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN)) {
+                                                    $attemptScore = $get('attempt_score_4');
+                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                }
+                                                return is_numeric($get('m4')) ? 'Sudah diisi' : 'Perlu diisi';
+                                            })
+                                            ->placeholder(fn ($get) => is_numeric($get('m4')) ? "Nilai sekarang: {$get('m4')}" : '0-100'),
+
+                                        TextInput::make('m5')
+                                            ->label('Meeting 5')
+                                            ->numeric()->minValue(0)->maxValue(100)
+                                            ->validationMessages([
+                                                'numeric' => 'Nilai harus berupa angka',
+                                                'min'     => 'Nilai minimal 0',
+                                                'max'     => 'Nilai maksimal 100',
+                                            ])
+                                            ->disabled(fn ($get) => filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN))
+                                            ->suffixIcon(function ($get) {
+                                                $locked = filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'heroicon-o-lock-closed';
+                                                return is_numeric($get('m5')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                            })
+                                            ->suffixIconColor(function ($get) {
+                                                $locked = filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN);
+                                                if ($locked) return 'gray';
+                                                return is_numeric($get('m5')) ? 'success' : 'info';
+                                            })
+                                            ->helperText(function ($get) {
+                                                if (filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN)) {
+                                                    $attemptScore = $get('attempt_score_5');
+                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                }
+                                                return is_numeric($get('m5')) ? 'Sudah diisi' : 'Perlu diisi';
+                                            })
+                                            ->placeholder(fn ($get) => is_numeric($get('m5')) ? "Nilai sekarang: {$get('m5')}" : '0-100'),
+                                    ])->columnSpanFull(),
+                                ])
+                                ->columns(1)
+                                ->itemLabel(fn (array $state): string =>
+                                    ($state['name'] ?? 'Mahasiswa') . ' (' . ($state['srn'] ?? 'N/A') . ')'
+                                )
+                                ->collapsible()
+                                ->disableItemCreation()
+                                ->disableItemDeletion()
+                                ->default($studentsData),
+                        ];
+                    })
+                    ->action(function (Collection $records, array $data) {
+                        $updatedCount = 0;
+                        $skippedCount = 0;
+                        $attemptViolations = [];
+
+                        foreach ($data['students'] as $studentData) {
+                            $userId = $studentData['user_id'];
+                            $user = User::find($userId);
+
+                            if (!$user) continue;
+
+                            $year = $user->year;
+
+                            foreach (['m1'=>1, 'm2'=>2, 'm3'=>3, 'm4'=>4, 'm5'=>5] as $key => $meeting) {
+                                $val = $studentData[$key] ?? null;
+
+                                $hasAttempt = $user->basicListeningAttempts()
+                                    ->where('session_id', $meeting)
+                                    ->whereNotNull('submitted_at')
+                                    ->exists();
+
+                                if ($hasAttempt) {
+                                    $currentManualScore = BasicListeningManualScore::query()
+                                        ->where('user_id', $userId)
+                                        ->where('user_year', $year)
+                                        ->where('meeting', $meeting)
+                                        ->value('score');
+
+                                    $newValue = is_numeric($val) ? (int)$val : null;
+                                    $currentValue = is_numeric($currentManualScore) ? (int)$currentManualScore : null;
+
+                                    if ($newValue !== $currentValue) {
+                                        $attemptViolations[] = "{$user->name} S{$meeting}";
+                                        $skippedCount++;
+                                        continue;
+                                    }
+                                }
+
+                                if ($val !== null && $val !== '') {
+                                    $row = BasicListeningManualScore::firstOrCreate([
+                                        'user_id'   => $userId,
+                                        'user_year' => $year,
+                                        'meeting'   => $meeting,
+                                    ]);
+
+                                    $row->score = max(0, min(100, (int)$val));
+                                    $row->save();
+                                    $updatedCount++;
+                                }
+                            }
+
+                            if ($updatedCount > 0) {
+                                $grade = BasicListeningGrade::firstOrCreate([
+                                    'user_id'   => $userId,
+                                    'user_year' => $year,
+                                ]);
+                                $grade->save();
+                            }
+                        }
+
+                        if (!empty($attemptViolations)) {
+                            $violationList = implode(', ', array_slice($attemptViolations, 0, 5));
+                            $moreText = count($attemptViolations) > 5 ? ' dan lainnya...' : '';
+
+                            Notification::make()
+                                ->title('Bulk update dengan peringatan')
+                                ->body("{$updatedCount} nilai diupdate. Beberapa tidak dapat diubah karena ada attempt: {$violationList}{$moreText}")
+                                ->warning()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Bulk update selesai')
+                                ->body("{$updatedCount} nilai diupdate, {$skippedCount} di-skip (ada attempt)")
+                                ->success()
+                                ->send();
+                        }
+                    })
+                    ->deselectRecordsAfterCompletion(),
+
+                Tables\Actions\BulkAction::make('bulk_edit_scores')
+                    ->label('Insert Final')
+                    ->icon('heroicon-o-pencil-square')
+                    ->form(function (Collection $records) {
+                        $studentsData = [];
+
+                        foreach ($records as $record) {
+                            $grade = $record->basicListeningGrade;
+
+                            $studentsData[] = [
+                                'user_id' => $record->id,
+                                'name' => $record->name,
+                                'srn' => $record->srn,
+                                'attendance' => $grade?->attendance,
+                                'final_test' => $grade?->final_test,
+                            ];
+                        }
+
+                        return [
+                            Forms\Components\Repeater::make('students')
+                                ->label('Data Mahasiswa')
+                                ->schema([
+                                    Forms\Components\Hidden::make('user_id'),
+                                    Forms\Components\Hidden::make('name'),
+                                    Forms\Components\Hidden::make('srn'),
+                                    Forms\Components\Grid::make(2)->schema([
+                                        TextInput::make('attendance')
+                                            ->label('Attendance (Nilai Kehadiran)')
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->placeholder('0-100'),
+                                        TextInput::make('final_test')
+                                            ->label('Final Test')
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->placeholder('0-100'),
+                                    ])->columnSpanFull(),
+                                ])
+                                ->columns(1)
+                                ->itemLabel(fn (array $state): string =>
+                                    ($state['name'] ?? 'Mahasiswa') . ' (' . ($state['srn'] ?? 'N/A') . ')'
+                                )
+                                ->collapsible()
+                                ->disableItemCreation()
+                                ->disableItemDeletion()
+                                ->default($studentsData)
+                        ];
+                    })
+                    ->action(function (Collection $records, array $data) {
+                        foreach ($data['students'] as $studentData) {
+                            $userId = $studentData['user_id'];
+                            $user = User::find($userId);
+
+                            if (!$user) continue;
+
+                            $grade = BasicListeningGrade::firstOrCreate([
+                                'user_id'   => $userId,
+                                'user_year' => $user->year,
+                            ]);
+
+                            $grade->attendance = $studentData['attendance'] !== null && $studentData['attendance'] !== ''
+                                ? (int) $studentData['attendance']
+                                : null;
+                            $grade->final_test = $studentData['final_test'] !== null && $studentData['final_test'] !== ''
+                                ? (int) $studentData['final_test']
+                                : null;
+
+                            $grade->save();
+                        }
+
+                        Notification::make()
+                            ->title('Nilai Attendance & Final Test berhasil diperbarui')
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+                Tables\Actions\BulkAction::make('bulk_reset_scores')
+                    ->label('Reset Nilai')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Reset Nilai Mahasiswa')
+                    ->modalSubheading('Apakah Anda yakin ingin mereset nilai untuk mahasiswa yang dipilih?')
+                    ->form([
+                        Forms\Components\CheckboxList::make('reset_items')
+                            ->label('Reset Item Berikut:')
+                            ->options([
+                                'daily' => 'Daily Scores (S1-S5)',
+                                'attendance' => 'Attendance',
+                                'final_test' => 'Final Test',
+                            ])
+                            ->default(['daily', 'attendance', 'final_test'])
+                            ->required(),
+                    ])
+                    ->action(function (Collection $records, array $data) {
+                        $resetCount = 0;
+
+                        foreach ($records as $record) {
+                            $year = $record->year;
+
+                            if (in_array('daily', $data['reset_items'])) {
+                                BasicListeningManualScore::where('user_id', $record->id)
+                                    ->where('user_year', $year)
+                                    ->whereIn('meeting', [1,2,3,4,5])
+                                    ->delete();
+                            }
+
+                            $grade = BasicListeningGrade::firstOrCreate([
+                                'user_id' => $record->id,
+                                'user_year' => $year,
+                            ]);
+
+                            if (in_array('attendance', $data['reset_items'])) {
+                                $grade->attendance = null;
+                            }
+
+                            if (in_array('final_test', $data['reset_items'])) {
+                                $grade->final_test = null;
+                            }
+
+                            $grade->save();
+                            $resetCount++;
+                        }
+
+                        Notification::make()
+                            ->title('Reset nilai berhasil')
+                            ->body("{$resetCount} mahasiswa berhasil direset")
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+            ])
             ->emptyStateHeading('Belum ada data')
             ->emptyStateDescription('Ubah filter angkatan atau pastikan prodi yang Anda ampu sudah diatur.');
     }
