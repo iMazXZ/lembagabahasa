@@ -39,7 +39,7 @@
               </div>
             </div>
             
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
               <div class="bg-white/10 rounded-lg px-3 py-2 border border-white/20">
                 <span class="text-blue-200 text-xs block mb-0.5">NPM</span>
                 <div class="font-semibold">{{ $user->srn ?? '-' }}</div>
@@ -86,8 +86,8 @@
               <div class="bg-white/10 rounded-lg p-4 border border-white/20">
                 <div class="flex items-center justify-between mb-3">
                   <div>
-                    <h3 class="font-semibold">Nomor Grup</h3>
-                    <p class="text-2xl font-bold">Grup {{ $groupNumber }}</p>
+                    <h3 class="text-sm font-semibold">Nomor Grup</h3>
+                    <p class="text-xl font-bold">Grup {{ $groupNumber }}</p>
                   </div>
                   <form action="{{ route('bl.groupNumber.update') }}" method="POST" class="flex gap-2">
                     @csrf

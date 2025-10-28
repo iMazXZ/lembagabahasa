@@ -55,21 +55,10 @@ class StudentBasicListeningWidget extends Widget
         $daily = BlCompute::dailyAvgForUser($u->id, $u->year);
         $daily = is_numeric($daily) ? (float) $daily : null;
 
-        // Ambil nilai akhir via helper (fallback otomatis)
-        [$finalNumeric, $finalLetter] = BlSource::finalFor($u);
-
-        // Jika cache belum ada, hitung manual dan simpan
-        if ($finalNumeric === null && $attendance !== null && $finalTest !== null) {
-            $parts = array_values(array_filter([$attendance, $daily, $finalTest], fn ($v) => $v !== null));
-            if ($parts) {
-                $finalNumeric = round(array_sum($parts) / count($parts), 2);
-                $finalLetter  = BlGrading::letter($finalNumeric);
-
-                $grade->final_numeric_cached = $finalNumeric;
-                $grade->final_letter_cached  = $finalLetter;
-                $grade->save();
-            }
-        }
+        // ✅ LANGSUNG AMBIL DARI CACHE - tidak perlu hitung manual
+        // Booted hook di model sudah otomatis menghitung saat save
+        $finalNumeric = $grade->final_numeric_cached ?? null;
+        $finalLetter = $grade->final_letter_cached ?? null;
 
         // Attendance & Final Test terisi ⇒ boleh download
         $canDownload = is_numeric($attendance) && is_numeric($finalTest);
