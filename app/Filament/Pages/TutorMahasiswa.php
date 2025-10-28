@@ -65,6 +65,12 @@ class TutorMahasiswa extends Page implements HasTable
                     ->sortable()
                     ->badge(),
 
+                Tables\Columns\TextColumn::make('nomor_grup_bl')
+                    ->label('Grup BL')
+                    ->sortable()
+                    ->toggleable()
+                    ->formatStateUsing(fn ($state) => $state ? 'Grup '.$state : '—'),
+
                 Tables\Columns\TextColumn::make('attempt_status')
                     ->label('Daily Online')
                     ->badge()
@@ -229,6 +235,19 @@ class TutorMahasiswa extends Page implements HasTable
                         if (!empty($data['value'])) {
                             $query->where('prody_id', $data['value']);
                         }
+                    }),
+
+                Tables\Filters\SelectFilter::make('nomor_grup_bl')
+                    ->label('Filter Grup BL')
+                    ->options(function () {
+                        // Ambil daftar grup yang ada di mahasiswa binaan saja
+                        return \App\Models\User::query()
+                            ->whereIn('prody_id', auth()->user()->assignedProdyIds())
+                            ->whereNotNull('nomor_grup_bl')
+                            ->distinct()
+                            ->orderBy('nomor_grup_bl')
+                            ->pluck('nomor_grup_bl', 'nomor_grup_bl')
+                            ->toArray();
                     }),
             ])
             ->actions([

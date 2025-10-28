@@ -36,6 +36,7 @@ class User extends Authenticatable implements HasAvatar
         'year',
         'image',
         'nilaibasiclistening',
+        'nomor_grup_bl',
     ];
 
     /**
@@ -58,6 +59,7 @@ class User extends Authenticatable implements HasAvatar
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'nomor_grup_bl' => 'integer',
         ];
     }
 

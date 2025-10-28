@@ -26,6 +26,8 @@ use App\Http\Controllers\BasicListeningHistoryController;
 use App\Http\Controllers\BasicListeningQuizFibController;
 
 use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\BasicListeningProfileController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -224,3 +226,8 @@ Route::middleware(['auth'])->group(function () {
 // Public (tanpa login): download/preview berdasar kode verifikasi
 Route::get('/verification/{code}/basic-listening.pdf', [CertificateController::class, 'basicListeningByCode'])
     ->name('bl.certificate.bycode');
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/bl/group-number', [BasicListeningProfileController::class, 'updateGroupNumber'])
+        ->name('bl.groupNumber.update');
+}); 
