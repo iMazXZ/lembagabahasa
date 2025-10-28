@@ -68,7 +68,7 @@ class Biodata extends Page
                         ->validationMessages([
                             'required' => 'Wajib Diisi.',
                         ])
-                        ->helperText(str('Isi dengan **nama lengkap** di sini.')->inlineMarkdown()->toHtmlString())
+                        // ->helperText(str('Isi dengan **nama lengkap** di sini.')->inlineMarkdown()->toHtmlString())
                         ->dehydrateStateUsing(fn (string $state): string => ucwords(strtolower($state))),
 
                     TextInput::make('email')
@@ -79,22 +79,22 @@ class Biodata extends Page
                         ])
                         ->helperText(str('Gunakan **email aktif**, dipakai untuk notifikasi dan reset password.')->inlineMarkdown()->toHtmlString()),
 
-                    TextInput::make('password')
-                        ->password()
-                        ->revealable(filament()->arePasswordsRevealable())
-                        ->nullable()
-                        ->hint('Lupa Password? Ganti di sini')
-                        ->hintColor('danger'),
+                    // TextInput::make('password')
+                    //     ->password()
+                    //     ->revealable(filament()->arePasswordsRevealable())
+                    //     ->nullable()
+                    //     ->hint('Lupa Password? Ganti di sini')
+                    //     ->hintColor('danger'),
 
                     TextInput::make('srn')
-                        ->label('Nomor Pokok Mahasiswa')
-                        ->helperText(str('Jika Anda **Mahasiswa**, isi NPM. Jika **Dosen**, isi NIDN. Jika **Umum**, isi NIK.')->inlineMarkdown()->toHtmlString()),
+                        ->label('Nomor Pokok Mahasiswa (NPM)'),
+                        // ->helperText(str('Jika Anda **Mahasiswa**, isi NPM. Jika **Dosen**, isi NIDN. Jika **Umum**, isi NIK.')->inlineMarkdown()->toHtmlString()),
 
                     Select::make('prody_id')
                         ->label('Program Studi')
                         ->options(Prody::pluck('name', 'id'))
-                        ->searchable()
-                        ->helperText(str('Pilih **Dosen** atau **Umum** jika bukan Mahasiswa.')->inlineMarkdown()->toHtmlString()),
+                        ->searchable(),
+                        // ->helperText(str('Pilih **Dosen** atau **Umum** jika bukan Mahasiswa.')->inlineMarkdown()->toHtmlString()),
 
                     // ===== DROPDOWN TAHUN DENGAN LOGIKA REAKTIF =====
                     Select::make('year')
@@ -109,8 +109,8 @@ class Biodata extends Page
                         ->searchable()
                         ->required()
                         ->reactive()
-                        ->helperText('Pilih tahun angkatan Anda. '
-                            . 'Jika bukan mahasiswa, pilih tahun sekarang.'),
+                        ->helperText('Pilih tahun angkatan Anda. '),
+                            // . 'Jika bukan mahasiswa, pilih tahun sekarang.'),
 
                     // ===== KONDISIONAL NILAI BASIC LISTENING =====
                     TextInput::make('nilaibasiclistening')
@@ -120,8 +120,8 @@ class Biodata extends Page
                         ->maxValue(100)
                         ->visible(fn (callable $get) => ($year = (int) $get('year')) && $year <= 2024)
                         ->required(fn (callable $get) => ($year = (int) $get('year')) && $year <= 2024)
-                        ->helperText('Wajib diisi untuk angkatan 2024 ke bawah. '
-                            . 'Angkatan 2025 ke atas diisi otomatis dari sistem.'),
+                        ->helperText('Wajib diisi, untuk mengajukan Surat Rekomendasi dan Penerjemahan. '),
+                            // . 'Angkatan 2025 ke atas diisi otomatis dari sistem.'),
 
                     FileUpload::make('image')
                         ->label('Foto Profil')
@@ -162,7 +162,7 @@ class Biodata extends Page
                                 Storage::disk('public')->delete($file);
                             }
                         })
-                        ->helperText('PNG/JPG/WebP ≤ 8MB'),
+                        ->helperText('Tidak Wajib'),
                 ]),
             ])
             ->statePath('data');
