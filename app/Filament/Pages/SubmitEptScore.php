@@ -196,7 +196,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->acceptedFileTypes(['image/*'])
                             ->maxSize(8192)->downloadable()
                             ->imagePreviewHeight('180')
-                            ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                            ->helperText('PNG/JPG maks ukuran 8MB.')
                             ->saveUploadedFileUsing(function (TemporaryUploadedFile $file) {
                                 $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
                                 $base  = "proof1_{$nama}.webp";
@@ -230,7 +230,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->acceptedFileTypes(['image/*'])
                             ->maxSize(8192)->downloadable()
                             ->imagePreviewHeight('180')
-                            ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                            ->helperText('PNG/JPG maks ukuran 8MB.')
                             ->saveUploadedFileUsing(function (TemporaryUploadedFile $file) {
                                 $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
                                 $base  = "proof2_{$nama}.webp";
@@ -264,7 +264,7 @@ class SubmitEptScore extends Page implements HasForms, HasTable
                             ->acceptedFileTypes(['image/*'])
                             ->maxSize(8192)->downloadable()
                             ->imagePreviewHeight('180')
-                            ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                            ->helperText('PNG/JPG maks ukuran 8MB.')
                             ->saveUploadedFileUsing(function (TemporaryUploadedFile $file) {
                                 $nama  = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
                                 $base  = "proof3_{$nama}.webp";

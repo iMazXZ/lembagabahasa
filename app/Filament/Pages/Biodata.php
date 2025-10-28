@@ -92,8 +92,8 @@ class Biodata extends Page
 
                     Select::make('prody_id')
                         ->label('Program Studi')
-                        ->options(Prody::pluck('name', 'id'))
-                        ->searchable(),
+                        ->options(Prody::pluck('name', 'id')),
+                        // ->searchable(),
                         // ->helperText(str('Pilih **Dosen** atau **Umum** jika bukan Mahasiswa.')->inlineMarkdown()->toHtmlString()),
 
                     // ===== DROPDOWN TAHUN DENGAN LOGIKA REAKTIF =====
@@ -106,7 +106,6 @@ class Biodata extends Page
                                 ->mapWithKeys(fn ($y) => [$y => $y]);
                         })
                         ->placeholder('Pilih Tahun')
-                        ->searchable()
                         ->required()
                         ->reactive()
                         ->helperText('Pilih tahun angkatan Anda. '),
