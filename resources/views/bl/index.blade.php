@@ -71,6 +71,7 @@
                     <option value="1" class="text-gray-900">Grup 1</option>
                     <option value="2" class="text-gray-900">Grup 2</option>
                     <option value="3" class="text-gray-900">Grup 3</option>
+                    <option value="3" class="text-gray-900">Grup 4</option>
                   </select>
                   <button type="submit"
                           class="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium whitespace-nowrap">

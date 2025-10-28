@@ -11,11 +11,11 @@ class BasicListeningProfileController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'nomor_grup_bl' => ['required','integer','between:1,2'],
+            'nomor_grup_bl' => ['required','integer','between:1,4'],
         ], [
             'nomor_grup_bl.required' => 'Nomor grup wajib diisi.',
             'nomor_grup_bl.integer'  => 'Nomor grup harus berupa angka.',
-            'nomor_grup_bl.between'  => 'Nomor grup harus antara 1 sampai 3.',
+            'nomor_grup_bl.between'  => 'Nomor grup harus antara 1 sampai 4.',
         ]);
 
         $user->update([
