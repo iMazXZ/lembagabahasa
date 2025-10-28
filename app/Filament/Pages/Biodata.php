@@ -92,7 +92,7 @@ class Biodata extends Page
 
                     Select::make('prody_id')
                         ->label('Program Studi')
-                        ->options(Prody::pluck('name', 'id')),
+                        ->options(Prody::orderBy('name')->pluck('name', 'id')),
                         // ->searchable(),
                         // ->helperText(str('Pilih **Dosen** atau **Umum** jika bukan Mahasiswa.')->inlineMarkdown()->toHtmlString()),
 
