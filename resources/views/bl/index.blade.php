@@ -96,6 +96,7 @@
                       <option value="1" {{ $groupNumber == 1 ? 'selected' : '' }} class="text-gray-900">Grup 1</option>
                       <option value="2" {{ $groupNumber == 2 ? 'selected' : '' }} class="text-gray-900">Grup 2</option>
                       <option value="3" {{ $groupNumber == 3 ? 'selected' : '' }} class="text-gray-900">Grup 3</option>
+                      <option value="4" {{ $groupNumber == 4 ? 'selected' : '' }} class="text-gray-900">Grup 4</option>
                     </select>
                     <button type="submit"
                             class="px-3 py-1.5 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors text-sm font-medium">
