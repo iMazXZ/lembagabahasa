@@ -84,8 +84,7 @@ class BlSurveyController extends Controller
         }
 
         // Semua selesai
-        $target = app('router')->has('bl.history') ? 'bl.history' : 'bl.index';
-        return redirect()->route($target)->with('success', 'Terima kasih! Semua kuesioner telah diisi.');
+        return redirect()->route('bl.survey.success');
     }
 
     /**
@@ -213,11 +212,55 @@ class BlSurveyController extends Controller
                 ->with('success', 'Kuesioner tersimpan. Lanjutkan kuesioner berikutnya.');
         }
 
-        // Semua selesai
-        $targetRoute = app('router')->has('bl.history') ? 'bl.history' : 'bl.index';
-        return redirect()
-            ->route($targetRoute)
-            ->with('success', 'Terima kasih! Semua kuesioner selesai.');
+        // Semua selesai - REDIRECT KE SUCCESS PAGE
+        return redirect()->route('bl.survey.success');
+    }
+
+    /**
+     * Halaman sukses setelah semua kuesioner selesai
+     * GET /bl/survey/success
+     */
+    public function success(Request $request)
+    {
+        $userId = (int) auth()->id();
+        
+        // Hitung jumlah kuesioner yang sudah disubmit
+        $completedCount = BasicListeningSurveyResponse::query()
+            ->where('user_id', $userId)
+            ->whereNotNull('submitted_at')
+            ->whereNull('session_id') // hanya final surveys
+            ->count();
+
+        // Ambil info tutor & supervisor dari session
+        $tutorId = (int) $request->session()->get('bl_selected_tutor_id');
+        $supervisorId = (int) $request->session()->get('bl_selected_supervisor_id');
+        
+        $tutor = $tutorId ? User::find($tutorId) : null;
+        $supervisor = $supervisorId ? BasicListeningSupervisor::find($supervisorId) : null;
+
+        // Cek apakah user eligible untuk sertifikat
+        $user = auth()->user();
+        $year = (int) ($user->year ?? 0);
+        $canDownloadCertificate = false;
+        
+        if ($year >= 2025) {
+            $grade = \App\Models\BasicListeningGrade::query()
+                ->where('user_id', $userId)
+                ->where('user_year', $year)
+                ->first();
+            
+            // Cek eligibility (attendance & final_test harus ada)
+            if ($grade && is_numeric($grade->attendance) && is_numeric($grade->final_test)) {
+                $canDownloadCertificate = true;
+            }
+        }
+
+        return view('bl.survey_success', compact(
+            'completedCount',
+            'tutor',
+            'supervisor',
+            'canDownloadCertificate'
+        ));
     }
 
     /**
@@ -254,6 +297,83 @@ class BlSurveyController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Form edit pilihan Tutor & Supervisor (dari dalam survey)
+     * GET /bl/survey/edit-choice
+     */
+    public function editChoice(Request $request)
+    {
+        // Tutor = user dengan role 'tutor'
+        $tutors = User::query()
+            ->role('tutor')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        // Lembaga (Supervisor) aktif
+        $supervisors = BasicListeningSupervisor::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        // Current selection dari session
+        $currentTutorId = (int) $request->session()->get('bl_selected_tutor_id');
+        $currentSupervisorId = (int) $request->session()->get('bl_selected_supervisor_id');
+        
+        $currentTutor = $currentTutorId ? User::find($currentTutorId) : null;
+        $currentSupervisor = $currentSupervisorId ? BasicListeningSupervisor::find($currentSupervisorId) : null;
+
+        // Return URL untuk kembali setelah update
+        $returnUrl = $request->query('return', route('bl.survey.required'));
+
+        return view('bl.survey_edit_choice', compact(
+            'tutors',
+            'supervisors',
+            'currentTutor',
+            'currentSupervisor',
+            'currentTutorId',
+            'currentSupervisorId',
+            'returnUrl'
+        ));
+    }
+
+    /**
+     * Update pilihan Tutor & Supervisor
+     * POST /bl/survey/edit-choice
+     */
+    public function updateChoice(Request $request)
+    {
+        $data = $request->validate([
+            'tutor_id'      => ['required', 'integer', Rule::exists('users', 'id')],
+            'supervisor_id' => ['required', 'integer', Rule::exists('basic_listening_supervisors', 'id')->where('is_active', true)],
+            'return_url'    => ['nullable', 'string'],
+        ]);
+
+        // Guard: pastikan id tutor benar-benar ber-role tutor
+        $isTutor = User::query()->role('tutor')->whereKey($data['tutor_id'])->exists();
+        abort_unless($isTutor, 422, 'Pilihan tutor tidak valid.');
+
+        // Update session
+        $request->session()->put('bl_selected_tutor_id', (int) $data['tutor_id']);
+        $request->session()->put('bl_selected_supervisor_id', (int) $data['supervisor_id']);
+
+        // Update existing draft responses yang belum disubmit
+        $userId = (int) auth()->id();
+        
+        BasicListeningSurveyResponse::query()
+            ->where('user_id', $userId)
+            ->whereNull('submitted_at') // hanya draft
+            ->whereNull('session_id')   // hanya final surveys
+            ->update([
+                'tutor_id'      => (int) $data['tutor_id'],
+                'supervisor_id' => (int) $data['supervisor_id'],
+            ]);
+
+        $returnUrl = $data['return_url'] ?? route('bl.survey.required');
+        
+        return redirect($returnUrl)
+            ->with('success', 'Pilihan tutor dan supervisor berhasil diperbarui.');
     }
 
     /**

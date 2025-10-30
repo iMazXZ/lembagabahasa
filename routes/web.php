@@ -245,5 +245,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/bl/survey/required', [BlSurveyController::class,'redirectToRequired'])->name('bl.survey.required');
     Route::get('/bl/survey/{survey}', [BlSurveyController::class,'show'])->whereNumber('survey')->name('bl.survey.show');
     Route::post('/bl/survey/{survey}', [BlSurveyController::class,'submit'])->whereNumber('survey')->name('bl.survey.submit');
+    Route::get('/bl/survey/success', [BlSurveyController::class, 'success'])->name('bl.survey.success');
+    Route::get('/bl/survey/edit-choice', [BlSurveyController::class, 'editChoice'])->name('bl.survey.edit-choice');
+    Route::post('/bl/survey/edit-choice', [BlSurveyController::class, 'updateChoice'])->name('bl.survey.update-choice');
 });
 

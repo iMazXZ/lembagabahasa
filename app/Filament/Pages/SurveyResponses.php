@@ -52,7 +52,7 @@ class SurveyResponses extends Page implements HasTable
                 
                 TextColumn::make('tutor.name')->label('Tutor')->placeholder('—'),
                 
-                TextColumn::make('supervisor.name')->label('Lembaga')->placeholder('—'),
+                TextColumn::make('supervisor.name')->label('Supervisor')->placeholder('—'),
                 
                 TextColumn::make('answers_count')
                     ->label('Jumlah Jawaban')
