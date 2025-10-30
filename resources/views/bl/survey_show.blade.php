@@ -1,381 +1,544 @@
 {{-- resources/views/bl/survey_show.blade.php --}}
 @extends('layouts.front')
-@section('title', $survey->title ?? 'Kuesioner Basic Listening')
+@section('title', 'Part 1: Kuesioner ' . ucfirst($survey->category))
 
 @push('styles')
 <style>
-  .hero-gradient{
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* ==== Hero Gradient Animation ==== */
+  .hero-survey {
+    background: linear-gradient(-45deg, #4f46e5, #6366f1, #7c3aed, #8b5cf6, #0ea5e9);
+    background-size: 400% 400%;
+    animation: gradientFlow 15s ease infinite;
+    position: relative;
+    overflow: hidden;
   }
-  
-  /* Likert Scale Responsive */
-  .likert-container {
+  @keyframes gradientFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* ==== Floating Shapes ==== */
+  .hero-survey::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(circle at 15% 25%, rgba(255,255,255,.12), transparent 45%),
+      radial-gradient(circle at 85% 75%, rgba(255,255,255,.1), transparent 45%);
+    animation: pulse 10s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+  }
+
+  /* ==== Progress Bar ==== */
+  .progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 9999px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #34d399, #10b981);
+    border-radius: 9999px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  }
+
+  /* ==== Alert Boxes ==== */
+  .alert-box {
+    border-radius: 0.875rem;
+    padding: 1rem;
+    font-size: 0.875rem;
+    border: 2px solid;
     display: flex;
-    flex-direction: column;
     gap: 0.75rem;
+    align-items: start;
+    animation: slideDown 0.4s ease-out;
   }
-  
-  .likert-options {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background: #f9fafb;
-    border-radius: 0.75rem;
-    border: 1px solid #e5e7eb;
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-15px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  
+  .alert-success {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    color: #065f46;
+    border-color: #10b981;
+  }
+  .alert-info {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+    border-color: #3b82f6;
+  }
+  .alert-warning {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    border-color: #f59e0b;
+  }
+  .alert-error {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #991b1b;
+    border-color: #ef4444;
+  }
+
+  /* ==== Question Card ==== */
+  .question-card {
+    background: white;
+    border: 2px solid #f3f4f6;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .question-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .question-card:hover {
+    border-color: #e0e7ff;
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.12);
+    transform: translateY(-2px);
+  }
+  .question-card:hover::before {
+    opacity: 1;
+  }
+  .question-card:focus-within {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+  .question-card:focus-within::before {
+    opacity: 1;
+  }
+
+  /* ==== Question Number Badge ==== */
+  .question-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  }
+
+  /* ==== Likert Scale Radio Buttons ==== */
   .likert-option {
-    flex: 1;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.875rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+    min-width: 70px;
   }
-  
+  .likert-option:hover {
+    border-color: #c7d2fe;
+    background: #f5f3ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+  }
   .likert-option input[type="radio"] {
+    appearance: none;
     width: 1.25rem;
     height: 1.25rem;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
     cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
   }
-  
-  .likert-option label {
-    font-size: 0.7rem;
+  .likert-option input[type="radio"]:checked {
+    border-color: #6366f1;
+    background: #6366f1;
+  }
+  .likert-option input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+  }
+  .likert-option:has(input[type="radio"]:checked) {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
+  }
+  .likert-label {
+    font-size: 0.875rem;
+    font-weight: 600;
     color: #6b7280;
-    font-weight: 500;
-    text-align: center;
-    cursor: pointer;
+    transition: color 0.3s ease;
   }
-  
-  .likert-legend {
+  .likert-option:has(input[type="radio"]:checked) .likert-label {
+    color: #4f46e5;
+  }
+
+  /* ==== Textarea Styling ==== */
+  .custom-textarea {
+    width: 100%;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 0.875rem 1rem;
+    font-size: 0.875rem;
+    color: #111827;
+    transition: all 0.3s ease;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.6;
+  }
+  .custom-textarea:hover {
+    border-color: #c7d2fe;
+  }
+  .custom-textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+  .custom-textarea::placeholder {
+    color: #9ca3af;
+  }
+
+  /* ==== Buttons ==== */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+  .btn:hover::before {
+    width: 300px;
+    height: 300px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+  }
+  .btn-secondary {
+    background: white;
+    color: #4b5563;
+    border: 2px solid #e5e7eb;
+  }
+  .btn-secondary:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateY(-2px);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: #6b7280;
+    border: none;
+  }
+  .btn-ghost:hover {
+    color: #4b5563;
+    background: rgba(0,0,0,0.03);
+  }
+
+  /* ==== Badge ==== */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    color: #6b21a8;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    border: 1px solid #c4b5fd;
+  }
+
+  /* ==== Icon Wrapper ==== */
+  .icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  /* ==== Fade In Animation ==== */
+  .fade-in {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+  }
+  .fade-delay-1 { animation-delay: 0.05s; }
+  .fade-delay-2 { animation-delay: 0.1s; }
+  .fade-delay-3 { animation-delay: 0.15s; }
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ==== Likert Scale Labels ==== */
+  .likert-scale-labels {
     display: flex;
     justify-content: space-between;
-    font-size: 0.65rem;
-    color: #9ca3af;
+    margin-bottom: 1rem;
     padding: 0 0.5rem;
   }
-  
-  @media (max-width: 640px) {
-    .likert-options {
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    
-    .likert-option {
-      flex-direction: row;
-      justify-content: flex-start;
-      padding: 0.5rem;
-      background: white;
-      border-radius: 0.5rem;
-      border: 1px solid #e5e7eb;
-    }
-    
-    .likert-option input[type="radio"] {
-      margin-right: 0.75rem;
-    }
-    
-    .likert-option label {
-      text-align: left;
-      font-size: 0.75rem;
-    }
-    
-    .likert-legend {
-      display: none;
-    }
+  .scale-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
   }
 </style>
 @endpush
 
 @section('content')
   {{-- HERO --}}
-  <div class="hero-gradient text-white">
-    <div class="max-w-4xl mx-auto px-4 py-6 md:py-8">
-      {{-- Badge kategori --}}
-      @php
-        $cat = $survey->category ?? 'institute';
-        $catMap = [
-          'tutor' => ['label'=>'📚 Tutor','bg'=>'bg-violet-500/20', 'border'=>'border-violet-300/30'],
-          'supervisor' => ['label'=>'👥 Supervisor','bg'=>'bg-emerald-500/20', 'border'=>'border-emerald-300/30'],
-          'institute' => ['label'=>'🏛️ Lembaga','bg'=>'bg-blue-500/20', 'border'=>'border-blue-300/30'],
-        ];
-        $badge = $catMap[$cat] ?? $catMap['institute'];
-      @endphp
+  <div class="hero-survey text-white">
+    <div class="max-w-5xl mx-auto px-4 py-8 md:py-10 relative z-10">
+      <div class="mb-4">
+        <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/30">
+          <i class="fa-solid fa-clipboard-question text-sm"></i>
+          <span class="text-xs font-semibold">Kuesioner {{ ucfirst($survey->category) }}</span>
+        </div>
+      </div>
       
-      <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full {{ $badge['bg'] }} border {{ $badge['border'] }} backdrop-blur-sm text-xs font-medium mb-3">
-        {{ $badge['label'] }}
-      </div>
-
-      <h1 class="text-xl md:text-2xl font-bold mb-2">
-        {{ $survey->title ?? 'Kuesioner Basic Listening' }}
+      <h1 class="text-3xl md:text-4xl font-extrabold mb-3">
+        {{ $survey->title ? $survey->title : ('Part 1: Kuesioner ' . ucfirst($survey->category)) }}
       </h1>
-
-      {{-- Meta info --}}
-      <div class="flex flex-wrap items-center gap-2 text-xs text-white/80">
-        @if(isset($response) && $response->tutor?->name)
-          <span class="flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
-            </svg>
-            Tutor: <strong class="text-white">{{ $response->tutor->name }}</strong>
-          </span>
-        @endif
-        @if(isset($response) && $response->supervisor?->name)
-          <span class="flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
-            </svg>
-            Supervisor: <strong class="text-white">{{ $response->supervisor->name }}</strong>
-          </span>
-        @endif
-
-        @if(method_exists($survey,'isOpen') && !$survey->isOpen())
-          <span class="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/30 text-rose-100">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
-            </svg>
-            Ditutup
-          </span>
-        @endif
-      </div>
-    </div>
-  </div>
-
-  {{-- CONTENT --}}
-  <div class="max-w-4xl mx-auto px-4 py-6 -mt-4">
-    {{-- Flash messages --}}
-    @if(session('success'))
-      <div class="mb-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-        <svg class="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-        <span class="text-sm text-emerald-800">{{ session('success') }}</span>
-      </div>
-    @endif
-    @if(session('info'))
-      <div class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-        <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-        </svg>
-        <span class="text-sm text-amber-800">{{ session('info') }}</span>
-      </div>
-    @endif
-    @if($errors->any())
-      <div class="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
-        <svg class="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-        </svg>
-        <span class="text-sm text-rose-800">Terdapat isian yang belum benar. Silakan periksa kembali.</span>
-      </div>
-    @endif
-
-    {{-- Card --}}
-    <div class="bg-white rounded-2xl shadow-lg border border-gray-100">
-      @if(!empty($survey->description))
-        <div class="px-4 py-3.5 md:px-6 md:py-4 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100">
-          <div class="flex items-start gap-2">
-            <svg class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-            </svg>
-            <p class="text-xs md:text-sm text-gray-700">{{ $survey->description }}</p>
-          </div>
+      
+      <div class="flex flex-wrap items-center gap-3 text-sm md:text-base">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-user-check"></i>
+          <span class="text-blue-100">Penilaian untuk</span>
+          <span class="font-bold">{{ ucfirst($survey->category) }}</span>
         </div>
-      @endif
-
-      {{-- Tutor & Supervisor Info Banner --}}
-      @if(isset($response))
-        @php
-          $tutorName = $response->tutor?->name;
-          $supervisorName = $response->supervisor?->name;
-          $hasSelection = $tutorName || $supervisorName;
-        @endphp
         
-        @if($hasSelection)
-          <div class="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div class="flex-1">
-                <h3 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
-                  </svg>
-                  Pembimbing Anda
-                </h3>
-                <div class="flex flex-wrap items-center gap-2">
-                  @if($tutorName)
-                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-violet-200 text-xs">
-                      <span class="font-medium text-violet-600">Tutor:</span>
-                      <span class="text-violet-900 font-semibold">{{ $tutorName }}</span>
-                    </div>
-                  @endif
-                  @if($supervisorName)
-                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-blue-200 text-xs">
-                      <span class="font-medium text-blue-600">Supervisor:</span>
-                      <span class="text-blue-900 font-semibold">{{ $supervisorName }}</span>
-                    </div>
-                  @endif
-                </div>
-              </div>
-              <a href="{{ route('bl.survey.edit-choice', ['return' => request()->fullUrl()]) }}" 
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-50 transition-colors text-xs font-medium whitespace-nowrap">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                </svg>
-                Ubah Pilihan
-              </a>
-            </div>
+        @if($survey->category === 'tutor' && $response->tutor_id)
+          <div class="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/30">
+            <i class="fa-solid fa-chalkboard-user text-sm"></i>
+            <span class="font-semibold">{{ optional(\App\Models\User::find($response->tutor_id))->name }}</span>
           </div>
         @endif
-      @endif
-      <form method="POST" action="{{ route('bl.survey.submit', $survey) }}" class="px-4 py-5 md:px-6 md:py-6">
-        @csrf
+      </div>
 
-        {{-- Hidden if target=session --}}
-        @if(($survey->target ?? 'final') === 'session')
-          <input type="hidden" name="session_id" value="{{ old('session_id', $response->session_id ?? $survey->session_id) }}">
-        @endif
-
-        @php
-          $questions = $survey->questions ?? collect();
-        @endphp
-
-        <div class="space-y-6">
-          @forelse($questions as $idx => $q)
-            <div class="pb-6 border-b border-gray-100 last:border-0 last:pb-0">
-              {{-- Question Header --}}
-              <div class="flex items-start gap-2.5 mb-3">
-                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                  {{ $loop->iteration }}
-                </div>
-                <div class="flex-1">
-                  <label class="block text-sm md:text-base font-medium text-gray-900 leading-snug">
-                    {!! nl2br(e($q->question)) !!}
-                    @if($q->is_required)
-                      <span class="text-rose-500 ml-0.5" title="Wajib diisi">*</span>
-                    @endif
-                  </label>
-                  @if(!empty($q->hint))
-                    <p class="text-xs text-gray-500 mt-1 leading-relaxed">💡 {{ $q->hint }}</p>
-                  @endif
-                </div>
-              </div>
-
-              {{-- Field --}}
-              @php
-                $name = "q.{$q->id}";
-                $err  = $errors->first($name);
-              @endphp
-
-              @if($q->type === 'likert')
-                {{-- Likert Scale --}}
-                <div class="likert-container mt-3">
-                  <div class="likert-options">
-                    <div class="likert-option">
-                      <input id="q-{{ $q->id }}-1" type="radio" name="q[{{ $q->id }}]" value="1"
-                             class="text-indigo-600 focus:ring-indigo-500"
-                             @checked(old("q.{$q->id}") == '1')>
-                      <label for="q-{{ $q->id }}-1">Sangat Tidak Setuju</label>
-                    </div>
-                    <div class="likert-option">
-                      <input id="q-{{ $q->id }}-2" type="radio" name="q[{{ $q->id }}]" value="2"
-                             class="text-indigo-600 focus:ring-indigo-500"
-                             @checked(old("q.{$q->id}") == '2')>
-                      <label for="q-{{ $q->id }}-2">Tidak Setuju</label>
-                    </div>
-                    <div class="likert-option">
-                      <input id="q-{{ $q->id }}-3" type="radio" name="q[{{ $q->id }}]" value="3"
-                             class="text-indigo-600 focus:ring-indigo-500"
-                             @checked(old("q.{$q->id}") == '3')>
-                      <label for="q-{{ $q->id }}-3">Netral</label>
-                    </div>
-                    <div class="likert-option">
-                      <input id="q-{{ $q->id }}-4" type="radio" name="q[{{ $q->id }}]" value="4"
-                             class="text-indigo-600 focus:ring-indigo-500"
-                             @checked(old("q.{$q->id}") == '4')>
-                      <label for="q-{{ $q->id }}-4">Setuju</label>
-                    </div>
-                    <div class="likert-option">
-                      <input id="q-{{ $q->id }}-5" type="radio" name="q[{{ $q->id }}]" value="5"
-                             class="text-indigo-600 focus:ring-indigo-500"
-                             @checked(old("q.{$q->id}") == '5')>
-                      <label for="q-{{ $q->id }}-5">Sangat Setuju</label>
-                    </div>
-                  </div>
-                  <div class="likert-legend">
-                    <span>← Sangat Tidak Setuju</span>
-                    <span>Sangat Setuju →</span>
-                  </div>
-                </div>
-              @else
-                {{-- Textarea --}}
-                <div class="mt-3">
-                  <textarea
-                    name="q[{{ $q->id }}]"
-                    rows="3"
-                    maxlength="2000"
-                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm placeholder-gray-400"
-                    placeholder="Tulis jawaban Anda di sini... (maksimal 2000 karakter)"
-                  >{{ old("q.{$q->id}") }}</textarea>
-                  <div class="flex justify-between items-center mt-1">
-                    <p class="text-xs text-gray-400">Opsional - jawaban akan sangat membantu kami</p>
-                  </div>
-                </div>
-              @endif
-
-              {{-- Error --}}
-              @if($err)
-                <div class="mt-2 flex items-center gap-1.5 text-rose-600">
-                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                  </svg>
-                  <p class="text-xs">{{ $err }}</p>
-                </div>
-              @endif
-            </div>
-          @empty
-            <div class="text-center py-12">
-              <div class="text-5xl mb-3">📝</div>
-              <p class="text-sm text-gray-600">Belum ada pertanyaan pada kuesioner ini.</p>
-            </div>
-          @endforelse
+      {{-- Progress Bar --}}
+      @php
+        $totalQuestions = $survey->questions->count();
+        $answeredCount = isset($answers) ? (is_array($answers) ? count(array_filter($answers)) : $answers->count()) : 0;
+        $progressPercent = $totalQuestions > 0 ? ($answeredCount / $totalQuestions) * 100 : 0;
+      @endphp
+      <div class="mt-6">
+        <div class="flex items-center justify-between text-xs font-medium mb-2">
+          <span>Progress Pengisian</span>
+          <span>{{ $answeredCount }}/{{ $totalQuestions }} Pertanyaan</span>
         </div>
-
-        {{-- Actions --}}
-        <div class="mt-8 pt-6 border-t border-gray-100">
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <button
-              type="submit"
-              class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-lg shadow-indigo-500/30 transition-all"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-              Kirim Jawaban
-            </button>
-          </div>
-
-          <div class="mt-4 flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
-            <svg class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-            </svg>
-            <p class="text-xs text-blue-800 leading-relaxed">
-              Dengan mengirim jawaban, Anda menyetujui data evaluasi digunakan untuk peningkatan kualitas pembelajaran Basic Listening.
-            </p>
-          </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: {{ $progressPercent }}%"></div>
         </div>
-      </form>
+      </div>
     </div>
   </div>
 
-  @push('scripts')
-  <script>
-    // Auto-scroll ke field error pertama
-    document.addEventListener('DOMContentLoaded', () => {
-      const err = document.querySelector('.text-rose-600');
-      if (err) {
-        setTimeout(() => {
-          err.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
-      }
-    });
-  </script>
-  @endpush
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    
+    {{-- Flash Messages --}}
+    @foreach (['success','info','warning','error'] as $f)
+      @if (session($f))
+        <div class="alert-box alert-{{ $f }} mb-6 fade-in">
+          <div class="icon-wrapper" style="background: {{ $f==='success'?'linear-gradient(135deg, #d1fae5, #a7f3d0)':($f==='info'?'linear-gradient(135deg, #dbeafe, #bfdbfe)':($f==='warning'?'linear-gradient(135deg, #fef3c7, #fde68a)':'linear-gradient(135deg, #fee2e2, #fecaca)')) }}; color: {{ $f==='success'?'#065f46':($f==='info'?'#1e40af':($f==='warning'?'#92400e':'#991b1b')) }}">
+            <i class="fa-solid fa-{{ $f==='success'?'circle-check':($f==='info'?'info-circle':($f==='warning'?'triangle-exclamation':'circle-xmark')) }}"></i>
+          </div>
+          <div class="flex-1">
+            <div class="font-semibold mb-0.5">
+              {{ $f==='success'?'Berhasil!':($f==='info'?'Informasi':($f==='warning'?'Perhatian':'Error!')) }}
+            </div>
+            <div>{{ session($f) }}</div>
+          </div>
+        </div>
+      @endif
+    @endforeach
+
+    {{-- Validation Errors --}}
+    @if($errors->any())
+      <div class="alert-box alert-error mb-6 fade-in">
+        <div class="icon-wrapper" style="background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b;">
+          <i class="fa-solid fa-circle-exclamation"></i>
+        </div>
+        <div class="flex-1">
+          <div class="font-bold mb-2">Periksa kembali isian:</div>
+          <ul class="list-disc list-inside space-y-1">
+            @foreach($errors->all() as $e)
+              <li>{{ $e }}</li>
+            @endforeach
+          </ul>
+        </div>
+      </div>
+    @endif
+
+    {{-- Survey Form --}}
+    <form method="POST" action="{{ route('bl.survey.submit', $survey) }}" class="space-y-5">
+      @csrf
+
+      {{-- Hidden Fields --}}
+      @if($survey->target === 'session')
+        <input type="hidden" name="session_id" value="{{ request('session_id', $survey->session_id) }}">
+      @endif
+
+      @if($survey->category === 'tutor' && $response->tutor_id)
+        <input type="hidden" name="tutor_id" value="{{ (int) $response->tutor_id }}">
+      @endif
+
+      {{-- Questions List --}}
+      @foreach($survey->questions as $idx => $q)
+        @php
+          $qText = $q->question ?? $q->text ?? $q->prompt ?? $q->title ?? '— (Pertanyaan belum diisi) —';
+          $type = $q->type ?? 'text';
+          $required = (bool) ($q->is_required ?? false);
+          $key = "q.{$q->id}";
+          $ans = $answers[$q->id] ?? null;
+        @endphp
+
+        <div class="question-card fade-in fade-delay-{{ min($idx, 3) }}">
+          <div class="flex items-start gap-3 mb-4">
+            <div class="question-number">{{ $idx + 1 }}</div>
+            <div class="flex-1">
+              <label class="block text-base font-semibold text-gray-900 leading-relaxed">
+                {{ $qText }}
+                @if($required)
+                  <span class="text-rose-500 ml-1">*</span>
+                @endif
+              </label>
+            </div>
+          </div>
+
+          @if($type === 'likert')
+            {{-- Likert Scale --}}
+            <div class="mt-4">
+              <div class="likert-scale-labels">
+                <span class="scale-label">Sangat Tidak Setuju</span>
+                <span class="scale-label">Sangat Setuju</span>
+              </div>
+              <div class="flex flex-wrap gap-3 justify-center md:justify-start">
+                @for($i=1; $i<=5; $i++)
+                  <label class="likert-option">
+                    <input
+                      type="radio"
+                      name="q[{{ $q->id }}]"
+                      value="{{ $i }}"
+                      @checked( (int) old($key, (int) ($ans?->likert_value)) === $i )
+                      {{ $required ? 'required' : '' }}
+                    >
+                    <span class="likert-label">{{ $i }}</span>
+                  </label>
+                @endfor
+              </div>
+            </div>
+          @else
+            {{-- Text Answer --}}
+            <div class="mt-4">
+              <textarea
+                name="q[{{ $q->id }}]"
+                rows="4"
+                class="custom-textarea"
+                placeholder="Tulis jawaban Anda di sini..."
+                {{ $required ? 'required' : '' }}
+              >{{ old($key, $ans?->text_value) }}</textarea>
+            </div>
+          @endif
+
+          @error($key)
+            <p class="mt-3 text-xs text-rose-600 flex items-center gap-1">
+              <i class="fa-solid fa-circle-exclamation"></i>
+              {{ $message }}
+            </p>
+          @enderror
+        </div>
+      @endforeach
+
+      {{-- Action Buttons --}}
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t-2 border-gray-100 fade-in">
+        <div class="flex items-center gap-3">
+          <a href="{{ route('bl.survey.required') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span class="relative z-10">Kembali</span>
+          </a>
+          <a href="{{ route('bl.survey.reset-choice') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span class="relative z-10">Reset Pilihan</span>
+          </a>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-paper-plane relative z-10"></i>
+          <span class="relative z-10">Kirim Jawaban</span>
+          <i class="fa-solid fa-arrow-right relative z-10"></i>
+        </button>
+      </div>
+    </form>
+
+    {{-- Info Footer --}}
+    <div class="mt-8 text-center text-sm text-gray-500 fade-in">
+      <i class="fa-solid fa-info-circle mr-1"></i>
+      Pastikan semua jawaban telah terisi dengan benar sebelum mengirim
+    </div>
+
+  </div>
 @endsection

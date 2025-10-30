@@ -248,5 +248,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/bl/survey/success', [BlSurveyController::class, 'success'])->name('bl.survey.success');
     Route::get('/bl/survey/edit-choice', [BlSurveyController::class, 'editChoice'])->name('bl.survey.edit-choice');
     Route::post('/bl/survey/edit-choice', [BlSurveyController::class, 'updateChoice'])->name('bl.survey.update-choice');
+    Route::get('/bl/survey/reset-choice', [BlSurveyController::class, 'resetChoice'])->name('bl.survey.reset-choice');
 });
 

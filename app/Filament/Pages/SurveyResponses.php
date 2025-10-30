@@ -30,9 +30,7 @@ class SurveyResponses extends Page implements HasTable
                 ->withCount('answers')
                 ->withAvg('answers', 'likert_value')
             )
-            ->columns([
-                TextColumn::make('id')->label('ID')->sortable(),
-                
+            ->columns([                
                 TextColumn::make('survey.title')->label('Survey')->sortable()->searchable(),
                 
                 TextColumn::make('survey.category')

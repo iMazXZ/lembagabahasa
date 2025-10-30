@@ -59,9 +59,9 @@
               <a href="{{ route('filament.admin.pages.biodata') }}"
                 class="flex-shrink-0 p-2 bg-white/20 text-white rounded-full hover:bg-white/30 transition-colors"
                 title="Edit Biodata">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15.232 5.232l3.536 3.536M4 20h4l9.768-9.768a2.5 2.5 0 10-3.536-3.536L4 16v4z"/>
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+                  <path d="M20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 </svg>
               </a>
             </div>
@@ -69,15 +69,15 @@
             <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
               <div class="bg-white/10 rounded-md px-2.5 py-2 border border-white/20">
                 <span class="text-blue-200 text-[10px] block mb-0.5">NPM</span>
-                <div class="font-semibold text-xs md:text-sm">{{ $user->srn ?? '-' }}</div>
+                <div class="font-semibold text-xs md:text-sm">{{ $user->srn ?? 'Belum diisi — klik pensil' }}</div>
               </div>
               <div class="bg-white/10 rounded-md px-2.5 py-2 border border-white/20">
-                <span class="text-blue-200 text-[10px] block mb-0.5">Prodi</span>
-                <div class="font-semibold text-xs md:text-sm truncate">{{ $prodyName ?? '-' }}</div>
+                <span class="text-blue-200 text-[10px] block mb-0.5">Angkatan</span>
+                <div class="font-semibold text-xs md:text-sm">{{ $user->year ?? 'Belum diisi — klik pensil' }}</div>
               </div>
               <div class="bg-white/10 rounded-md px-2.5 py-2 border border-white/20 col-span-2 md:col-span-1">
-                <span class="text-blue-200 text-[10px] block mb-0.5">Angkatan</span>
-                <div class="font-semibold text-xs md:text-sm">{{ $user->year ?? '-' }}</div>
+                <span class="text-blue-200 text-[10px] block mb-0.5">Prodi</span>
+                <div class="font-semibold text-xs md:text-sm truncate">{{ $prodyName ?? 'Belum diisi — klik pensil' }}</div>
               </div>
             </div>
           </div>
@@ -89,7 +89,7 @@
             @if (is_null($groupNumber))
               <div class="bg-white/10 rounded-md p-3 border border-white/20">
                 <h3 class="font-semibold text-sm mb-1">Isi Nomor Grup</h3>
-                <p class="text-xs text-blue-200 mb-2">Pilih grup dari asisten pengajar</p>
+                <p class="text-xs text-blue-200 mb-2">Isi untuk melihat Riwayat dan Unduh Sertifikat</p>
                 <form action="{{ route('bl.groupNumber.update') }}" method="POST" class="flex gap-2">
                   @csrf
                   <select name="nomor_grup_bl" required
