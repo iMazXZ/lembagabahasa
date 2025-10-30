@@ -25,11 +25,11 @@ class PendaftaranEptResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-s-document-plus';
 
-    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
-
     public static ?string $slug = 'ept';
 
     public static ?string $label = 'Pendaftaran EPT';
+    
+    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
     
     public static function form(Form $form): Form
     {

@@ -21,10 +21,12 @@ class DataNilaiTesResource extends Resource
     protected static ?string $model = DataNilaiTes::class;
 
     protected static ?string $navigationIcon = 'heroicon-s-clipboard-document-check';
-    
-    protected static ?string $navigationGroup = 'Manajemen EPT';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?string $navigationParentItem = 'Pendaftaran EPT';
+
+    protected static ?int $navigationSort = 3;
+
+    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
 
     public static function form(Form $form): Form
     {

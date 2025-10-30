@@ -24,11 +24,13 @@ class PendaftaranGrupTesResource extends Resource
     
     protected static ?string $navigationIcon = 'heroicon-o-arrow-right-end-on-rectangle';
 
-    protected static ?string $navigationGroup = 'Manajemen EPT';
+    protected static ?string $navigationParentItem = 'Pendaftaran EPT';
+
+    protected static ?int $navigationSort = 1;
+
+    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
 
     public static ?string $label = 'Assign Grup Tes';
-
-    protected static ?int $navigationSort = 3;
     
     public static function form(Form $form): Form
     {

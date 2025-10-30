@@ -27,6 +27,7 @@ use App\Http\Controllers\BasicListeningQuizFibController;
 
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\BasicListeningProfileController;
+use App\Http\Controllers\BlSurveyController;
 
 
 /*
@@ -225,9 +226,24 @@ Route::middleware(['auth'])->group(function () {
 
 // Public (tanpa login): download/preview berdasar kode verifikasi
 Route::get('/verification/{code}/basic-listening.pdf', [CertificateController::class, 'basicListeningByCode'])
+    ->where('code', '[A-Za-z0-9\-_]+')
+    ->middleware('throttle:30,1')
     ->name('bl.certificate.bycode');
 
 Route::middleware(['auth'])->group(function () {
     Route::post('/bl/group-number', [BasicListeningProfileController::class, 'updateGroupNumber'])
         ->name('bl.groupNumber.update');
 }); 
+
+// Survey Basic Listening (Protected)
+Route::middleware(['auth'])->group(function () {
+    // start wizard: pilih tutor/supervisor dulu
+    Route::get('/bl/survey/start', [BlSurveyController::class, 'start'])->name('bl.survey.start');
+    Route::post('/bl/survey/start', [BlSurveyController::class, 'startSubmit'])->name('bl.survey.start.submit');
+
+    // existing
+    Route::get('/bl/survey/required', [BlSurveyController::class,'redirectToRequired'])->name('bl.survey.required');
+    Route::get('/bl/survey/{survey}', [BlSurveyController::class,'show'])->whereNumber('survey')->name('bl.survey.show');
+    Route::post('/bl/survey/{survey}', [BlSurveyController::class,'submit'])->whereNumber('survey')->name('bl.survey.submit');
+});
+

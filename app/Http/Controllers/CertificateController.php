@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\BasicListeningGrade;
+use App\Models\BasicListeningSurvey;             // ✅ tambahkan
+use App\Models\BasicListeningSurveyResponse;     // ✅ tambahkan
 use App\Support\BlCompute;
 use App\Support\BlGrading;
-use App\Support\BlSource; // ✅ helper baru
+use App\Support\BlSource; // ✅ helper baru (jika dipakai)
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -25,6 +27,9 @@ class CertificateController extends Controller
         if (!$this->hasAccess($user)) {
             abort(403, 'Akses ditolak.');
         }
+
+        // --- Gatekeeper: wajib isi kuesioner sebelum unduh sertifikat ---
+        $this->ensureSurveyCompletedForCertificate($user->id);
 
         try {
             $grade = $this->getOrCreateGrade($user);
@@ -56,6 +61,9 @@ class CertificateController extends Controller
         try {
             $grade = BasicListeningGrade::with('user')->where('verification_code', $code)->firstOrFail();
             $user  = $grade->user;
+
+            // --- Gatekeeper: jika ingin konsisten menahan jalur publik juga, aktifkan ini ---
+            $this->ensureSurveyCompletedForCertificate($user->id);
 
             $this->validateUserData($user);
 
@@ -96,6 +104,41 @@ class CertificateController extends Controller
         if (empty($user->name) || empty($user->srn)) {
             throw new \Exception('Data profil user tidak lengkap.');
         }
+    }
+
+    /**
+     * Wajibkan kuesioner selesai sebelum unduh sertifikat.
+     * - Cari survey aktif yang require_for_certificate
+     * - Cek apakah user sudah submit (submitted_at != null)
+     * - Jika belum, abort 403
+     */
+    private function ensureSurveyCompletedForCertificate(int $userId): void
+    {
+        $survey = BasicListeningSurvey::query()
+            ->where('require_for_certificate', true)
+            ->where('target', 'final')      // default: survey akhir
+            ->where('is_active', true)
+            ->latest('id')
+            ->first();
+
+        // Jika tidak ada kuesioner aktif → tidak membatasi
+        if (! $survey) {
+            return;
+        }
+
+        $done = BasicListeningSurveyResponse::where([
+                'survey_id'  => $survey->id,
+                'user_id'    => $userId,
+                'session_id' => null,        // final
+            ])
+            ->whereNotNull('submitted_at')
+            ->exists();
+
+        abort_unless(
+            $done,
+            403,
+            'Silakan isi kuesioner terlebih dahulu sebelum mengunduh sertifikat.'
+        );
     }
 
     /**

@@ -22,10 +22,12 @@ class MasterGrupTesResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-s-book-open';
 
-    protected static ?string $navigationGroup = 'Manajemen EPT';
-    
-    protected static ?int $navigationSort = 1;
+    protected static ?string $navigationParentItem = 'Pendaftaran EPT';
 
+    protected static ?int $navigationSort = 2;
+
+    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
+    
     public static ?string $label = 'Kelola Grup Tes';
 
     public static function form(Form $form): Form

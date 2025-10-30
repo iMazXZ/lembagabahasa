@@ -18,20 +18,22 @@ class BasicListeningQuestionResource extends Resource
     protected static ?string $model = BasicListeningQuestion::class;
     protected static ?string $navigationIcon = 'heroicon-o-queue-list';
     protected static ?string $navigationGroup = 'Basic Listening';
-    protected static ?string $pluralLabel = 'Questions (Soal)';
-    protected static ?string $modelLabel = 'Question';
+    protected static ?string $pluralLabel = 'Buat Soal dalam Paket';
+    protected static ?string $navigationParentItem = 'Meeting';
+    protected static ?int $navigationSort = 2;
+    protected static ?string $modelLabel = 'Soal dalam Paket';
 
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Target Quiz')
+            Forms\Components\Section::make('Target Paket')
                 ->schema([
                     Forms\Components\Select::make('quiz_id')
                         ->relationship('quiz','title')
                         ->required()
                         ->searchable()
                         ->preload()
-                        ->label('Quiz'),
+                        ->label('Pilih Paket Soal'),
                 ])->columns(2),
 
             Forms\Components\Section::make('Tipe Soal')
@@ -158,7 +160,7 @@ class BasicListeningQuestionResource extends Resource
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('quiz.title')
-                    ->label('Quiz')
+                    ->label('Nama Paket Soal')
                     ->limit(20)
                     ->toggleable(),
 

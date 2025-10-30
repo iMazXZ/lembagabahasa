@@ -15,7 +15,7 @@ class BasicListeningSessionResource extends Resource
     protected static ?string $model = BasicListeningSession::class;
     protected static ?string $navigationIcon = 'heroicon-o-speaker-wave';
     protected static ?string $navigationGroup = 'Basic Listening';
-    protected static ?string $pluralLabel = 'Sessions (Pertemuan)';
+    protected static ?string $pluralLabel = 'Meeting';
     protected static ?string $modelLabel = 'Session';
 
     public static function form(Form $form): Form

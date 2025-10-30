@@ -30,10 +30,10 @@ class BasicListeningConnectCodeResource extends Resource
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->label('Session'),
+                    ->label('Pilih Meeting'),
 
                 Forms\Components\Select::make('quiz_id')
-                    ->label('Quiz (opsional)')
+                    ->label('Untuk Paket Soal Apa (Opsional)')
                     ->options(function (callable $get) {
                         $sessionId = $get('session_id');
                         if (!$sessionId) {
@@ -44,15 +44,14 @@ class BasicListeningConnectCodeResource extends Resource
                             ->pluck('title', 'id');
                     })
                     ->reactive()
-                    ->helperText('Pilih quiz tertentu untuk kode ini. Kosongkan bila ingin pakai quiz default di session.'),
+                    ->helperText('Pilih paket tertentu untuk kode ini. Kosongkan bila ingin pakai paket hanya satu.'),
 
                 Forms\Components\TextInput::make('plain_code')
-                    ->label('Plain Code (akan di-hash)')
-                    ->helperText('Masukkan kode yang dibagikan ke peserta. Disimpan sebagai hash + hint.')
+                    ->label('Buat Kode')
+                    ->helperText('Masukkan kode yang dibagikan ke peserta. Kode tidak bisa terlihat kembali ketika sudah dibuat.')
                     ->password()
                     ->revealable()
                     ->autocomplete('new-password')
-                    // ->dehydrated(false)
                     ->required(fn (string $context) => $context === 'create'),
 
                 Forms\Components\Grid::make(2)->schema([
@@ -94,22 +93,22 @@ class BasicListeningConnectCodeResource extends Resource
                     ->columns(2),
                 ]),
 
-                Forms\Components\TextInput::make('max_uses')
-                    ->numeric()
-                    ->minValue(1)
-                    ->label('Batas pakai')
-                    ->helperText('Kosongkan untuk tak terbatas.')
-                    ->nullable(),
+                // Forms\Components\TextInput::make('max_uses')
+                //     ->numeric()
+                //     ->minValue(1)
+                //     ->label('Batas pakai')
+                //     ->helperText('Kosongkan untuk tak terbatas.')
+                //     ->nullable(),
 
                 Forms\Components\Toggle::make('is_active')
-                    ->label('Aktif')
+                    ->label('Aktifkan Kode Langsung')
                     ->default(true),
 
-                Forms\Components\Textarea::make('rules')
-                    ->label('Rules (JSON opsional)')
-                    ->placeholder('{"prodi": ["TI","PGSD"]}')
-                    ->rows(3)
-                    ->columnSpanFull(),
+                // Forms\Components\Textarea::make('rules')
+                //     ->label('Rules (JSON opsional)')
+                //     ->placeholder('{"prodi": ["TI","PGSD"]}')
+                //     ->rows(3)
+                //     ->columnSpanFull(),
             ])
             ->columns(2)
             ->extraAttributes(['autocomplete' => 'off']);
@@ -119,9 +118,9 @@ class BasicListeningConnectCodeResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('session.number')->label('#')->sortable(),
-                Tables\Columns\TextColumn::make('session.title')->label('Session')->limit(40)->searchable(),
-                Tables\Columns\TextColumn::make('quiz.title')->label('Quiz')->limit(32)->toggleable(),
+                // Tables\Columns\TextColumn::make('session.number')->label('#')->sortable(),
+                Tables\Columns\TextColumn::make('session.title')->label('Meeting')->limit(40)->searchable(),
+                // Tables\Columns\TextColumn::make('quiz.title')->label('Quiz')->limit(32)->toggleable(),
                 Tables\Columns\TextColumn::make('code_hint')
                     ->label('Hint Kode')
                     ->placeholder('—')
@@ -129,14 +128,14 @@ class BasicListeningConnectCodeResource extends Resource
 
                 Tables\Columns\TextColumn::make('starts_at')->dateTime('d M Y H:i')->label('Mulai')->sortable(),
                 Tables\Columns\TextColumn::make('ends_at')->dateTime('d M Y H:i')->label('Berakhir')->sortable(),
-                Tables\Columns\TextColumn::make('max_uses')->label('Batas')->placeholder('∞')->toggleable(),
+                // Tables\Columns\TextColumn::make('max_uses')->label('Batas')->placeholder('∞')->toggleable(),
                 Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->since()->label('Dibuat')->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('session_id')
                     ->relationship('session', 'title')
-                    ->label('Session'),
+                    ->label('Meeting'),
                 Tables\Filters\TernaryFilter::make('is_active')->label('Aktif'),
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')

@@ -3,10 +3,10 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\BasicListeningAttempt;
+use App\Models\BasicListeningSupervisor;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-class BasicListeningAttemptPolicy
+class BasicListeningSupervisorPolicy
 {
     use HandlesAuthorization;
 
@@ -15,15 +15,15 @@ class BasicListeningAttemptPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_basic::listening::attempt');
+        return $user->can('view_any_bl::supervisor');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function view(User $user, BasicListeningSupervisor $basicListeningSupervisor): bool
     {
-        return $user->can('view_basic::listening::attempt');
+        return $user->can('view_bl::supervisor');
     }
 
     /**
@@ -31,23 +31,23 @@ class BasicListeningAttemptPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_basic::listening::attempt');
+        return $user->can('create_bl::supervisor');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function update(User $user, BasicListeningSupervisor $basicListeningSupervisor): bool
     {
-        return $user->can('update_basic::listening::attempt');
+        return $user->can('update_bl::supervisor');
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function delete(User $user, BasicListeningSupervisor $basicListeningSupervisor): bool
     {
-        return $user->can('delete_basic::listening::attempt');
+        return $user->can('delete_bl::supervisor');
     }
 
     /**
@@ -55,15 +55,15 @@ class BasicListeningAttemptPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_basic::listening::attempt');
+        return $user->can('delete_any_bl::supervisor');
     }
 
     /**
      * Determine whether the user can permanently delete.
      */
-    public function forceDelete(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function forceDelete(User $user, BasicListeningSupervisor $basicListeningSupervisor): bool
     {
-        return $user->can('force_delete_basic::listening::attempt');
+        return $user->can('force_delete_bl::supervisor');
     }
 
     /**
@@ -71,15 +71,15 @@ class BasicListeningAttemptPolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_basic::listening::attempt');
+        return $user->can('force_delete_any_bl::supervisor');
     }
 
     /**
      * Determine whether the user can restore.
      */
-    public function restore(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function restore(User $user, BasicListeningSupervisor $basicListeningSupervisor): bool
     {
-        return $user->can('restore_basic::listening::attempt');
+        return $user->can('restore_bl::supervisor');
     }
 
     /**
@@ -87,15 +87,15 @@ class BasicListeningAttemptPolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('restore_any_basic::listening::attempt');
+        return $user->can('restore_any_bl::supervisor');
     }
 
     /**
      * Determine whether the user can replicate.
      */
-    public function replicate(User $user, BasicListeningAttempt $basicListeningAttempt): bool
+    public function replicate(User $user, BasicListeningSupervisor $basicListeningSupervisor): bool
     {
-        return $user->can('replicate_basic::listening::attempt');
+        return $user->can('replicate_bl::supervisor');
     }
 
     /**
@@ -103,6 +103,6 @@ class BasicListeningAttemptPolicy
      */
     public function reorder(User $user): bool
     {
-        return $user->can('reorder_basic::listening::attempt');
+        return $user->can('reorder_bl::supervisor');
     }
 }

@@ -16,14 +16,17 @@ class BasicListeningQuizResource extends Resource
     protected static ?string $model = BasicListeningQuiz::class;
     protected static ?string $navigationIcon = 'heroicon-o-pencil-square';
     protected static ?string $navigationGroup = 'Basic Listening';
-    protected static ?string $pluralLabel = 'Quizzes (Paket)';
-    protected static ?string $modelLabel = 'Quiz';
+    protected static ?string $pluralLabel = 'Buat Paket Soal';
+    protected static ?string $navigationParentItem = 'Meeting';
+    protected static ?int $navigationSort = 1;
+    protected static ?string $modelLabel = 'Paket Soal';
 
     public static function form(Form $form): Form
     {
         return $form->schema([
             Forms\Components\Select::make('session_id')
                 ->relationship('session', 'title')
+                ->label('Untuk Meeting Berapa')
                 ->required()
                 ->searchable()
                 ->preload()
@@ -34,6 +37,7 @@ class BasicListeningQuizResource extends Resource
             
             Forms\Components\TextInput::make('title')
                 ->required()
+                ->label('Nama Paket Soal')
                 ->unique(
                     table: 'basic_listening_quizzes',
                     column: 'title',
@@ -65,13 +69,13 @@ class BasicListeningQuizResource extends Resource
                     ->sortable()
                     ->searchable(),
                 
-                Tables\Columns\TextColumn::make('session.title')
-                    ->label('Session')
+                Tables\Columns\TextColumn::make('title')
+                    ->label('Nama Paket Soal')
                     ->searchable()
                     ->sortable(),
-                
-                Tables\Columns\TextColumn::make('title')
-                    ->label('Judul')
+                    
+                Tables\Columns\TextColumn::make('session.title')
+                    ->label('Untuk Meeting')
                     ->searchable()
                     ->sortable(),
                 

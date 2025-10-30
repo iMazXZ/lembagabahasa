@@ -32,7 +32,7 @@ class TutorMahasiswa extends Page implements HasTable
     protected static ?string $navigationLabel  = 'Mahasiswa Binaan';
     protected static ?string $title            = 'Mahasiswa Binaan';
     protected static ?string $navigationGroup  = 'Basic Listening';
-    protected static ?int    $navigationSort   = 15;
+    protected static ?int    $navigationSort   = 2;
 
     protected static string $view = 'filament.pages.tutor-mahasiswa';
 
