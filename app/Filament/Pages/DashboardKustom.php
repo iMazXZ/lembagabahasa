@@ -47,11 +47,11 @@ class DashboardKustom extends Page
             AccountWidget::class,
             BiodataStatusWidget::class,
             PengumumanWidget::class,
+            QuickLinks::class,
             StatsWidget::class,
             EptStatusWidget::class,
             PenerjemahanStatusWidget::class,
             MyEptSubmissionStatus::class,
-            QuickLinks::class,
             StudentBasicListeningWidget::class,
         ];
     }

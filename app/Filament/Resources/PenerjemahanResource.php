@@ -499,12 +499,9 @@ class PenerjemahanResource extends Resource
         return parent::getEloquentQuery();
     }
 
-    /* -----------------------------------------------------------
-    |  NAV BADGE (Admin/Staf)
-    |----------------------------------------------------------- */
     public static function getNavigationBadge(): ?string
     {
-        if (! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
+        if (! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'penerjemah'])) {
             return null;
         }
         $count = static::getModel()::where('status', 'Menunggu')->count();
@@ -518,7 +515,7 @@ class PenerjemahanResource extends Resource
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return 'success';
+        return 'danger';
     }
 
     public static function getRelations(): array

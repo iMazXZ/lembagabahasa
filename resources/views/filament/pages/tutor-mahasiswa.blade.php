@@ -1,4 +1,3 @@
-{{-- Filament v3.3: gunakan komponen panels, dan render $this->table --}}
 <x-filament-panels::page>
     <div class="mb-4 text-sm text-gray-600">
         Daftar mahasiswa di prodi yang Anda ampu. Jika prodi tidak muncul, silakan hubungi admin.

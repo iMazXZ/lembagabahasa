@@ -10,6 +10,18 @@ class ListBasicListeningAttempts extends ListRecords
 {
     protected static string $resource = BasicListeningAttemptResource::class;
 
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Resources\BasicListeningAttemptResource\Widgets\AttemptSummaryStats::class,
+        ];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return ['sm' => 2, 'xl' => 3];
+    }
+
     protected function getHeaderActions(): array
     {
         return [

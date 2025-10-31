@@ -43,6 +43,13 @@ class TutorMahasiswa extends Page implements HasTable
         return $user?->hasRole('Admin') || $user?->hasRole('tutor');
     }
 
+    public function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Pages\Widgets\TutorMahasiswaSummaryStats::class,
+        ];
+    }
+    
     public function table(Table $table): Table
     {
         $user = auth()->user();

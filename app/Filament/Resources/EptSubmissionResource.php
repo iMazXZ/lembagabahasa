@@ -344,6 +344,37 @@ class EptSubmissionResource extends Resource
         ]);
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        $u = auth()->user();
+        if (! $u || ! $u->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])) {
+            return null;
+        }
+
+        $pending = \App\Models\EptSubmission::where('status', 'pending')->count();
+
+        return $pending > 0 ? (string) $pending : null;
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        $u = auth()->user();
+        if (! $u || ! $u->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])) {
+            return null;
+        }
+
+        $pending = \App\Models\EptSubmission::where('status', 'pending')->count();
+        $total   = \App\Models\EptSubmission::count();
+        $today   = \App\Models\EptSubmission::whereDate('created_at', now()->toDateString())->count();
+
+        return "Menunggu: {$pending} • Total: {$total} • Masuk hari ini: {$today}";
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
     public static function getPages(): array
     {
         return [

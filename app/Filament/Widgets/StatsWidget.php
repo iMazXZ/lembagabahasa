@@ -1,37 +1,58 @@
 <?php
+
 namespace App\Filament\Widgets;
 
+use App\Models\User;
+use App\Models\Penerjemahan;
+use App\Models\EptSubmission; // ⬅️ pakai model yang benar
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
+use Filament\Support\Enums\IconPosition;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use App\Models\User;
-use App\Models\PendaftaranEpt;
-use App\Models\Penerjemahan;
-use Filament\Support\Enums\IconPosition;
-use Illuminate\Support\Facades\Auth;
-use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class StatsWidget extends BaseWidget
 {
     use HasWidgetShield;
 
+    protected function getColumns(): int
+    {
+        return 3;
+    }
+
     protected function getStats(): array
     {
+        // 1) Total user role "pendaftar"
+        $totalPendaftar = User::whereHas('roles', fn ($q) => $q->where('name', 'pendaftar'))->count();
+
+        // 2) Pengajuan Surat Rekomendasi (EptSubmission) status pending
+        $rekomTotal   = EptSubmission::count();
+        $rekomPending = EptSubmission::where('status', 'pending')->count();
+        $rekomPct     = $rekomTotal > 0 ? round(($rekomPending / $rekomTotal) * 100, 1) : null;
+
+        // 3) Penerjemahan status "Menunggu"
+        $penTotal   = Penerjemahan::count();
+        $penWaiting = Penerjemahan::where('status', 'Menunggu')->count();
+        $penPct     = $penTotal > 0 ? round(($penWaiting / $penTotal) * 100, 1) : null;
+
         return [
-            Stat::make('Total User Pendaftar', User::whereHas('roles', function ($query) {
-                    $query->where('name', 'pendaftar');
-                })->count())
-                ->description('User Pendaftar')
+            Stat::make('Total User Pendaftar', number_format($totalPendaftar))
+                ->description('User dengan role pendaftar')
                 ->descriptionIcon('heroicon-m-user-group', IconPosition::Before)
-                ->chart([1, 3, 5, 10, 20, 40])
+                ->icon('heroicon-o-user-group')
+                ->chart([2, 4, 6, 8, 12, 14])
                 ->color('success'),
-            Stat::make('Pendaftaran EPT', PendaftaranEpt::where('status_pembayaran', 'pending')->count())
-                ->description('Pendaftaran EPT yang perlu ditinjau')
-                ->descriptionIcon('heroicon-m-document-text', IconPosition::Before)
-                ->chart([2, 4, 6, 8, 10, 12])
+
+            Stat::make('Surat Rekomendasi Menunggu', number_format($rekomPending))
+                ->description($rekomPct !== null ? "{$rekomPct}% dari total pengajuan" : '—')
+                ->descriptionIcon('heroicon-m-envelope-open', IconPosition::Before)
+                ->icon('heroicon-o-envelope-open')
+                ->chart([1, 1, 2, 3, 5, 8])
                 ->color('warning'),
-            Stat::make('Penerjemahan Dokumen Abstrak', Penerjemahan::where('status', 'Menunggu')->count())
-                ->description('Permohonan yang belum ditinjau')
+
+            Stat::make('Penerjemahan Menunggu', number_format($penWaiting))
+                ->description($penPct !== null ? "{$penPct}% dari total permohonan" : '—')
                 ->descriptionIcon('heroicon-m-document-arrow-down', IconPosition::Before)
+                ->icon('heroicon-o-document-arrow-down')
                 ->chart([1, 2, 3, 4, 5, 6])
                 ->color('danger'),
         ];

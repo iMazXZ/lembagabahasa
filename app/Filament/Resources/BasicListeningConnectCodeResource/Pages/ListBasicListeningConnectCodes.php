@@ -10,6 +10,13 @@ class ListBasicListeningConnectCodes extends ListRecords
 {
     protected static string $resource = BasicListeningConnectCodeResource::class;
 
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Resources\BasicListeningConnectCodeResource\Widgets\ConnectCodeSummaryStats::class,
+        ];
+    }
+
     protected function getHeaderActions(): array
     {
         return [
