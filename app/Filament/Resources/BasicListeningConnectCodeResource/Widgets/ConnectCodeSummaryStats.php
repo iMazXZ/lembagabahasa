@@ -28,14 +28,6 @@ class ConnectCodeSummaryStats extends BaseWidget
             ->where('ends_at', '>=', $now)
             ->count();
 
-        $expiringSoon = (clone $q)
-            ->where('is_active', true)
-            ->whereBetween('ends_at', [$now, (clone $now)->copy()->addDay()])
-            ->count();
-
-        // === Pemakaian hari ini dari tabel usages ===
-        // Tabel asumsi: basic_listening_code_usages (kolom: connect_code_id, created_at, ...)
-        // Join ke codes untuk ikut scoping tutor/admin
         $usesToday = $this->scopedUsagesTodayCount();
 
         return [
@@ -44,9 +36,6 @@ class ConnectCodeSummaryStats extends BaseWidget
 
             Stat::make('Aktif Sekarang', number_format($activeNow))
                 ->icon('heroicon-o-bolt'),
-
-            Stat::make('Berakhir ≤ 24 jam', number_format($expiringSoon))
-                ->icon('heroicon-o-clock'),
 
             Stat::make('Pemakaian Hari Ini', number_format($usesToday))
                 ->icon('heroicon-o-chart-bar'),

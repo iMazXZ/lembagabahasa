@@ -1,13 +1,12 @@
 <x-filament-widgets::widget>
   <x-filament::section>
-
     @php
       $user = filament()->auth()->user();
     @endphp
-    
+
     @role('tutor')
       <div
-        class="mb-4 rounded-lg border border-green-300/60 bg-green-50 px-4 py-3 text-sm text-green-800
+        class="mb-6 rounded-lg border border-green-300/60 bg-green-50 px-4 py-3 text-sm text-green-800
                dark:border-green-600/60 dark:bg-green-500/10 dark:text-green-400">
         <div class="flex items-start gap-2">
           <x-filament::icon icon="heroicon-o-academic-cap" class="h-5 w-5 mt-0.5"/>
@@ -20,147 +19,149 @@
       </div>
     @endrole
 
-    <div class="flex flex-wrap gap-3">
-      {{-- =========================
-           Role: pendaftar
-           ========================= --}}
-      @role('pendaftar')
-
+    {{-- =========================
+         Role: pendaftar
+       ========================= --}}
+    @role('pendaftar')
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
         <x-filament::button tag="a" href="{{ url('/#berita') }}" size="lg" color="warning"
-            class="w-full sm:w-auto" icon="heroicon-o-arrow-down-circle">
+            class="w-full justify-start" icon="heroicon-o-arrow-down-circle">
           Cek Jadwal & Nilai EPT
         </x-filament::button>
 
         <x-filament::button tag="a" href="{{ route('bl.index') }}" size="lg" color="warning"
-            class="w-full sm:w-auto" icon="heroicon-o-musical-note">
+            class="w-full justify-start" icon="heroicon-o-musical-note">
           Basic Listening
         </x-filament::button>
 
         <x-filament::button tag="a" href="{{ route('verification.index') }}" size="lg" color="warning"
-            class="w-full sm:w-auto" icon="heroicon-o-check-badge">
+            class="w-full justify-start" icon="heroicon-o-check-badge">
           Verifikasi Dokumen
         </x-filament::button>
 
         <x-filament::button tag="a" href="{{ route('front.home') }}" size="lg" color="primary"
-            class="w-full sm:w-auto" icon="heroicon-o-home">
+            class="w-full justify-start" icon="heroicon-o-home">
           Halaman Utama
         </x-filament::button>
-      @endrole
+      </div>
+    @endrole
 
+    {{-- =========================
+         Role: Admin
+       ========================= --}}
+    @role('Admin')
+      @php
+        $pendingSurat    = \App\Models\EptSubmission::where('status', 'pending')->count();
+        $pendingTerjemah = \App\Models\Penerjemahan::where('status', 'Menunggu')->count();
+      @endphp
 
-      {{-- =========================
-          Role: Admin
-        ========================= --}}
-      @role('Admin')
-        @php
-          $pendingSurat = \App\Models\EptSubmission::where('status', 'pending')->count();
-          $pendingTerjemah = \App\Models\Penerjemahan::where('status', 'Menunggu')->count();
-        @endphp
-
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
         <x-filament::button
-            tag="a"
-            href="{{ route('filament.admin.resources.suratrekomendasi.index') }}"
-            size="lg"
-            :color="$pendingSurat > 0 ? 'danger' : 'success'"
-            icon="heroicon-o-document-check"
-            :badge="$pendingSurat ?: null"
-            class="w-full sm:w-auto"
+          tag="a"
+          href="{{ route('filament.admin.resources.suratrekomendasi.index') }}"
+          size="lg"
+          :color="$pendingSurat > 0 ? 'danger' : 'success'"
+          icon="heroicon-o-document-check"
+          :badge="$pendingSurat ?: null"
+          class="w-full justify-start"
         >
           Pengajuan Surat Rekomendasi
         </x-filament::button>
 
         <x-filament::button
-            tag="a"
-            href="{{ route('filament.admin.resources.penerjemahan.index') }}"
-            size="lg"
-            :color="$pendingTerjemah > 0 ? 'danger' : 'success'"
-            icon="heroicon-o-language"
-            :badge="$pendingTerjemah ?: null"
-            class="w-full sm:w-auto"
+          tag="a"
+          href="{{ route('filament.admin.resources.penerjemahan.index') }}"
+          size="lg"
+          :color="$pendingTerjemah > 0 ? 'danger' : 'success'"
+          icon="heroicon-o-language"
+          :badge="$pendingTerjemah ?: null"
+          class="w-full justify-start"
         >
           Penerjemahan Abstrak
         </x-filament::button>
 
         <x-filament::button
-            tag="a"
-            href="{{ route('filament.admin.resources.users.index') }}"
-            size="lg"
-            color="success"
-            icon="heroicon-o-users"
-            class="w-full sm:w-auto"
+          tag="a"
+          href="{{ route('filament.admin.resources.users.index') }}"
+          size="lg"
+          color="success"
+          icon="heroicon-o-users"
+          class="w-full justify-start"
         >
           Data Pendaftar
         </x-filament::button>
 
         <x-filament::button
-            tag="a"
-            href="{{ route('filament.admin.resources.basic-listening-connect-codes.index') }}"
-            size="lg"
-            color="success"
-            icon="heroicon-o-link"
-            class="w-full sm:w-auto"
+          tag="a"
+          href="{{ route('filament.admin.resources.basic-listening-connect-codes.index') }}"
+          size="lg"
+          color="success"
+          icon="heroicon-o-link"
+          class="w-full justify-start"
         >
           Connect Code
         </x-filament::button>
 
         <x-filament::button
-            tag="a"
-            href="{{ route('filament.admin.resources.basic-listening-attempts.index') }}"
-            size="lg"
-            color="success"
-            icon="heroicon-o-clipboard-document-check"
-            class="w-full sm:w-auto"
+          tag="a"
+          href="{{ route('filament.admin.resources.basic-listening-attempts.index') }}"
+          size="lg"
+          color="success"
+          icon="heroicon-o-clipboard-document-check"
+          class="w-full justify-start"
         >
           Data Quiz Dikerjakan
         </x-filament::button>
 
         <x-filament::button
-            tag="a"
-            href="{{ route('filament.admin.resources.shield.roles.index') }}"
-            size="lg"
-            color="success"
-            icon="heroicon-o-shield-check"
-            class="w-full sm:w-auto"
+          tag="a"
+          href="{{ route('filament.admin.resources.shield.roles.index') }}"
+          size="lg"
+          color="success"
+          icon="heroicon-o-shield-check"
+          class="w-full justify-start"
         >
           Pengaturan Role & Permission
         </x-filament::button>
-      @endrole
+      </div>
+    @endrole
 
+    {{-- =========================
+         Role: tutor
+       ========================= --}}
+    @role('tutor')
 
-
-      {{-- =========================
-           Role: tutor
-           ========================= --}}
-      @role('tutor')
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-2 mt-3">
         <x-filament::button tag="a" href="{{ route('filament.admin.pages.tutor-mahasiswa') }}" size="lg" color="success"
-            class="w-full sm:w-auto" icon="heroicon-o-user-group">
+            class="w-full justify-start" icon="heroicon-o-user-group">
           Data Mahasiswa Diampu
         </x-filament::button>
-        
+
         <x-filament::button tag="a" href="{{ route('filament.admin.resources.basic-listening-connect-codes.index') }}" size="lg" color="success"
-            class="w-full sm:w-auto" icon="heroicon-o-link">
+            class="w-full justify-start" icon="heroicon-o-link">
           Connect Code
         </x-filament::button>
 
         <x-filament::button tag="a" href="{{ route('filament.admin.resources.basic-listening-attempts.index') }}" size="lg" color="success"
-            class="w-full sm:w-auto" icon="heroicon-o-clipboard-document-check">
+            class="w-full justify-start" icon="heroicon-o-clipboard-document-check">
           Data Quiz Dikerjakan
         </x-filament::button>
 
         <x-filament::button tag="a" href="{{ route('front.home') }}" size="lg" color="primary"
-            class="w-full sm:w-auto" icon="heroicon-o-home">
+            class="w-full justify-start" icon="heroicon-o-home">
           Halaman Utama
         </x-filament::button>
-      @endrole
+      </div>
+    @endrole
 
-
-      {{-- Fallback bila tidak punya salah satu role di atas --}}
-      @unlessrole('pendaftar|Admin|tutor')
+    {{-- Fallback bila tidak punya salah satu role di atas --}}
+    @unlessrole('pendaftar|Admin|tutor')
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
         <x-filament::button tag="a" href="{{ route('front.home') }}" size="lg" color="primary"
-            class="w-full sm:w-auto" icon="heroicon-o-home">
+            class="w-full justify-start" icon="heroicon-o-home">
           Halaman Utama
         </x-filament::button>
-      @endunlessrole
-    </div>
+      </div>
+    @endunlessrole
   </x-filament::section>
 </x-filament-widgets::widget>

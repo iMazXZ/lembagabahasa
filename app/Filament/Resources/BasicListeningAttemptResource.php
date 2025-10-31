@@ -8,6 +8,7 @@ use App\Models\Prody;
 use Filament\Forms\Form;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -30,7 +31,6 @@ class BasicListeningAttemptResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            // ⛔️ JANGAN set ->query() di sini agar getEloquentQuery() tetap aktif
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Peserta')
@@ -52,14 +52,14 @@ class BasicListeningAttemptResource extends Resource
                 Tables\Columns\TextColumn::make('quiz_type')
                     ->label('Tipe')
                     ->state(function ($record) {
-                        $firstQuestion = $record->quiz->questions->first();
-                        return $firstQuestion ? $firstQuestion->type : 'unknown';
+                        $firstQuestion = $record->quiz?->questions?->first();
+                        return $firstQuestion?->type ?? 'unknown';
                     })
                     ->badge()
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'fib_paragraph'   => 'FIB',
                         'multiple_choice' => 'MC',
-                        default           => $state,
+                        default           => (string) $state,
                     })
                     ->color(fn ($state) => match ($state) {
                         'fib_paragraph'   => 'warning',
@@ -116,7 +116,6 @@ class BasicListeningAttemptResource extends Resource
                     ->label('Sudah submit')
                     ->query(fn ($q) => $q->whereNotNull('submitted_at')),
 
-                // ✅ Satu filter Prodi saja, opsi menyesuaikan role
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
                     ->options(function () {
@@ -150,107 +149,87 @@ class BasicListeningAttemptResource extends Resource
     {
         return $infolist->schema([
             Section::make('Ringkasan')->schema([
-                TextEntry::make('user.name')->label('Peserta'),
-                TextEntry::make('session.title')->label('Session'),
-                TextEntry::make('score')->label('Skor'),
-                TextEntry::make('started_at')->dateTime('d M Y H:i')->label('Mulai'),
-                TextEntry::make('submitted_at')->dateTime('d M Y H:i')->label('Submit'),
+                TextEntry::make('user.name')
+                    ->label('Peserta')
+                    ->formatStateUsing(fn ($record) => $record->user?->name ?? '—'),
+
+                TextEntry::make('user.srn')
+                    ->label('NPM')
+                    ->formatStateUsing(fn ($record) => $record->user?->srn ?? '—'),
+
+                TextEntry::make('user.prody.name')
+                    ->label('Prodi')
+                    ->formatStateUsing(fn ($record) => $record->user?->prody?->name ?? '—'),
+
+                TextEntry::make('session.title')
+                    ->label('Session')
+                    ->formatStateUsing(fn ($record) => $record->session?->title ?? '—'),
 
                 TextEntry::make('quiz_type')
                     ->label('Tipe Quiz')
                     ->state(function ($record) {
-                        $firstQuestion = $record->quiz->questions->first();
-                        return $firstQuestion ? $firstQuestion->type : 'unknown';
+                        $first = $record->quiz?->questions?->first();
+                        return $first?->type ?? 'unknown';
                     })
                     ->badge()
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'fib_paragraph'   => 'FIB',
+                        'multiple_choice' => 'MC',
+                        default           => strtoupper((string) $state),
+                    })
                     ->color(fn ($state) => match ($state) {
                         'fib_paragraph'   => 'warning',
                         'multiple_choice' => 'success',
                         default           => 'gray',
                     }),
+
+                TextEntry::make('score')
+                    ->label('Skor')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => is_numeric($state) ? (string) $state : '–')
+                    ->color(fn ($state) => match (true) {
+                        $state === null => 'gray',
+                        $state === 0    => 'danger',
+                        $state >= 80    => 'success',
+                        $state >= 60    => 'warning',
+                        default         => 'danger',
+                    }),
+
+                TextEntry::make('started_at')
+                    ->label('Mulai')
+                    ->dateTime('d M Y H:i')
+                    ->placeholder('—'),
+
+                TextEntry::make('submitted_at')
+                    ->label('Submit')
+                    ->dateTime('d M Y H:i')
+                    ->placeholder('—'),
+
+                TextEntry::make('summary_stats')
+                    ->label('Ringkas')
+                    ->state(function ($record) {
+                        $qCount  = $record->quiz?->questions?->count() ?? 0;
+                        $aCount  = $record->answers?->count() ?? 0;
+                        $correct = $record->answers?->where('is_correct', true)?->count() ?? 0;
+                        return "Soal: {$qCount} • Jawab: {$aCount} • Benar: {$correct}";
+                    })
+                    ->placeholder('—')
+                    ->helperText('Soal/Jawaban/Benar'),
             ])->columns(3),
 
             Section::make('Jawaban')->schema([
-                TextEntry::make('answers_list')->label('Detail')
-                    ->state(function ($record) {
-                        $record->loadMissing(['answers', 'quiz.questions']);
-                        $rows = [];
-
-                        foreach ($record->quiz->questions as $i => $q) {
-                            $ans = $record->answers->firstWhere('question_id', $q->id);
-
-                            if ($q->type === 'fib_paragraph') {
-                                $rows[] = self::formatFibAnswer($q, $record->answers, $i + 1);
-                            } else {
-                                $rows[] = self::formatMcAnswer($q, $ans, $i + 1);
-                            }
-                        }
-                        return implode("\n", $rows);
-                    })
-                    ->columnSpanFull()
-                    ->formatStateUsing(fn ($state) => nl2br(e($state)))
-                    ->html(),
-            ])->collapsible(),
+                ViewEntry::make('answers_view')
+                    ->view('filament.attempts.answers-view')
+                    ->columnSpanFull(),
+            ])->collapsible()->collapsed(),
         ]);
-    }
-
-    // === Helper formatter ===
-    private static function formatFibAnswer($question, $allAnswers, $number)
-    {
-        $paragraph  = $question->paragraph_text ?? 'No paragraph';
-        $blankCount = is_array($question->fib_placeholders) ? count($question->fib_placeholders) : 0;
-
-        $result = "({$number}) FIB PARAGRAPH - {$blankCount} blanks\n";
-        $result .= "Paragraf: {$paragraph}\n\n";
-
-        $fibAnswers = $allAnswers->where('question_id', $question->id);
-
-        if ($fibAnswers->count() > 0) {
-            $result .= "Jawaban yang diberikan:\n";
-            foreach ($fibAnswers as $fibAns) {
-                $result .= "Blank {$fibAns->blank_index}: \"{$fibAns->answer}\" " .
-                    ($fibAns->is_correct ? '✓' : '✗') . "\n";
-            }
-        } else {
-            $result .= "Tidak ada jawaban\n";
-        }
-
-        if (!empty($question->fib_answer_key)) {
-            $result .= "\nKunci Jawaban:\n";
-            foreach ($question->fib_answer_key as $blankIndex => $key) {
-                $keyStr = is_array($key) ? implode(' / ', $key) : $key;
-                $result .= "Blank {$blankIndex}: {$keyStr}\n";
-            }
-        }
-
-        return $result . "\n" . str_repeat('-', 50) . "\n";
-    }
-
-    private static function formatMcAnswer($question, $answer, $number)
-    {
-        $chosen = $answer?->answer ?? '-';
-        $mark   = $answer?->is_correct ? '✓' : '✗';
-
-        return sprintf(
-            "(%02d) [%s] %s\nA. %s\nB. %s\nC. %s\nD. %s\nJawaban: %s | Kunci: %s\n%s\n",
-            $number,
-            $mark,
-            $question->question ?? '-',
-            $question->option_a ?? '-',
-            $question->option_b ?? '-',
-            $question->option_c ?? '-',
-            $question->option_d ?? '-',
-            $chosen,
-            $question->correct ?? '-',
-            str_repeat('-', 50)
-        );
     }
 
     /** Scope utama resource (ADMIN = semua, TUTOR = hanya prodi yang dia ampu). */
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->with(['user.prody', 'session', 'quiz.questions', 'connectCode']);
+            ->with(['user.prody', 'session', 'quiz.questions', 'connectCode', 'answers']);
 
         $user = auth()->user();
 
