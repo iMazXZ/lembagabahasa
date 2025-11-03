@@ -75,7 +75,6 @@ class UserResource extends Resource
                     ->numeric()
                     ->default(null),
 
-                // Per-record role editor (multi)
                 Forms\Components\Select::make('roles')
                     ->label('Roles')
                     ->relationship('roles', 'name')
@@ -120,7 +119,8 @@ class UserResource extends Resource
                     ->copyable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('prody.name')
-                    ->label('Program Studi'),
+                    ->label('Program Studi')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('year')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('nilaibasiclistening')
