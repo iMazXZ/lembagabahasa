@@ -30,4 +30,9 @@ class BasicListeningSession extends Model
     {
         return $this->hasMany(BasicListeningQuiz::class, 'session_id');
     }
+
+    public function attempts()
+    {
+        return $this->hasMany(\App\Models\BasicListeningAttempt::class, 'session_id');
+    }
 }

@@ -335,99 +335,148 @@
 
   {{-- Sessions Grid --}}
   @if(isset($sessions) && count($sessions) > 0)
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-4">
       @foreach($sessions as $index => $s)
         @php
           $colors = [
-            ['bg' => 'bg-yellow-100', 'border' => 'border-yellow-200', 'shadow' => 'shadow-yellow-200/50'],
-            ['bg' => 'bg-pink-100', 'border' => 'border-pink-200', 'shadow' => 'shadow-pink-200/50'],
-            ['bg' => 'bg-blue-100', 'border' => 'border-blue-200', 'shadow' => 'shadow-blue-200/50'],
-            ['bg' => 'bg-green-100', 'border' => 'border-green-200', 'shadow' => 'shadow-green-200/50'],
-            ['bg' => 'bg-purple-100', 'border' => 'border-purple-200', 'shadow' => 'shadow-purple-200/50'],
-            ['bg' => 'bg-orange-100', 'border' => 'border-orange-200', 'shadow' => 'shadow-orange-200/50'],
+            ['bg' => 'bg-amber-100', 'accent' => 'bg-amber-400', 'text' => 'text-amber-900', 'border' => 'border-amber-200'],
+            ['bg' => 'bg-rose-100', 'accent' => 'bg-rose-400', 'text' => 'text-rose-900', 'border' => 'border-rose-200'],
+            ['bg' => 'bg-sky-100', 'accent' => 'bg-sky-400', 'text' => 'text-sky-900', 'border' => 'border-sky-200'],
+            ['bg' => 'bg-emerald-100', 'accent' => 'bg-emerald-400', 'text' => 'text-emerald-900', 'border' => 'border-emerald-200'],
+            ['bg' => 'bg-violet-100', 'accent' => 'bg-violet-400', 'text' => 'text-violet-900', 'border' => 'border-violet-200'],
+            ['bg' => 'bg-orange-100', 'accent' => 'bg-orange-400', 'text' => 'text-orange-900', 'border' => 'border-orange-200'],
           ];
           $color = $colors[$index % count($colors)];
-          $rotation = ['rotate-1', '-rotate-1', 'rotate-2', '-rotate-2'];
-          $rotate = $rotation[$index % count($rotation)];
+          $rotations = ['rotate-2', '-rotate-1', 'rotate-1', '-rotate-2', 'rotate-3', '-rotate-3'];
+          $rotate = $rotations[$index % count($rotations)];
         @endphp
 
         <a href="{{ route('bl.session.show', $s) }}"
-           class="group relative block {{ $color['bg'] }} {{ $color['border'] }} border-2 rounded-lg p-6 {{ $rotate }} hover:rotate-0 transition-all duration-300 hover:scale-105 shadow-md hover:shadow-xl {{ $color['shadow'] }} hover:z-10">
+          class="group relative block {{ $color['bg'] }} rounded-2xl p-6 {{ $rotate }} hover:rotate-0 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl hover:z-10 border-b-4 {{ $color['border'] }}">
 
-          {{-- Pin/Thumbtack Effect --}}
-          <div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
-            <div class="w-6 h-6 bg-red-500 rounded-full shadow-md relative">
-              <div class="absolute inset-1 bg-red-400 rounded-full"></div>
+          {{-- Decorative Tape Effect --}}
+          <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 w-20 h-8 bg-white/40 backdrop-blur-sm rounded-sm shadow-md border border-white/60"
+              style="transform: translateX(-50%) rotate(-2deg);">
+          </div>
+
+          {{-- Session Number Badge --}}
+          <div class="absolute -top-3 -right-3 w-16 h-16 {{ $color['accent'] }} rounded-full shadow-lg flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
+            <div class="text-center">
+              <div class="text-white font-black text-lg leading-none">
+                {{ $s->number <= 5 ? $s->number : 'UAS' }}
+              </div>
+              <div class="text-white/80 text-[10px] font-semibold uppercase">Sesi</div>
             </div>
           </div>
 
           {{-- Status Badge --}}
-          <div class="absolute top-4 right-4">
-            @if($s->isOpen())
-              <span class="px-3 py-1 rounded-full bg-green-500 text-white text-xs font-bold shadow-sm">
-                OPEN
-              </span>
-            @else
-              <span class="px-3 py-1 rounded-full bg-gray-400 text-white text-xs font-bold shadow-sm">
-                CLOSED
-              </span>
-            @endif
-          </div>
-
-          {{-- Session Number --}}
-          <div class="mb-3">
-            <span class="inline-block px-3 py-1 bg-white/70 rounded-md text-xs font-bold text-gray-700 uppercase tracking-wider shadow-sm">
-              📝 Pertemuan {{ $s->number <= 5 ? $s->number : 'UAS' }}
-            </span>
+          <div class="mb-4 flex justify-between items-start">
+            <div>
+              @if($s->isOpen())
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500 text-white text-xs font-bold shadow-md">
+                  <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                  BUKA
+                </span>
+              @else
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-500 text-white text-xs font-bold shadow-md">
+                  <span class="w-2 h-2 bg-white rounded-full"></span>
+                  TUTUP
+                </span>
+              @endif
+            </div>
           </div>
 
           {{-- Title --}}
-          <h3 class="text-lg font-bold text-gray-800 mb-4 line-clamp-2 min-h-[3.5rem] group-hover:text-gray-900">
+          <h3 class="text-xl font-black {{ $color['text'] }} mb-4 line-clamp-3 min-h-[4.5rem] group-hover:scale-105 transition-transform leading-tight">
             {{ $s->title }}
           </h3>
 
+          {{-- Divider --}}
+          <div class="w-16 h-1 {{ $color['accent'] }} rounded-full mb-4 group-hover:w-24 transition-all"></div>
+
           {{-- Duration --}}
-          <div class="flex items-center gap-2 mb-3">
-            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          <div class="flex items-center gap-2 mb-4 bg-white/50 rounded-lg px-3 py-2 backdrop-blur-sm">
+            <svg class="w-5 h-5 {{ $color['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <span class="text-sm font-medium text-gray-700">{{ $s->duration_minutes }} menit</span>
+            <span class="text-sm font-bold {{ $color['text'] }}">{{ $s->duration_minutes }} menit</span>
+          </div>
+
+          {{-- Participation Stats --}}
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <div class="bg-white/50 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
+              <div class="flex items-center justify-center gap-1 mb-1">
+                <svg class="w-4 h-4 {{ $color['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+              </div>
+              <div class="text-lg font-black {{ $color['text'] }} leading-none">{{ $s->participants_count ?? 0 }}</div>
+              <div class="text-[10px] font-semibold {{ $color['text'] }} opacity-70 uppercase">Peserta</div>
+            </div>
+
+            <div class="bg-white/50 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
+              <div class="flex items-center justify-center gap-1 mb-1">
+                <svg class="w-4 h-4 {{ $color['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <div class="text-lg font-black {{ $color['text'] }} leading-none">{{ $s->attempts_count ?? 0 }}</div>
+              <div class="text-[10px] font-semibold {{ $color['text'] }} opacity-70 uppercase">Attempt</div>
+            </div>
           </div>
 
           {{-- Schedule Info --}}
           @if($s->opens_at || $s->closes_at)
-            <div class="mt-4 pt-3 border-t-2 border-dashed border-gray-300/50 space-y-1">
+            <div class="space-y-2 bg-white/30 backdrop-blur-sm rounded-lg p-3">
               @if($s->opens_at)
-                <div class="flex items-start gap-2 text-xs text-gray-600">
-                  <span class="font-semibold">🔓</span>
-                  <span>{{ $s->opens_at->format('d M Y, H:i') }}</span>
+                <div class="flex items-center gap-2 text-xs {{ $color['text'] }} font-semibold">
+                  <span class="text-base">🔓</span>
+                  <div class="flex-1">
+                    <div class="text-[10px] opacity-70 uppercase">Dibuka</div>
+                    <div>{{ $s->opens_at->format('d M Y, H:i') }}</div>
+                  </div>
                 </div>
               @endif
               @if($s->closes_at)
-                <div class="flex items-start gap-2 text-xs text-gray-600">
-                  <span class="font-semibold">🔒</span>
-                  <span>{{ $s->closes_at->format('d M Y, H:i') }}</span>
+                <div class="flex items-center gap-2 text-xs {{ $color['text'] }} font-semibold">
+                  <span class="text-base">🔒</span>
+                  <div class="flex-1">
+                    <div class="text-[10px] opacity-70 uppercase">Ditutup</div>
+                    <div>{{ $s->closes_at->format('d M Y, H:i') }}</div>
+                  </div>
                 </div>
               @endif
             </div>
           @endif
 
-          {{-- Hover Effect Indicator --}}
-          <div class="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-            </svg>
+          {{-- Hover Arrow --}}
+          <div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+            <div class="w-8 h-8 {{ $color['accent'] }} rounded-full flex items-center justify-center shadow-md">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+              </svg>
+            </div>
           </div>
+
+          {{-- Corner Fold Effect --}}
+          <div class="absolute top-0 right-0 w-0 h-0 border-t-[30px] border-r-[30px] border-t-transparent border-r-white/20 rounded-tr-2xl group-hover:border-t-[35px] group-hover:border-r-[35px] transition-all"></div>
         </a>
       @endforeach
     </div>
   @else
-    <div class="text-center py-16">
-      <div class="text-6xl mb-4">📋</div>
-      <p class="text-gray-600 text-lg font-medium">Belum ada pertemuan tersedia</p>
-      <p class="text-gray-500 text-sm mt-2">Pertemuan akan ditampilkan setelah ditambahkan oleh admin</p>
+    <div class="text-center py-20">
+      <div class="relative inline-block">
+        <div class="text-8xl mb-6 animate-bounce">📋</div>
+        <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-24 h-3 bg-gray-300/40 rounded-full blur-md"></div>
+      </div>
+      <h3 class="text-gray-800 text-2xl font-black mb-3">Belum Ada Pertemuan</h3>
+      <p class="text-gray-600 text-base font-medium max-w-md mx-auto">
+        Pertemuan akan muncul di sini setelah ditambahkan oleh admin. Pantau terus halaman ini! 🚀
+      </p>
     </div>
   @endif
 </div>
