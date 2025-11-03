@@ -29,11 +29,8 @@ class PostResource extends Resource
             TextInput::make('title')
                 ->label('Judul')
                 ->required()
-                // Generate slug sekali saat user selesai mengisi judul (on blur),
-                // jadi slug pakai judul lengkap, bukan potongan awal.
                 ->live(onBlur: true)
                 ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
-                    // Saat CREATE atau jika slug masih kosong, isi ulang dari judul.
                     if (blank($get('slug'))) {
                         $set('slug', Str::slug((string) $state));
                     }
@@ -41,10 +38,9 @@ class PostResource extends Resource
 
             TextInput::make('slug')
                 ->label('Slug')
-                ->readOnly()               // biar tidak berubah tanpa sengaja
-                ->dehydrated()             // tetap disimpan ke DB
+                ->readOnly()
+                ->dehydrated()
                 ->unique(ignoreRecord: true)
-                // Tombol kecil untuk regenerate slug dari judul kapan pun dibutuhkan
                 ->suffixAction(
                     Action::make('regenerate')
                         ->icon('heroicon-o-arrow-path')
@@ -81,12 +77,11 @@ class PostResource extends Resource
                 ->required()
                 ->columnSpanFull()
                 ->maxContentWidth('4xl')
-                // pakai profil bawaan lalu tambahkan table & image
                 ->profile('simple')
                 ->tools([
                     'heading','bullet-list','ordered-list','bold','italic','underline','link',
-                    'table',           // << penting buat tabel
-                    'media',           // image / dokumen
+                    'table',
+                    'media',
                     'code','code-block','blockquote','hr',
                     'undo','redo',
                 ]),
@@ -112,17 +107,41 @@ class PostResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('title')->searchable()->limit(40)->sortable(),
+                Tables\Columns\TextColumn::make('title')
+                    ->searchable()
+                    ->limit(40)
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('type')
                     ->label('Jenis')
                     ->formatStateUsing(fn ($state) => \App\Models\Post::TYPES[$state] ?? $state)
                     ->badge(),
-                Tables\Columns\IconColumn::make('is_published')->boolean()->label('Published'),
-                Tables\Columns\TextColumn::make('published_at')->dateTime('d M Y H:i')->label('Dipublikasi'),
+
+                Tables\Columns\IconColumn::make('is_published')
+                    ->boolean()
+                    ->label('Published'),
+
+                Tables\Columns\TextColumn::make('published_at')
+                    ->dateTime('d M Y H:i')
+                    ->label('Dipublikasi')
+                    ->sortable(),
+
+                // ====== Kolom Views ======
+                Tables\Columns\TextColumn::make('views')
+                    ->label('Views')
+                    ->sortable()
+                    ->alignRight()
+                    ->formatStateUsing(fn ($state) => number_format((int) $state))
+                    ->tooltip('Total view per-refresh (dengan rate limit ringan)')
+                    ->toggleable(), // bisa disembunyikan via kebab menu
             ])
             ->filters([
-                SelectFilter::make('type')->label('Jenis')->options(\App\Models\Post::TYPES),
-                Tables\Filters\TernaryFilter::make('is_published')->label('Hanya published'),
+                SelectFilter::make('type')
+                    ->label('Jenis')
+                    ->options(\App\Models\Post::TYPES),
+
+                Tables\Filters\TernaryFilter::make('is_published')
+                    ->label('Hanya published'),
             ])
             ->defaultSort('published_at', 'desc')
             ->actions([

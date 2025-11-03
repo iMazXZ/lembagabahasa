@@ -43,6 +43,14 @@
         if (function_exists('clean')) { try { return clean($html, 'post'); } catch (\Throwable $e) {} }
         return $sanitizeHtml($html);
     };
+
+    // ===== Helper format tampilan views (1.2K / 3.4M) =====
+    $formatViews = function ($n) {
+        $n = (int) ($n ?? 0);
+        if ($n >= 1000000) return number_format($n / 1000000, 1) . 'M';
+        if ($n >= 1000)    return number_format($n / 1000, 1) . 'K';
+        return number_format($n);
+    };
 @endphp
 
 @push('styles')
@@ -156,6 +164,16 @@
           <span>{{ $post->author->name }}</span>
         </div>
       @endif
+
+      {{-- ====== Tampilkan jumlah views ====== --}}
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z"/>
+          <circle cx="12" cy="12" r="3" stroke-width="2" stroke="currentColor" fill="none"/>
+        </svg>
+        <span>{{ $formatViews($post->views ?? 0) }} views</span>
+      </div>
     </div>
   </header>
 

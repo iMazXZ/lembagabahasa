@@ -28,6 +28,7 @@ use App\Http\Controllers\BasicListeningQuizFibController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\BasicListeningProfileController;
 use App\Http\Controllers\BlSurveyController;
+use App\Http\Middleware\CountPostView;
 
 
 /*
@@ -50,8 +51,9 @@ Route::get('/nilai-ujian', [PostController::class, 'index'])
     ->defaults('type', 'scores')
     ->name('front.scores');
 
-Route::get('/post/{slug}', [PostController::class, 'show'])
-    ->name('front.post.show');
+Route::get('/post/{post:slug}', [PostController::class, 'show'])
+    ->name('front.post.show')
+    ->middleware(CountPostView::class);
 
 Route::get('/login', fn () => redirect()->route('filament.admin.auth.login'))
     ->name('login');

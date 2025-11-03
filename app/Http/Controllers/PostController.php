@@ -19,7 +19,7 @@ class PostController extends Controller
 
         $query = Post::published()
             ->type($type) // karena $type selalu salah satu dari tiga di atas
-            ->select(['id','title','slug','excerpt','cover_path','published_at','author_id','type'])
+            ->select(['id', 'title', 'slug', 'excerpt', 'cover_path', 'published_at', 'author_id', 'type', 'views'])
             ->with(['author:id,name']);
 
         // Pencarian (opsional)
@@ -49,25 +49,26 @@ class PostController extends Controller
         return view('front.posts.index', compact('posts', 'title', 'category'));
     }
 
-    public function show(string $slug)
+    public function show(Post $post)
     {
-        $post = Post::published()
-            ->where('slug', $slug)
-            ->with(['author:id,name'])
-            ->firstOrFail();
+        // Lengkapi relasi bila belum dimuat
+        $post->loadMissing(['author:id,name']);
 
         $related = Post::published()
             ->type($post->type)
             ->where('id', '!=', $post->id)
             ->latest('published_at')
             ->limit(4)
-            ->get(['title','slug','cover_path','published_at']);
+            ->get(['title', 'slug', 'cover_path', 'published_at']);
 
         $body = $this->formatBody($post->body ?? '');
 
         return view('front.posts.show', compact('post', 'related', 'body'));
     }
 
+    /**
+     * Merapikan HTML body agar bersih untuk ditampilkan.
+     */
     private function formatBody(string $html): string
     {
         if ($html === '') return $html;
@@ -108,7 +109,7 @@ class PostController extends Controller
             $attrs = preg_replace('/\s(?:width|height)="[^"]*"/i', '', $m[1]);
             if (!preg_match('/\balt="/i', $attrs)) $attrs .= ' alt=""';
             $attrs .= ' loading="lazy" decoding="async" class="mx-auto my-6 rounded-2xl shadow-md"';
-            return '<img'.$attrs.'>';
+            return '<img' . $attrs . '>';
         }, $html);
 
         // buang paragraf kosong bertumpuk
