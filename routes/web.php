@@ -138,11 +138,11 @@ Route::get('/basic-listening/sessions/{session}', [BasicListeningController::cla
 
 /*
 |--------------------------------------------------------------------------
-| Basic Listening – Connect Code (Protected)
+| Basic Listening – Connect Code (Protected + biodata lengkap)
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'bl.profile'])->group(function () {
     Route::get('/basic-listening/sessions/{session}/code', [BasicListeningConnectController::class, 'showForm'])
         ->whereNumber('session')
         ->name('bl.code.form');
@@ -154,11 +154,11 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Basic Listening – Quiz Lama (MC / multi-soal) – Protected
+| Basic Listening – Quiz Lama (MC / multi-soal) – Protected + biodata lengkap
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'bl.profile'])->group(function () {
     Route::get('/basic-listening/quiz/{attempt}', [BasicListeningQuizController::class, 'show'])
         ->whereNumber('attempt')
         ->name('bl.quiz.show');
@@ -196,11 +196,11 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Basic Listening – Quiz Baru (FIB 1 paragraf + timer) – Protected
+| Basic Listening – Quiz Baru (FIB 1 paragraf + timer) – Protected + biodata lengkap
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'bl.profile'])->group(function () {
     Route::post('/bl/quiz/{quiz}/start',  [BasicListeningQuizFibController::class, 'start'])
         ->whereNumber('quiz')
         ->name('bl.start');
@@ -251,3 +251,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/bl/survey/reset-choice', [BlSurveyController::class, 'resetChoice'])->name('bl.survey.reset-choice');
 });
 
+Route::middleware(['auth'])->group(function () {
+    Route::get('/bl/complete-profile', [BasicListeningProfileController::class, 'showCompleteForm'])
+        ->name('bl.profile.complete');
+
+    Route::post('/bl/complete-profile', [BasicListeningProfileController::class, 'submitCompleteForm'])
+        ->name('bl.profile.complete.submit');
+});

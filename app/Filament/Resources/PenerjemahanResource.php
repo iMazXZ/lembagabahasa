@@ -86,7 +86,7 @@ class PenerjemahanResource extends Resource
                 ->acceptedFileTypes(['image/*'])
                 ->maxSize(8192)
                 ->downloadable()
-                ->helperText('PNG/JPG hingga 8MB. Sistem otomatis mengompres ke WebP.')
+                ->helperText('PNG/JPG maksimal 8MB.')
                 ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, $get) {
                     $nama = Str::slug(auth()->user()?->name ?? 'pemohon', '_');
                     $base = "proof_{$nama}.webp";
@@ -206,12 +206,14 @@ class PenerjemahanResource extends Resource
                 ->label('Tanggal Pengajuan')
                 ->default(now())
                 ->disabled()
-                ->dehydrated(),
+                ->dehydrated()
+                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
 
             Forms\Components\DateTimePicker::make('completion_date')
                 ->label('Tanggal Selesai')
                 ->disabled()
-                ->dehydrated(),
+                ->dehydrated()
+                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
 
             // Info Status & Penerjemah
             Forms\Components\Placeholder::make('status_badge')

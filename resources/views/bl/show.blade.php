@@ -256,50 +256,70 @@ HTML;
 
     {{-- Quiz Action Button --}}
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-6 sm:p-8 mb-8">
-        @if($isOpen)
-            @auth
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900 mb-1">Siap Mengerjakan Quiz?</h3>
-                        <p class="text-sm text-gray-600">Pastikan Anda sudah memahami materi sebelum memulai.</p>
-                    </div>
-                    <a href="{{ route('bl.code.form', $session) }}"
-                       class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all transform hover:scale-105">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                        </svg>
-                        Kerjakan Quiz
-                    </a>
-                </div>
-            @else
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900 mb-1">Login Diperlukan</h3>
-                        <p class="text-sm text-gray-600">Silakan login terlebih dahulu untuk mengerjakan quiz.</p>
-                    </div>
-                    <a href="{{ route('login') }}"
-                       class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-                        </svg>
-                        Login untuk Kerjakan Quiz
-                    </a>
-                </div>
-            @endauth
-        @else
-            <div class="text-center py-4">
-                <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                <p class="text-gray-600 font-medium">
-                    @if(!$hasOpened)
-                        Sesi belum dibuka. Silakan tunggu hingga waktu pembukaan.
-                    @else
-                        Sesi sudah ditutup. Tidak dapat mengerjakan quiz.
-                    @endif
+    @if ($isOpen)
+        @auth
+        @php
+            $u = auth()->user();
+            $needProfile = ! $u?->prody_id || ! $u?->srn || ! $u?->year;
+            $next = route('bl.code.form', $session); // tujuan setelah lengkap biodata
+            $targetHref = $needProfile
+            ? route('bl.profile.complete', ['next' => $next])
+            : $next;
+        @endphp
+
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-1">Siap Mengerjakan Quiz?</h3>
+            <p class="text-sm text-gray-600">Pastikan Anda sudah memahami materi sebelum memulai.</p>
+            @if ($needProfile)
+                <p class="text-xs text-amber-600 mt-1">
+                Lengkapi <strong>Prodi, SRN, Tahun</strong> terlebih dahulu.
                 </p>
+            @endif
             </div>
-        @endif
+
+            <a href="{{ $targetHref }}"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all transform hover:scale-105"
+            aria-label="Kerjakan Quiz">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+            Kerjakan Quiz
+            </a>
+        </div>
+        @else
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-1">Login Diperlukan</h3>
+            <p class="text-sm text-gray-600">Silakan login terlebih dahulu untuk mengerjakan quiz.</p>
+            </div>
+            <a href="{{ route('login') }}"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all"
+            aria-label="Login untuk Kerjakan Quiz">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+            Login untuk Kerjakan Quiz
+            </a>
+        </div>
+        @endauth
+    @else
+        <div class="text-center py-4">
+        <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        <p class="text-gray-600 font-medium">
+            @if (! $hasOpened)
+            Sesi belum dibuka. Silakan tunggu hingga waktu pembukaan.
+            @else
+            Sesi sudah ditutup. Tidak dapat mengerjakan quiz.
+            @endif
+        </p>
+        </div>
+    @endif
     </div>
 
     {{-- Back Navigation --}}

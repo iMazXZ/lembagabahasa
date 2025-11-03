@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use App\Models\Prody;
 
 class BasicListeningProfileController extends Controller
 {
@@ -23,5 +25,40 @@ class BasicListeningProfileController extends Controller
         ]);
 
         return back()->with('success', 'Nomor grup berhasil disimpan.');
+    }
+
+    public function showCompleteForm(Request $request)
+    {
+        $user = $request->user();
+        $next = $request->query('next', route('bl.index'));
+
+        $prodis = Prody::query()->orderBy('name')->get(['id','name']);
+
+        return view('bl.complete_profile', [
+            'user'   => $user,
+            'next'   => $next,
+            'prodis' => $prodis,
+        ]);
+    }
+
+    public function submitCompleteForm(Request $request)
+    {
+        $user = $request->user();
+        $next = $request->input('next', route('bl.index'));
+
+        $data = $request->validate([
+            'prody_id' => ['required', Rule::exists('prodies','id')], // sesuaikan nama tabel jika Prody kamu 'prodies'
+            'srn'      => ['required','string','max:50'],
+            'year'     => ['required','integer','min:2015','max:'.(int)now()->year],
+        ], [
+            'prody_id.required' => 'Pilih Program Studi.',
+            'prody_id.exists'   => 'Program Studi tidak valid.',
+            'srn.required'      => 'SRN wajib diisi.',
+            'year.required'     => 'Tahun angkatan wajib diisi.',
+        ]);
+
+        $user->forceFill($data)->save();
+
+        return redirect($next)->with('success', 'Biodata berhasil dilengkapi. Silakan lanjut.');
     }
 }

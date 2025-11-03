@@ -34,7 +34,7 @@ class PenerjemahanStatusWidget extends Widget
     {
         return Action::make('ajukanPenerjemahan')
             ->label('Ajukan Penerjemahan')
-            ->url(route('filament.admin.resources.penerjemahan.create'))
+            ->url(route('filament.admin.resources.penerjemahan.index'))
             ->color('primary')
             ->icon('heroicon-s-document-plus');
     }
