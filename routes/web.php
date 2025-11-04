@@ -30,6 +30,7 @@ use App\Http\Controllers\BasicListeningProfileController;
 use App\Http\Controllers\BlSurveyController;
 use App\Http\Middleware\CountPostView;
 
+use App\Http\Controllers\BasicListeningScheduleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -260,3 +261,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/bl/complete-profile', [BasicListeningProfileController::class, 'submitCompleteForm'])
         ->name('bl.profile.complete.submit');
 });
+
+Route::get('/basic-listening/schedule', [BasicListeningScheduleController::class, 'index'])
+    ->name('bl.schedule');

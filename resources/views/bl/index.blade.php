@@ -333,6 +333,11 @@
     </div>
   @endif
 
+  <a href="{{ route('bl.schedule') }}"
+    class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+    <x-heroicon-o-calendar class="w-5 h-5"/>
+    Lihat Jadwal Hari Ini
+  </a>
   {{-- Sessions Grid --}}
   @if(isset($sessions) && count($sessions) > 0)
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-4">

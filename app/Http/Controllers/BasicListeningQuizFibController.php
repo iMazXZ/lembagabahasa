@@ -299,55 +299,40 @@ class BasicListeningQuizFibController extends Controller
             ->where('type', 'fib_paragraph')
             ->firstOrFail();
 
-        // Konfigurasi penilaian
-        $scoring      = $q->fib_scoring ?? [
-            'mode'              => 'exact',
-            'case_sensitive'    => false,
-            'allow_trim'        => true,
-            'strip_punctuation' => true,
+        $scoring = $q->fib_scoring ?? [
+            'mode' => 'exact', 'case_sensitive' => false,
+            'allow_trim' => true, 'strip_punctuation' => true,
         ];
-        $weights      = $q->fib_weights ?? [];
-        $placeholders = $q->fib_placeholders ?? [];
-        $keys         = $q->fib_answer_key ?? [];
+        $weights = $q->fib_weights ?? [];
+        $keys    = $q->fib_answer_key ?? []; // contoh: ['1' => 'Are', '2'=>'Is', ...]
+        $userFib = (array) $request->input('answers', []); // index: 0..N
 
-        // Ambil jawaban dari form (biarkan index dan nilai kosong tetap ada)
-        $userFib = (array) $request->input('answers', []);
-        // JANGAN array_filter agar blank tetap diproses sebagai salah
+        // ---- Ambil / bangun blank map (placeholder → seqIndex 0-based)
+        $blankMap = session('fib_blank_map_' . $q->id, []);
 
-        // Map nomor placeholder -> index urut yang dipakai di input
-        $blankMap = session('fib_blank_map_' . $q->id, []); // contoh: [ '1' => 0, '3' => 1, '2' => 2 ]
+        if (empty($blankMap)) {
+            if (!empty($keys)) {
+                // kunci 1..N → index 0..N-1
+                foreach (array_keys($keys) as $bn) {
+                    $blankMap[(string)$bn] = max(0, ((int)$bn) - 1);
+                }
+            } else {
+                // fallback terakhir: turunan dari input user (0..N → 1..N)
+                foreach (array_keys($userFib) as $i) {
+                    $blankMap[(string)($i + 1)] = (int)$i;
+                }
+            }
+        }
 
-        // Susun user answers keyed by "blankNumber" jika kita punya map
+        // ---- Susun user answers (keyed by nomor placeholder: '1','2',...)
         $mappedUserFib = [];
-        if (!empty($blankMap)) {
-            foreach ($blankMap as $blankNumber => $seq) {
-                // $userFib mungkin tidak punya index ini jika benar-benar kosong
-                $mappedUserFib[$blankNumber] = $userFib[$seq] ?? '';
-            }
-        } else {
-            // Tanpa peta, biarkan apa adanya (kunci = 0..N)
-            // (Jika $keys menggunakan '1','2',... maka penilaian fallback akan mencoba cocokkan indeks apa adanya)
-            foreach ($userFib as $seq => $ans) {
-                $mappedUserFib[(string)$seq] = $ans ?? '';
-            }
+        foreach ($blankMap as $blankNumber => $seq) {
+            $mappedUserFib[$blankNumber] = $userFib[$seq] ?? '';
         }
 
-        // Tentukan daftar placeholder yang diharapkan
-        if (!empty($blankMap)) {
-            $expectedBlanks = array_keys($blankMap); // ['1','2','3', ...]
-        } elseif (!empty($keys)) {
-            $expectedBlanks = array_keys($keys);     // pakai kunci dari kunci jawaban
-        } else {
-            // fallback: pakai kunci dari input user (0..N sebagai string)
-            $expectedBlanks = array_map('strval', array_keys($mappedUserFib));
-        }
-
-        // ❌ Hapus validasi "harus lengkap" → biarkan kosong dinilai salah
-        // (blok missing dihapus)
-
-        // Simpan jawaban & penilaian
-        $qScore  = 0.0;
-        $qWeight = 0.0;
+        // ---- Penilaian
+        $expectedBlanks = array_keys($blankMap); // urut kemunculan
+        $qScore = 0.0; $qWeight = 0.0;
 
         foreach ($expectedBlanks as $blankNumber) {
             $w = (float) ($weights[$blankNumber] ?? 1);
@@ -357,16 +342,10 @@ class BasicListeningQuizFibController extends Controller
             $key     = $keys[$blankNumber] ?? null;
             $correct = $key ? $this->matchAnswer($userVal, $key, $scoring) : false;
 
-            // Pakai seqIndex dari $blankMap langsung bila ada
-            if (!empty($blankMap) && isset($blankMap[$blankNumber])) {
-                $blankIndex = (string) $blankMap[$blankNumber]; // 0,1,2,...
-            } else {
-                // fallback: pakai nomor yang sama (0..N atau '1','2',..)
-                $blankIndex = (string) $blankNumber;
-            }
-
+            // simpan SELALU pakai index 0-based (seqIndex)
+            $seqIndex = (string) $blankMap[$blankNumber]; // 0,1,2,...
             $attempt->answers()->updateOrCreate(
-                ['question_id' => $q->id, 'blank_index' => $blankIndex],
+                ['question_id' => $q->id, 'blank_index' => $seqIndex],
                 ['answer' => $userVal, 'is_correct' => $correct]
             );
 
@@ -374,24 +353,16 @@ class BasicListeningQuizFibController extends Controller
         }
 
         $finalScore = $qWeight > 0 ? round(($qScore / $qWeight) * 100, 2) : 0;
-
-        // Hapus peta setelah submit
         session()->forget('fib_blank_map_' . $q->id);
 
-        $attempt->update([
-            'score'        => $finalScore,
-            'submitted_at' => now(),
-        ]);
+        $attempt->update(['score' => $finalScore, 'submitted_at' => now()]);
 
-        // Pesan khusus jika submit terjadi setelah waktu habis
         if (now()->greaterThan($attempt->expires_at)) {
-            return redirect()
-                ->route('bl.history.show', $attempt->id)
+            return redirect()->route('bl.history.show', $attempt->id)
                 ->with('warning', 'Time is up. Answers saved & graded at timeout.');
         }
 
-        return redirect()
-            ->route('bl.history.show', $attempt->id)
+        return redirect()->route('bl.history.show', $attempt->id)
             ->with('success', 'Your answers have been submitted.');
     }
 }

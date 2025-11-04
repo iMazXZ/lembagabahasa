@@ -110,13 +110,14 @@
     .participant-name-container{ margin: 7mm 0; }
     .participant-name{ font-size:24px; font-weight:900; color:var(--ink); margin-bottom:3.5mm; }
     .participant-details{ font-size:10px; color:#6c757d; line-height:1.4; }
+    .certificate-number{ font-size:12px; color:#6c757d; line-height:1; }
     .participant-details strong{ color:var(--ink); font-weight:700; }
 
     .title-description{ font-size:10px; color:#6c757d; margin-top:7mm; }
 
     .scores-section{ margin:5mm auto 0 auto; width:82%; }
     table{ border-collapse:collapse; }
-    .scores-table{ width:100%; font-size:10px; }
+    .scores-table{ width:100%; font-size:12px; }
     .scores-table th, .scores-table td{ padding:3px 5px; border-bottom:1px dashed #dee2e6; }
     .scores-table th{ color:#6c757d; background:#f8f9fa; text-align:left; }
     .scores-table td.num-center{ text-align:center; }
@@ -222,7 +223,10 @@
       <div class="main-content avoid-break">
         <div class="certificate-title">
           <div class="title-main">Certificate of Completion</div>
-          <div class="title-sub">Diberikan Kepada</div>
+          <div class="certificate-number" style="margin-bottom:4mm;">
+            <strong>Nomor :</strong> {{ $certificateNumber }}
+          </div>
+          <div class="title-sub" style="margin-top:8mm;">Diberikan Kepada</div>
         </div>
 
         <div class="participant-name-container">

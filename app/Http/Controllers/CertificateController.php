@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\BasicListeningGrade;
-use App\Models\BasicListeningSurvey;             // ✅ tambahkan
-use App\Models\BasicListeningSurveyResponse;     // ✅ tambahkan
+use App\Models\BasicListeningSurvey;
+use App\Models\BasicListeningSurveyResponse;
 use App\Support\BlCompute;
 use App\Support\BlGrading;
-use App\Support\BlSource; // ✅ helper baru (jika dipakai)
+use App\Support\BlSource;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -196,6 +196,12 @@ class CertificateController extends Controller
             $grade->verification_url = route('verification.show', ['code' => $grade->verification_code], true);
         }
 
+        $userId   = $user->id;
+        $group    = $user->nomor_grup_bl ?? 'ISI NOMOR GRUP';
+        $prodyId  = $user->prody_id ?? 'ISI PRODI';
+
+        $certificateNumber = "{$userId}.{$group}.{$prodyId}/II.3.AU/A/EPP.LB.2026";
+
         $grade->save();
 
         return [
@@ -211,6 +217,7 @@ class CertificateController extends Controller
             'logoPath'         => public_path('images/logo-um.png'),
             'signPath'         => public_path('images/ttd_ketua.png'),
             'stampPath'        => public_path('images/stempel.png'),
+            'certificateNumber'=> $certificateNumber,
         ];
     }
 
