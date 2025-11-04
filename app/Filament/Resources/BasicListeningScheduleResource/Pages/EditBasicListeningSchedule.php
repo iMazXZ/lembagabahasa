@@ -16,4 +16,10 @@ class EditBasicListeningSchedule extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function afterSave(): void
+    {
+        $ids = $this->form->getState()['tutors'] ?? [];
+        $this->record->tutors()->sync($ids);
+    }
 }

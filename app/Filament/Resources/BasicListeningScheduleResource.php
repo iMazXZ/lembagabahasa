@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 
 class BasicListeningScheduleResource extends Resource
 {
@@ -31,17 +32,19 @@ class BasicListeningScheduleResource extends Resource
                 ->searchable()
                 ->required(),
 
-            Forms\Components\Select::make('tutors')
+            Forms\Components\Select::make('tutors')   // array of user IDs
                 ->label('Tutor / Asisten')
                 ->multiple()
                 ->preload()
                 ->searchable()
-                ->relationship(
-                    name: 'tutors',
-                    titleAttribute: 'name',
-                    modifyQueryUsing: fn (Builder $q) =>
-                        $q->whereHas('roles', fn (Builder $r) => $r->where('name','tutor'))
+                ->options(
+                    User::query()
+                        ->whereHas('roles', fn ($q) => $q->where('name', 'tutor'))
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->toArray()
                 )
+                ->default(fn ($record) => $record?->tutors()->pluck('users.id')->all() ?? [])
                 ->required(),
 
             Forms\Components\Select::make('hari')
@@ -61,10 +64,8 @@ class BasicListeningScheduleResource extends Resource
                 Tables\Columns\TextColumn::make('tutor_names')
                     ->label('Tutor')
                     ->getStateUsing(fn ($record) => $record->tutors->pluck('name')->join(', '))
-                    ->wrap()->limit(80)
-                    ->searchable(query: fn (Builder $q, $term) =>
-                        $q->whereHas('tutors', fn (Builder $r) => $r->where('name','like',"%{$term}%"))
-                    ),
+                    ->wrap()
+                    ->limit(80),
                 Tables\Columns\TextColumn::make('hari')->sortable(),
                 Tables\Columns\TextColumn::make('jam_mulai')->time('H:i'),
                 Tables\Columns\TextColumn::make('jam_selesai')->time('H:i'),
