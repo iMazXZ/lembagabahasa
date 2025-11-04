@@ -125,8 +125,11 @@ class BasicListeningQuizFibController extends Controller
         // ⏳ Guard waktu
         $remaining = max(0, now()->diffInSeconds($attempt->expires_at, false));
         if ($remaining <= 0) {
-            $attempt->update(['submitted_at' => now(), 'score' => $attempt->score ?? 0]);
-            return redirect()->route('bl.history.show', $attempt->id)->with('warning', 'Time is up.');
+            // ⛳️ Perbaikan: lakukan grading server-side saat timeout.
+            $this->gradeFibAttempt($attempt);
+            return redirect()
+                ->route('bl.history.show', $attempt->id)
+                ->with('warning', 'Time is up. Answers saved & graded at timeout.');
         }
 
         $question = BasicListeningQuestion::where('quiz_id', $quiz->id)
@@ -257,7 +260,8 @@ class BasicListeningQuizFibController extends Controller
             ->with('success', 'Jawaban berhasil disimpan.');
     }
 
-    // Utilities penilaian
+    // ===== Utilities penilaian =====
+
     private function normalize(string $s, array $scoring): string
     {
         if (($scoring['allow_trim'] ?? true)) $s = trim($s);
@@ -286,6 +290,70 @@ class BasicListeningQuizFibController extends Controller
         return false;
     }
 
+    /**
+     * Grading server-side untuk FIB berbasis jawaban yang sudah tersimpan.
+     * Dipakai saat timeout maupun bisa dipanggil ulang kapan pun.
+     */
+    private function gradeFibAttempt(BasicListeningAttempt $attempt): void
+    {
+        $q = BasicListeningQuestion::where('quiz_id', $attempt->quiz_id)
+            ->where('type', 'fib_paragraph')
+            ->firstOrFail();
+
+        $scoring = $q->fib_scoring ?? [
+            'mode'              => 'exact',
+            'case_sensitive'    => false,
+            'allow_trim'        => true,
+            'strip_punctuation' => true,
+        ];
+        $weights = $q->fib_weights ?? [];
+        $keys    = $q->fib_answer_key ?? []; // kunci 1..N
+
+        // Map nomor placeholder (1..N) → seqIndex 0..N-1
+        $map = [];
+        foreach (array_keys($keys) as $bn) {
+            $map[(string)$bn] = max(0, ((int)$bn) - 1);
+        }
+
+        // Jawaban tersimpan, keyed by seqIndex 0..N-1
+        $saved = $attempt->answers()
+            ->where('question_id', $q->id)
+            ->get(['blank_index', 'answer'])
+            ->pluck('answer', 'blank_index')
+            ->all();
+
+        $qScore = 0.0;
+        $qWeight = 0.0;
+
+        foreach ($map as $bn => $seq) {
+            $w = (float) ($weights[$bn] ?? 1);
+            $qWeight += $w;
+
+            $userVal = (string) ($saved[$seq] ?? ''); // kosong kalau belum ada
+            $key     = $keys[$bn] ?? null;
+            $correct = $key ? $this->matchAnswer($userVal, $key, $scoring) : false;
+
+            // Pastikan baris exist & is_correct terisi 0/1
+            $attempt->answers()->updateOrCreate(
+                ['question_id' => $q->id, 'blank_index' => (string) $seq],
+                ['answer' => $userVal, 'is_correct' => $correct]
+            );
+
+            if ($correct) $qScore += $w;
+        }
+
+        $final = $qWeight > 0 ? round(($qScore / $qWeight) * 100, 2) : 0;
+
+        $attempt->forceFill([
+            'score'        => $final,
+            'submitted_at' => now(),
+        ])->save();
+
+        // Bersihkan peta sesi agar tidak bentrok sesi berikutnya
+        session()->forget('fib_blank_map_' . $q->id);
+    }
+
+    // SUBMIT & GRADE (via tombol Kumpulkan)
     public function submit(Request $request, $quizId)
     {
         $quiz = BasicListeningQuiz::findOrFail($quizId);
