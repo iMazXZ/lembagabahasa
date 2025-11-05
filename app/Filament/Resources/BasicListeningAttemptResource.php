@@ -25,6 +25,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Get;
 
 class BasicListeningAttemptResource extends Resource
 {
@@ -90,19 +91,70 @@ class BasicListeningAttemptResource extends Resource
                         ->reorderable(false)
                         ->grid(1)
                         ->schema([
-                            Hidden::make('id'), // PENTING agar afterSave bisa sync by ID
+                            Hidden::make('id'),
+                            Hidden::make('question_id'), // ← pastikan ikut terdehidrasi agar kita bisa baca kunci
 
                             Grid::make(12)->schema([
                                 TextInput::make('blank_index')
                                     ->label('Blank #')
                                     ->disabled()
                                     ->dehydrated(false)
-                                    ->formatStateUsing(fn ($state) => is_numeric($state) ? ((int)$state + 1) : ($state ?? '-'))
+                                    ->formatStateUsing(fn ($state) => is_numeric($state) ? ((int)$state + 1) : ($state ?? '—'))
                                     ->columnSpan(2),
 
                                 TextInput::make('answer')
                                     ->label('Jawaban Peserta')
-                                    ->columnSpan(7),
+                                    ->columnSpan(5),
+
+                                // === Kunci jawaban (readonly) ===
+                                Placeholder::make('correct_key')
+                                    ->label('Kunci')
+                                    ->content(function (Get $get) {
+                                        $questionId = $get('question_id');
+                                        $blankIndex = $get('blank_index');
+
+                                        if (!$questionId) {
+                                            return '—';
+                                        }
+
+                                        /** @var \App\Models\BasicListeningQuestion|null $q */
+                                        $q = \App\Models\BasicListeningQuestion::find($questionId);
+                                        if (!$q) {
+                                            return '—';
+                                        }
+
+                                        $type = $q->type ?? 'unknown';
+
+                                        // MC: tampilkan huruf kunci (A/B/C/D) atau teksnya jika mau
+                                        if ($type === 'multiple_choice') {
+                                            // tampilkan huruf kuncinya
+                                            return $q->correct ?? '—';
+                                            // kalau mau teks opsi:
+                                            // $map = ['A' => $q->option_a, 'B' => $q->option_b, 'C' => $q->option_c, 'D' => $q->option_d];
+                                            // return $q->correct ? ($map[$q->correct] ?? $q->correct) : '—';
+                                        }
+
+                                        // FIB: ambil dari fib_answer_key (array)
+                                        if ($type === 'fib_paragraph') {
+                                            $keys = is_array($q->fib_answer_key ?? null) ? $q->fib_answer_key : [];
+                                            if ($keys === []) {
+                                                return '—';
+                                            }
+
+                                            // Normalisasi index: kunci bisa 1-based; blank_index di DB biasanya 0-based
+                                            $isOneBased = isset($keys[1]) && !isset($keys[0]);
+                                            $displayIdx = $isOneBased ? ((int)$blankIndex + 1) : ((int)$blankIndex);
+
+                                            $keyRaw = $keys[$displayIdx] ?? null;
+                                            if (is_array($keyRaw)) {
+                                                return implode(' / ', $keyRaw);
+                                            }
+                                            return $keyRaw ?? '—';
+                                        }
+
+                                        return '—';
+                                    })
+                                    ->columnSpan(3),
 
                                 Select::make('is_correct')
                                     ->label('Status')
@@ -112,11 +164,10 @@ class BasicListeningAttemptResource extends Resource
                                     ])
                                     ->required()
                                     ->native(false)
-                                    // perbaikan inti: pastikan boolean murni ke DB
                                     ->dehydrateStateUsing(
                                         fn ($state) => in_array(strtolower((string)$state), ['1','true','on','yes','y'], true)
                                     )
-                                    ->columnSpan(3),
+                                    ->columnSpan(2),
                             ]),
                         ])
                         ->itemLabel(fn (array $state): ?string =>
@@ -316,7 +367,8 @@ class BasicListeningAttemptResource extends Resource
                     ->visible(fn ($record): bool =>
                         auth()->user()?->hasAnyRole(['Admin']) ?? false
                     ),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     /** ----------------------------------------------------------------
