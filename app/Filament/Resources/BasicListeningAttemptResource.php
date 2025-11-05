@@ -157,45 +157,36 @@ class BasicListeningAttemptResource extends Resource
                                     ->label('Kunci')
                                     ->content(function (Get $get) {
                                         $questionId = $get('question_id');
-                                        $blankIndex = $get('blank_index');
+                                        $blankIndex = (int) $get('blank_index');
 
-                                        if (!$questionId) {
-                                            return '—';
-                                        }
+                                        if (!$questionId) return '—';
 
                                         /** @var \App\Models\BasicListeningQuestion|null $q */
                                         $q = \App\Models\BasicListeningQuestion::find($questionId);
-                                        if (!$q) {
-                                            return '—';
-                                        }
+                                        if (!$q) return '—';
 
                                         $type = $q->type ?? 'unknown';
 
-                                        // MC: tampilkan huruf kunci (A/B/C/D) atau teksnya jika mau
+                                        // MC: tampilkan huruf kunci (atau teks opsi jika mau)
                                         if ($type === 'multiple_choice') {
-                                            // tampilkan huruf kuncinya
                                             return $q->correct ?? '—';
-                                            // kalau mau teks opsi:
-                                            // $map = ['A' => $q->option_a, 'B' => $q->option_b, 'C' => $q->option_c, 'D' => $q->option_d];
-                                            // return $q->correct ? ($map[$q->correct] ?? $q->correct) : '—';
                                         }
 
-                                        // FIB: ambil dari fib_answer_key (array)
+                                        // FIB: robust mapping (coba 0-based lalu 1-based)
                                         if ($type === 'fib_paragraph') {
                                             $keys = is_array($q->fib_answer_key ?? null) ? $q->fib_answer_key : [];
-                                            if ($keys === []) {
-                                                return '—';
+
+                                            // Kandidat indeks untuk dicoba berurutan (prioritas 0-based dulu)
+                                            $candidates = [$blankIndex, $blankIndex + 1];
+
+                                            foreach ($candidates as $idx) {
+                                                if (array_key_exists($idx, $keys)) {
+                                                    $keyRaw = $keys[$idx];
+                                                    return is_array($keyRaw) ? implode(' / ', $keyRaw) : ($keyRaw ?? '—');
+                                                }
                                             }
 
-                                            // Normalisasi index: kunci bisa 1-based; blank_index di DB biasanya 0-based
-                                            $isOneBased = isset($keys[1]) && !isset($keys[0]);
-                                            $displayIdx = $isOneBased ? ((int)$blankIndex + 1) : ((int)$blankIndex);
-
-                                            $keyRaw = $keys[$displayIdx] ?? null;
-                                            if (is_array($keyRaw)) {
-                                                return implode(' / ', $keyRaw);
-                                            }
-                                            return $keyRaw ?? '—';
+                                            return '—';
                                         }
 
                                         return '—';
