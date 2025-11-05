@@ -206,14 +206,12 @@ class PenerjemahanResource extends Resource
                 ->label('Tanggal Pengajuan')
                 ->default(now())
                 ->disabled()
-                ->dehydrated()
-                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
+                ->dehydrated(),
 
             Forms\Components\DateTimePicker::make('completion_date')
                 ->label('Tanggal Selesai')
                 ->disabled()
-                ->dehydrated()
-                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
+                ->dehydrated(),
 
             // Info Status & Penerjemah
             Forms\Components\Placeholder::make('status_badge')

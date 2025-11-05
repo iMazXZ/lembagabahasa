@@ -10,8 +10,12 @@ class BasicListeningAnswer extends Model
     protected $fillable = ['attempt_id','question_id','blank_index','answer','is_correct'];
     protected $casts = [
         'is_correct' => 'boolean',
-        'blank_index' => 'integer',
+        // 'blank_index' => 'integer',
     ];
 
     public function attempt(): BelongsTo { return $this->belongsTo(BasicListeningAttempt::class,'attempt_id'); }
+
+    public function question(): BelongsTo { 
+        return $this->belongsTo(BasicListeningQuestion::class,'question_id'); 
+    }
 }
