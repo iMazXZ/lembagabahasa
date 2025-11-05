@@ -36,6 +36,52 @@ class BasicListeningAttemptResource extends Resource
     protected static ?string $pluralLabel     = 'Attempts (Hasil Kuis)';
     protected static ?string $modelLabel      = 'Attempt';
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->with([
+                'user:id,name,srn,prody_id,nomor_grup_bl',
+                'user.prody:id,name',
+                'session:id,number,title',
+                'quiz:id,title',
+                'connectCode:id,code,code_hint',
+            ]);
+
+        $user = auth()->user();
+
+        // Admin/superuser melihat semua.
+        if ($user?->hasAnyRole(['Admin', 'superuser'])) {
+            return $query;
+        }
+
+        // Tutor: batasi ke prodi yang diampu (pivot tutor_prody: tutor_id, prody_id)
+        if ($user?->hasRole('Tutor')) {
+            $prodyIds = DB::table('tutor_prody')
+                ->where('tutor_id', $user->id)
+                ->pluck('prody_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            // Jika tutor belum punya prodi binaan, kembalikan query kosong
+            if (empty($prodyIds)) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            // Filter attempt berdasarkan prodi user peserta
+            return $query->whereHas('user', fn (Builder $q) => $q->whereIn('prody_id', $prodyIds));
+        }
+
+        // Role lain (mahasiswa, staf) — default: tampilkan attempt miliknya sendiri saja.
+        if ($user) {
+            return $query->where('user_id', $user->id);
+        }
+
+        // Tidak terautentik: kosong
+        return $query->whereRaw('1 = 0');
+    }
+    
     /** ----------------------------------------------------------------
      * FORM
      * -----------------------------------------------------------------*/
