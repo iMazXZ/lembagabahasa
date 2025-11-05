@@ -368,6 +368,15 @@ class BasicListeningAttemptResource extends Resource
                         auth()->user()?->hasAnyRole(['Admin']) ?? false
                     ),
             ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () =>
+                            auth()->user()?->hasAnyRole(['Admin', 'superuser']) ?? false
+                        )
+                        ->requiresConfirmation(),
+                ]),
+            ])
             ->defaultSort('created_at', 'desc');
     }
 
