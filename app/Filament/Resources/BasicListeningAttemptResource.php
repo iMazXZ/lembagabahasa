@@ -55,7 +55,7 @@ class BasicListeningAttemptResource extends Resource
         }
 
         // Tutor: batasi ke prodi yang diampu (pivot tutor_prody: tutor_id, prody_id)
-        if ($user?->hasRole('Tutor')) {
+        if ($user?->hasRole('tutor')) {
             $prodyIds = DB::table('tutor_prody')
                 ->where('tutor_id', $user->id)
                 ->pluck('prody_id')
@@ -368,7 +368,7 @@ class BasicListeningAttemptResource extends Resource
                     ->placeholder('—')
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('started_at') // ganti ke nama field milikmu jika berbeda
+                Tables\Columns\TextColumn::make('started_at')
                     ->label('Dimulai')
                     ->dateTime('d M Y H:i')
                     ->sortable(),
@@ -387,6 +387,14 @@ class BasicListeningAttemptResource extends Resource
                 Tables\Filters\SelectFilter::make('prody')
                     ->label('Prodi')
                     ->relationship('user.prody', 'name'),
+
+                Tables\Filters\SelectFilter::make('session')
+                    ->label('Pertemuan')
+                    ->relationship('session', 'number')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => 'Pert. ' . $record->number)
+                    ->searchable()
+                    ->preload()
+                    ->multiple(),
 
                 Tables\Filters\TernaryFilter::make('submitted')
                     ->label('Sudah Submit?')
