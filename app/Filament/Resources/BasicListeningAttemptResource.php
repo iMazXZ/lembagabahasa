@@ -44,7 +44,7 @@ class BasicListeningAttemptResource extends Resource
                 'user.prody:id,name',
                 'session:id,number,title',
                 'quiz:id,title',
-                'connectCode:id,code,code_hint',
+                'connectCode:id,code_hint',
             ]);
 
         $user = auth()->user();
@@ -81,7 +81,7 @@ class BasicListeningAttemptResource extends Resource
         // Tidak terautentik: kosong
         return $query->whereRaw('1 = 0');
     }
-    
+
     /** ----------------------------------------------------------------
      * FORM
      * -----------------------------------------------------------------*/
