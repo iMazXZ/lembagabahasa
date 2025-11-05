@@ -27,6 +27,7 @@ use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class BasicListeningAttemptResource extends Resource
 {
@@ -41,46 +42,55 @@ class BasicListeningAttemptResource extends Resource
     {
         $query = parent::getEloquentQuery()
             ->with([
-                'user:id,name,srn,prody_id,nomor_grup_bl',
-                'user.prody:id,name',
-                'session:id,number,title',
-                'quiz:id,title',
-                'connectCode:id,code_hint',
+                'user.prody',
+                'session',
+                'quiz.questions',
+                'connectCode',
+                'answers',
             ]);
 
         $user = auth()->user();
 
-        // Admin/superuser melihat semua.
-        if ($user?->hasAnyRole(['Admin', 'superuser'])) {
+        // Admin / superuser: semua data
+        if ($user && ($user->hasRole('Admin') || $user->hasRole('superuser'))) {
             return $query;
         }
 
-        // Tutor: batasi ke prodi yang diampu (pivot tutor_prody: tutor_id, prody_id)
-        if ($user?->hasRole('tutor')) {
-            $prodyIds = DB::table('tutor_prody')
-                ->where('tutor_id', $user->id)
-                ->pluck('prody_id')
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
+        // Tutor: hanya prodi binaan
+        if ($user && ($user->hasRole('Tutor') || $user->hasRole('tutor'))) {
+            // Jika punya helper sendiri, gunakan itu
+            if (method_exists($user, 'assignedProdyIds')) {
+                $prodyIds = array_values(array_filter((array) $user->assignedProdyIds()));
+            } else {
+                // Auto-deteksi kolom kunci di pivot tutor_prody
+                $keyCol = Schema::hasColumn('tutor_prody', 'tutor_id')
+                    ? 'tutor_id'
+                    : (Schema::hasColumn('tutor_prody', 'user_id') ? 'user_id' : null);
 
-            // Jika tutor belum punya prodi binaan, kembalikan query kosong
+                if ($keyCol === null) {
+                    // Pivot tidak memiliki kolom kunci yang dikenal → jangan tampilkan data
+                    return $query->whereRaw('1=0');
+                }
+
+                $prodyIds = DB::table('tutor_prody')
+                    ->where($keyCol, $user->id)   // ← tidak lagi hardcode tutor_id
+                    ->pluck('prody_id')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+
             if (empty($prodyIds)) {
-                return $query->whereRaw('1 = 0');
+                return $query->whereRaw('1=0');
             }
 
             // Filter attempt berdasarkan prodi user peserta
             return $query->whereHas('user', fn (Builder $q) => $q->whereIn('prody_id', $prodyIds));
         }
 
-        // Role lain (mahasiswa, staf) — default: tampilkan attempt miliknya sendiri saja.
-        if ($user) {
-            return $query->where('user_id', $user->id);
-        }
-
-        // Tidak terautentik: kosong
-        return $query->whereRaw('1 = 0');
+        // Role lain: tidak boleh lihat
+        return $query->whereRaw('1=0');
     }
 
     /** ----------------------------------------------------------------
