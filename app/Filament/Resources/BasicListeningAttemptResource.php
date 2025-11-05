@@ -26,6 +26,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
+use Illuminate\Support\Facades\DB;
 
 class BasicListeningAttemptResource extends Resource
 {
