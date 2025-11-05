@@ -421,7 +421,7 @@ class BasicListeningAttemptResource extends Resource
 
                 Tables\Actions\EditAction::make()
                     ->visible(fn ($record): bool =>
-                        auth()->user()?->hasAnyRole(['Admin']) ?? false
+                        auth()->user()?->hasAnyRole(['Admin', 'tutor']) ?? false
                     ),
             ])
             ->bulkActions([
