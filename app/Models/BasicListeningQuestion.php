@@ -7,19 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BasicListeningQuestion extends Model
 {
-    /**
-     * Kolom yang boleh di-mass assign.
-     * Sertakan field FIB baru + field lama untuk kompatibilitas.
-     */
+
     protected $fillable = [
         'quiz_id',
-        'type',                 // 'multiple_choice' | 'fib_paragraph' (opsional: 'short_answer')
-        // Multiple choice
+        'type',
         'question',
         'option_a', 'option_b', 'option_c', 'option_d', 'correct',
         'order',
 
-        // FIB (Paragraph)
         'paragraph_text',
         'fib_placeholders',     // array angka hasil deteksi [[n]]
         'fib_answer_key',       // map: { "1": "x", "2": ["a","b"], "3": {"regex":"..."} }

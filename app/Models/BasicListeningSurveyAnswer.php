@@ -13,8 +13,8 @@ class BasicListeningSurveyAnswer extends Model
     protected $fillable = [
         'response_id',
         'question_id',
-        'likert_value',  // 1..5 jika type=likert
-        'text_value',    // jika type=text
+        'likert_value',
+        'text_value',
     ];
 
     public function response(): BelongsTo

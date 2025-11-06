@@ -30,7 +30,6 @@
   .chip{background:#eef2ff;color:#3730a3;border:1px solid #e0e7ff;border-radius:999px;padding:.3rem .65rem;font-weight:700;font-size:.85rem}
   .btns{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.8rem}
   .btn{appearance:none;border:0;border-radius:12px;padding:.75rem 1.05rem;font-weight:700}
-  .btn.save{background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff}
   .btn.submit{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
   .btn.gray{background:#f3f4f6;color:#111827;border:1px solid #e5e7eb}
   .btn:disabled{opacity:.65;cursor:not-allowed}
@@ -83,12 +82,11 @@
     <div><strong>Petunjuk:</strong></div>
     <ul style="margin-left:1rem; margin-top:.25rem">
       <li>Isi kotak kosong sesuai konteks kalimat.</li>
-      <li><strong>Simpan Sementara</strong> menyimpan tanpa mengumpulkan.</li>
-      <li><strong>Kumpulkan Jawaban</strong> menyelesaikan & menuju halaman hasil.</li>
+      <li><strong>Kumpulkan Jawaban</strong> akan menyelesaikan kuis dan menuju halaman hasil.</li>
     </ul>
   </div>
 
-  {{-- form: default = save --}}
+  {{-- form --}}
   <form id="f" method="POST" action="{{ route('bl.quiz.fib.answer', $attempt) }}">
     @csrf
     <input type="hidden" name="question_id" value="{{ $question->id }}">
@@ -120,7 +118,6 @@
     </div>
 
     <div class="btns">
-      <button type="submit" class="btn save" id="saveBtn">Simpan Sementara</button>
       <button type="button" class="btn submit" id="finalBtn">Kumpulkan Jawaban</button>
       @php
         $backUrl = url()->previous();
@@ -165,7 +162,6 @@
   const mc    = document.getElementById('mc');
   const my    = document.getElementById('my');
   const finalBtn = document.getElementById('finalBtn');
-  const saveBtn  = document.getElementById('saveBtn');
   const emptyEl  = document.getElementById('empty');
   const filledEl = document.getElementById('filled');
 
@@ -201,9 +197,11 @@
     const obj = {}; inputs().forEach((el,i)=>obj[i]=el.value||'');
     try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(_) {}
     recount();
+    // optional: autosave ke server ringan setiap input (throttled di autoSave)
+    autoSave();
   });
 
-  // ======= Server autosave (minimal, aman)
+  // ======= Server autosave (ringan, non-blocking)
   let lastAutoSaveAt = 0;
   function autoSave(){
     if(!form) return;
@@ -214,7 +212,6 @@
     try {
       const saveUrl = "{{ route('bl.quiz.fib.answer', $attempt) }}";
       const fd = new FormData(form);
-      // Non-blocking; gunakan keepalive agar tetap terkirim saat unload
       fetch(saveUrl, {
         method: 'POST',
         body: fd,
@@ -224,7 +221,7 @@
     } catch(e) { /* ignore */ }
   }
 
-  // ======= Timer + progress (dipertahankan seperti versi awal)
+  // ======= Timer + progress
   const remaining = {{ (int)($remainingSeconds ?? 0) }};
   const total     = {{ (int)($totalSeconds ?? ($remainingSeconds ?? 0)) }};
   let secs = remaining>0 ? remaining : 0;
@@ -244,15 +241,14 @@
     }
     if(secs <= 30 && tbox) tbox.classList.add('warn');
 
-    // simpan sekali saat <= 5 detik
+    // autosave sekali saat <= 5 detik
     if (secs <= 5 && !didAutoSaveBeforeTimeout){
       didAutoSaveBeforeTimeout = true;
       autoSave();
     }
 
     if(secs <= 0){
-      // beri micro-delay agar autosave terkirim
-      setTimeout(finalize, 120);
+      setTimeout(finalize, 120); // beri micro-delay agar autosave terkirim
       return;
     }
     secs--;
@@ -261,10 +257,6 @@
   if(remaining>0){ tick(); } else if(ttxt){ ttxt.textContent='--:--'; }
 
   // ======= Submit modes
-  if(form){
-    form.addEventListener('submit', function(){ disable(true); });
-  }
-
   if(finalBtn){
     finalBtn.addEventListener('click', function(e){
       e.preventDefault();
@@ -301,7 +293,6 @@
   }
 
   function disable(v){
-    if(saveBtn) saveBtn.disabled = v;
     if(finalBtn) finalBtn.disabled = v;
     inputs().forEach(function(i){ i.readOnly = v; });
   }

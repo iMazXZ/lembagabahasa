@@ -10,7 +10,9 @@ use Illuminate\Http\Request;
 
 class BasicListeningQuizFibController extends Controller
 {
-    // START ATTEMPT (opsional; jarang dipakai jika lewat Connect)
+    // =========================
+    //  START ATTEMPT (opsional)
+    // =========================
     public function start(Request $request, $quizId)
     {
         $quiz = BasicListeningQuiz::findOrFail($quizId);
@@ -52,12 +54,14 @@ class BasicListeningQuizFibController extends Controller
         return redirect()->route('bl.quiz', $quiz->id);
     }
 
-    // SHOW QUIZ (FIB 1 paragraf)
+    // =========================
+    //  SHOW QUIZ (FIB 1 paragraf)
+    // =========================
     public function show(Request $request, $quizId)
     {
         $quiz = BasicListeningQuiz::findOrFail($quizId);
 
-        // ----- Cari session dari quiz (wajib, karena session_id NOT NULL)
+        // --- Wajib punya session terkait
         $session = $quiz->session ?? null;
         if (!$session) {
             return redirect()
@@ -68,7 +72,7 @@ class BasicListeningQuizFibController extends Controller
         $userId    = $request->user()->id;
         $sessionId = $session->id;
 
-        // ----- Ambil attempt aktif untuk QUIZ INI (kalau ada)
+        // --- Attempt unik per (user, session, quiz)
         $attempt = BasicListeningAttempt::where('user_id', $userId)
             ->where('session_id', $sessionId)
             ->where('quiz_id', $quiz->id)
@@ -76,7 +80,7 @@ class BasicListeningQuizFibController extends Controller
             ->first();
 
         if (!$attempt) {
-            // 🔎 Cek apakah SUDAH ada attempt aktif lain di session yang sama (quiz berbeda)
+            // (Opsional) Blokir jika masih ada attempt aktif untuk kuis lain di sesi yang sama
             $otherActive = BasicListeningAttempt::where('user_id', $userId)
                 ->where('session_id', $sessionId)
                 ->where('quiz_id', '!=', $quiz->id)
@@ -89,53 +93,61 @@ class BasicListeningQuizFibController extends Controller
                     ->with('error', 'Anda masih memiliki attempt aktif untuk kuis lain di sesi ini. Selesaikan terlebih dahulu.');
             }
 
-            // ✅ Aman: belum ada attempt untuk session ini → buat satu attempt baru
             $durationSeconds = (int) ($session->duration_minutes ? $session->duration_minutes * 60 : ($quiz->duration_seconds ?? 600));
             $durationSeconds = max(60, $durationSeconds);
 
-            // Penting: kunci pada (user_id, session_id) untuk menghindari duplikasi
             $attempt = BasicListeningAttempt::firstOrCreate(
                 [
-                    'user_id'    => $userId,
-                    'session_id' => $sessionId,
+                    'user_id'      => $userId,
+                    'session_id'   => $sessionId,
+                    'quiz_id'      => $quiz->id,   // ← kunci unik per kuis
+                    'submitted_at' => null,
                 ],
                 [
-                    'quiz_id'      => $quiz->id,
-                    'started_at'   => now(),
-                    'expires_at'   => now()->addSeconds($durationSeconds),
-                    'submitted_at' => null,
+                    'started_at' => now(),
+                    'expires_at' => now()->addSeconds($durationSeconds),
                 ]
             );
+        }
 
-            // Jika firstOrCreate menemukan attempt lama (created = false) tapi quiz_id beda dan belum submitted → blokir
-            if ($attempt->wasRecentlyCreated === false && $attempt->quiz_id != $quiz->id && is_null($attempt->submitted_at)) {
-                return redirect()
-                    ->route('bl.history.show', $attempt->id)
-                    ->with('error', 'Anda masih memiliki attempt aktif untuk kuis lain di sesi ini. Selesaikan terlebih dahulu.');
-            }
+        // Sudah submitted? ke riwayat
+        if ($attempt->submitted_at) {
+            return redirect()
+                ->route('bl.history.show', $attempt->id)
+                ->with('warning', 'Attempt untuk kuis ini sudah dikumpulkan.');
+        }
 
-            // Jika attempt lama tapi sudah submitted, arahkan ke riwayat
-            if ($attempt->submitted_at) {
-                return redirect()
-                    ->route('bl.history.show', $attempt->id)
-                    ->with('warning', 'Attempt di sesi ini sudah dikumpulkan.');
+        // Sinkronkan expiry bila durasi berubah
+        $durationSeconds = (int) ($session->duration_minutes ? $session->duration_minutes * 60 : ($quiz->duration_seconds ?? 600));
+        $durationSeconds = max(60, $durationSeconds);
+
+        if (empty($attempt->started_at)) {
+            $attempt->forceFill(['started_at' => now()])->save();
+        }
+        if ($attempt->started_at && $attempt->expires_at) {
+            $span = $attempt->expires_at->diffInSeconds($attempt->started_at);
+            if (abs($span - $durationSeconds) > 3) {
+                $attempt->forceFill([
+                    'expires_at' => $attempt->started_at->copy()->addSeconds($durationSeconds),
+                ])->save();
             }
         }
 
-        // ⏳ Guard waktu
+        // Guard waktu
         $remaining = max(0, now()->diffInSeconds($attempt->expires_at, false));
         if ($remaining <= 0) {
-            // ⛳️ Perbaikan: lakukan grading server-side saat timeout.
-            $this->gradeFibAttempt($attempt);
+            $this->gradeFibAttempt($attempt); // grade saat timeout
             return redirect()
                 ->route('bl.history.show', $attempt->id)
                 ->with('warning', 'Time is up. Answers saved & graded at timeout.');
         }
 
+        // Ambil soal FIB
         $question = BasicListeningQuestion::where('quiz_id', $quiz->id)
             ->where('type', 'fib_paragraph')
             ->firstOrFail();
 
+        // Process paragraf → input; simpan blank-map ke session
         $processedParagraph = $this->processParagraph($question->paragraph_text, $question->id, $attempt);
         $blankCount         = $this->countBlanks($question->paragraph_text);
 
@@ -152,7 +164,30 @@ class BasicListeningQuizFibController extends Controller
         ]);
     }
 
-    /** Render paragraf FIB → input */
+    // ===================================
+    //  Helper: derive map dari paragraf
+    //  return: ['<blankNumber>' => <seqIndex 0..N-1>]
+    // ===================================
+    private function deriveBlankMapFromParagraph(string $paragraph): array
+    {
+        $map = [];
+        $seq = 0;
+        if (preg_match_all('/\[\[(\d+)\]\]|\[blank\]/', $paragraph, $m, PREG_SET_ORDER)) {
+            foreach ($m as $hit) {
+                if (!empty($hit[1])) {
+                    // [[n]] → gunakan n sebagai key
+                    $map[(string)$hit[1]] = $seq;
+                } else {
+                    // [blank] tanpa nomor → beri nomor sintetis U<seq>
+                    $map['U'.$seq] = $seq;
+                }
+                $seq++;
+            }
+        }
+        return $map;
+    }
+
+    /** Render paragraf FIB → HTML input */
     private function processParagraph($paragraph, $questionId, $attempt)
     {
         if (empty($paragraph)) {
@@ -160,47 +195,42 @@ class BasicListeningQuizFibController extends Controller
             $paragraph = "Please listen to the audio and fill in the missing words.\n\nThe weather today is [[1]]. I can hear [[2]] outside. The birds are [[3]].";
         }
 
+        // Simpan blank map berdasarkan urutan kemunculan token
+        $blankMap = $this->deriveBlankMapFromParagraph($paragraph);
+        if (!empty($blankMap)) {
+            session(['fib_blank_map_' . $questionId => $blankMap]);
+        }
+
         // jaga line breaks
         $paragraph = nl2br($paragraph);
 
-        // Ambil jawaban tersimpan (keyed by blank_index: 0,1,2,...)
+        // Ambil jawaban tersimpan (keyed by blank_index 0..N-1)
         $existingAnswers = [];
         $savedAnswers = $attempt->answers()
             ->where('question_id', $questionId)
-            ->get();
+            ->get(['blank_index', 'answer']);
 
         foreach ($savedAnswers as $answer) {
-            $existingAnswers[$answer->blank_index] = $answer->answer;
+            $existingAnswers[(int)$answer->blank_index] = (string)$answer->answer;
         }
 
-        $index = 0;      // urutan kemunculan token
-        $blankMap = [];  // map: blankNumber => seqIndex
-
+        // Render input
+        $index = 0;
         $processed = preg_replace_callback(
             '/\[\[(\d+)\]\]|\[blank\]/',
-            function ($matches) use (&$index, $existingAnswers, &$blankMap) {
-                if (isset($matches[1])) {
-                    $blankNumber = $matches[1];     // [[n]]
-                    $blankMap[$blankNumber] = $index;
-                }
-                $inputIndex = $index;
-
-                $value = $existingAnswers[$inputIndex] ?? '';
-                $input = '<input type="text" class="fib-input" name="answers[' . $inputIndex . ']" value="' . e($value) . '" placeholder="..." style="border: 2px solid #3b82f6; padding: 8px; margin: 0 4px; border-radius: 6px; min-width: 120px;">';
+            function () use (&$index, $existingAnswers) {
+                $value = $existingAnswers[$index] ?? '';
+                $html  = '<input type="text" class="fib-input" name="answers[' . $index . ']" value="' . e($value) . '" placeholder="..." style="border:2px solid #3b82f6;padding:8px;margin:0 4px;border-radius:6px;min-width:120px;">';
                 $index++;
-                return $input;
+                return $html;
             },
             $paragraph
         );
 
-        if (!empty($blankMap)) {
-            session(['fib_blank_map_' . $questionId => $blankMap]); // contoh: [ '1' => 0, '3' => 1, '2' => 2 ]
-        }
-
         \Log::info('Paragraph processed', [
             'blank_map'       => $blankMap,
             'blanks_created'  => $index,
-            'paragraph_first' => substr($paragraph, 0, 100) . '...',
+            'paragraph_first' => mb_substr($paragraph, 0, 100) . '...',
         ]);
 
         return $processed;
@@ -208,15 +238,15 @@ class BasicListeningQuizFibController extends Controller
 
     private function countBlanks($paragraph)
     {
-        if (empty($paragraph)) {
-            return 3;
-        }
+        if (empty($paragraph)) return 3;
         preg_match_all('/\[\[(\d+)\]\]|\[blank\]/', $paragraph, $matches);
         $count = count($matches[0]);
         return $count > 0 ? $count : 3;
     }
 
-    // SAVE & CONTINUE jawaban FIB
+    // ==========================
+    //  SAVE (Simpan Sementara)
+    // ==========================
     public function answer(Request $request, $attemptId)
     {
         $attempt = BasicListeningAttempt::where('user_id', $request->user()->id)
@@ -224,7 +254,7 @@ class BasicListeningQuizFibController extends Controller
             ->whereNull('submitted_at')
             ->firstOrFail();
 
-        // Grace period kecil (2 detik) untuk mengurangi race-condition
+        // Grace period kecil untuk race-condition
         if (now()->greaterThan($attempt->expires_at->copy()->addSeconds(2))) {
             return redirect()
                 ->route('bl.history.show', $attempt->id)
@@ -239,36 +269,42 @@ class BasicListeningQuizFibController extends Controller
         $userAnswers = (array) $request->input('answers', []);
 
         foreach ($userAnswers as $index => $answer) {
+            $idx = (string)$index;
+            $existing = $attempt->answers()
+                ->where('question_id', $questionId)
+                ->where('blank_index', $idx)
+                ->first();
+
+            // Jika kosong → hapus record lama supaya tidak tersisa jawaban lama
             if (trim((string)$answer) === '') {
-                // kosong → biarkan tidak tersimpan; dianggap salah saat penilaian akhir
+                if ($existing) $existing->delete();
                 continue;
             }
 
+            // Upsert jawaban
             $attempt->answers()->updateOrCreate(
-                [
-                    'question_id' => $questionId,
-                    'blank_index' => (string) $index, // index urut (0..N) sesuai urutan token
-                ],
-                [
-                    'answer' => $answer,
-                ]
+                ['question_id' => $questionId, 'blank_index' => $idx],
+                ['answer' => (string)$answer]
             );
         }
 
-        // Kembali ke halaman kerja FIB (GET)
         return redirect()->route('bl.quiz', $attempt->quiz_id)
             ->with('success', 'Jawaban berhasil disimpan.');
     }
 
-    // ===== Utilities penilaian =====
-
+    // ==========================
+    //  Utilities penilaian
+    // ==========================
     private function normalize(string $s, array $scoring): string
     {
         if (($scoring['allow_trim'] ?? true)) $s = trim($s);
         if (!($scoring['case_sensitive'] ?? false)) $s = mb_strtolower($s);
         if (($scoring['strip_punctuation'] ?? true)) {
-            $s = preg_replace('/[[:punct:]]+/u', '', $s);
+            // Hapus semua tanda baca & simbol (Unicode-aware)
+            $s = preg_replace('/[\p{P}\p{S}]+/u', '', $s);
         }
+        // Rapatkan spasi berlebih
+        $s = preg_replace('/\s+/u', ' ', $s);
         return $s;
     }
 
@@ -291,8 +327,8 @@ class BasicListeningQuizFibController extends Controller
     }
 
     /**
-     * Grading server-side untuk FIB berbasis jawaban yang sudah tersimpan.
-     * Dipakai saat timeout maupun bisa dipanggil ulang kapan pun.
+     * Grading server-side untuk FIB berbasis jawaban yang tersimpan.
+     * Dipanggil saat timeout maupun manual.
      */
     private function gradeFibAttempt(BasicListeningAttempt $attempt): void
     {
@@ -307,15 +343,12 @@ class BasicListeningQuizFibController extends Controller
             'strip_punctuation' => true,
         ];
         $weights = $q->fib_weights ?? [];
-        $keys    = $q->fib_answer_key ?? []; // kunci 1..N
+        $keys    = $q->fib_answer_key ?? [];
 
-        // Map nomor placeholder (1..N) → seqIndex 0..N-1
-        $map = [];
-        foreach (array_keys($keys) as $bn) {
-            $map[(string)$bn] = max(0, ((int)$bn) - 1);
-        }
+        // Map placeholder → seqIndex berdasar paragraf (satu sumber kebenaran)
+        $blankMap = $this->deriveBlankMapFromParagraph($q->paragraph_text);
 
-        // Jawaban tersimpan, keyed by seqIndex 0..N-1
+        // Jawaban tersimpan keyed by seqIndex
         $saved = $attempt->answers()
             ->where('question_id', $q->id)
             ->get(['blank_index', 'answer'])
@@ -325,17 +358,16 @@ class BasicListeningQuizFibController extends Controller
         $qScore = 0.0;
         $qWeight = 0.0;
 
-        foreach ($map as $bn => $seq) {
-            $w = (float) ($weights[$bn] ?? 1);
+        foreach ($blankMap as $blankNumber => $seqIndex) {
+            $w = (float) ($weights[$blankNumber] ?? 1);
             $qWeight += $w;
 
-            $userVal = (string) ($saved[$seq] ?? ''); // kosong kalau belum ada
-            $key     = $keys[$bn] ?? null;
+            $userVal = (string) ($saved[$seqIndex] ?? '');
+            $key     = $keys[$blankNumber] ?? null;
             $correct = $key ? $this->matchAnswer($userVal, $key, $scoring) : false;
 
-            // Pastikan baris exist & is_correct terisi 0/1
             $attempt->answers()->updateOrCreate(
-                ['question_id' => $q->id, 'blank_index' => (string) $seq],
+                ['question_id' => $q->id, 'blank_index' => (string) $seqIndex],
                 ['answer' => $userVal, 'is_correct' => $correct]
             );
 
@@ -349,11 +381,12 @@ class BasicListeningQuizFibController extends Controller
             'submitted_at' => now(),
         ])->save();
 
-        // Bersihkan peta sesi agar tidak bentrok sesi berikutnya
         session()->forget('fib_blank_map_' . $q->id);
     }
 
-    // SUBMIT & GRADE (via tombol Kumpulkan)
+    // ==========================
+    //  SUBMIT (Kumpulkan)
+    // ==========================
     public function submit(Request $request, $quizId)
     {
         $quiz = BasicListeningQuiz::findOrFail($quizId);
@@ -368,41 +401,29 @@ class BasicListeningQuizFibController extends Controller
             ->firstOrFail();
 
         $scoring = $q->fib_scoring ?? [
-            'mode' => 'exact', 'case_sensitive' => false,
-            'allow_trim' => true, 'strip_punctuation' => true,
+            'mode'              => 'exact',
+            'case_sensitive'    => false,
+            'allow_trim'        => true,
+            'strip_punctuation' => true,
         ];
         $weights = $q->fib_weights ?? [];
-        $keys    = $q->fib_answer_key ?? []; // contoh: ['1' => 'Are', '2'=>'Is', ...]
-        $userFib = (array) $request->input('answers', []); // index: 0..N
+        $keys    = $q->fib_answer_key ?? [];
 
-        // ---- Ambil / bangun blank map (placeholder → seqIndex 0-based)
-        $blankMap = session('fib_blank_map_' . $q->id, []);
+        $userFib = (array) $request->input('answers', []); // index: 0..N-1
 
-        if (empty($blankMap)) {
-            if (!empty($keys)) {
-                // kunci 1..N → index 0..N-1
-                foreach (array_keys($keys) as $bn) {
-                    $blankMap[(string)$bn] = max(0, ((int)$bn) - 1);
-                }
-            } else {
-                // fallback terakhir: turunan dari input user (0..N → 1..N)
-                foreach (array_keys($userFib) as $i) {
-                    $blankMap[(string)($i + 1)] = (int)$i;
-                }
-            }
-        }
+        // Ambil blank map dari session atau derive dari paragraf (konsisten)
+        $blankMap = session('fib_blank_map_' . $q->id) ?: $this->deriveBlankMapFromParagraph($q->paragraph_text);
 
-        // ---- Susun user answers (keyed by nomor placeholder: '1','2',...)
+        // Susun user answers keyed by nomor placeholder
         $mappedUserFib = [];
         foreach ($blankMap as $blankNumber => $seq) {
             $mappedUserFib[$blankNumber] = $userFib[$seq] ?? '';
         }
 
-        // ---- Penilaian
-        $expectedBlanks = array_keys($blankMap); // urut kemunculan
-        $qScore = 0.0; $qWeight = 0.0;
+        $qScore = 0.0;
+        $qWeight = 0.0;
 
-        foreach ($expectedBlanks as $blankNumber) {
+        foreach ($blankMap as $blankNumber => $seqIndex) {
             $w = (float) ($weights[$blankNumber] ?? 1);
             $qWeight += $w;
 
@@ -410,10 +431,8 @@ class BasicListeningQuizFibController extends Controller
             $key     = $keys[$blankNumber] ?? null;
             $correct = $key ? $this->matchAnswer($userVal, $key, $scoring) : false;
 
-            // simpan SELALU pakai index 0-based (seqIndex)
-            $seqIndex = (string) $blankMap[$blankNumber]; // 0,1,2,...
             $attempt->answers()->updateOrCreate(
-                ['question_id' => $q->id, 'blank_index' => $seqIndex],
+                ['question_id' => $q->id, 'blank_index' => (string)$seqIndex],
                 ['answer' => $userVal, 'is_correct' => $correct]
             );
 
@@ -421,6 +440,7 @@ class BasicListeningQuizFibController extends Controller
         }
 
         $finalScore = $qWeight > 0 ? round(($qScore / $qWeight) * 100, 2) : 0;
+
         session()->forget('fib_blank_map_' . $q->id);
 
         $attempt->update(['score' => $finalScore, 'submitted_at' => now()]);
