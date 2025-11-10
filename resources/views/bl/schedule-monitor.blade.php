@@ -151,7 +151,7 @@
                 if ($item->hari === $todayName) {
                   $start = Carbon::createFromFormat('H:i:s', $item->jam_mulai, 'Asia/Jakarta');
                   $diff  = $start->diffInMinutes($now, false);
-                  if ($diff < 0 && abs($diff) <= 30) $startsIn = abs($diff);
+                  if ($diff < 0 && abs($diff) <= 30) $startsIn = (int) abs($diff);
                 }
               @endphp
 
@@ -187,9 +187,9 @@
                       </svg>
                       {{ \Illuminate\Support\Str::of($item->jam_mulai)->substr(0,5) }}–{{ \Illuminate\Support\Str::of($item->jam_selesai)->substr(0,5) }}
                       @if($active)
-                        <span class="ml-0.5 px-1.5 py-0.5 bg-emerald-500 text-white text-[10px] font-black uppercase rounded">LIVE</span>
+                        <span class="ml-0.5 px-1.5 py-0.5 bg-emerald-500 text-white text-[10px] font-black uppercase rounded">Sedang Berlangsung</span>
                       @elseif($startsIn)
-                        <span class="ml-0.5 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] font-black uppercase rounded">{{ $startsIn }}m</span>
+                        <span class="ml-0.5 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] font-black uppercase rounded">{{ (int) $startsIn }} menit lagi</span>
                       @endif
                     </span>
                   </div>
@@ -244,7 +244,7 @@
                 if ($item->hari === $todayName) {
                   $start = Carbon::createFromFormat('H:i:s', $item->jam_mulai, 'Asia/Jakarta');
                   $diff  = $start->diffInMinutes($now, false);
-                  if ($diff < 0 && abs($diff) <= 30) $startsIn = abs($diff);
+                  if ($diff < 0 && abs($diff) <= 30) $startsIn = (int) abs($diff);
                 }
               @endphp
 
@@ -282,7 +282,7 @@
                       @if($active)
                         <span class="ml-0.5 px-1.5 py-0.5 bg-emerald-500 text-white text-[10px] font-black uppercase rounded">LIVE</span>
                       @elseif($startsIn)
-                        <span class="ml-0.5 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] font-black uppercase rounded">{{ $startsIn }}m</span>
+                        <span class="ml-0.5 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] font-black uppercase rounded">{{ (int) $startsIn }}m</span>
                       @endif
                     </span>
                   </div>

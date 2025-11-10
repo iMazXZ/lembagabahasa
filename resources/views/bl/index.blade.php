@@ -149,6 +149,178 @@
       </div>
     @endauth
 
+    @auth
+      @php
+        $now = \Carbon\Carbon::now('Asia/Jakarta');
+        $dmap = [1=>'Senin',2=>'Selasa',3=>'Rabu',4=>'Kamis',5=>'Jumat',6=>'Sabtu',7=>'Minggu'];
+        $todayName = $dmap[$now->dayOfWeekIso] ?? '';
+        $nowTime = $now->format('H:i:s');
+        
+        // Ambil jadwal hari ini
+        $todaySchedules = \App\Models\BasicListeningSchedule::with(['tutors:id,name','prody:id,name'])
+            ->where('hari', $todayName)
+            ->orderBy('jam_mulai')
+            ->get();
+        
+        // Filter: LIVE dan Upcoming (≤30 menit)
+        $liveSchedules = [];
+        $upcomingSchedules = [];
+        
+        foreach ($todaySchedules as $schedule) {
+            $isLive = $schedule->jam_mulai <= $nowTime && $schedule->jam_selesai >= $nowTime;
+            
+            if ($isLive) {
+                $liveSchedules[] = $schedule;
+            } else {
+                $start = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->jam_mulai, 'Asia/Jakarta');
+                $diffMinutes = $start->diffInMinutes($now, false);
+                
+                if ($diffMinutes < 0 && abs($diffMinutes) <= 30) {
+                    $upcomingSchedules[] = ['schedule' => $schedule, 'minutes' => (int) abs($diffMinutes)];
+                }
+            }
+        }
+        
+        $hasActiveSchedules = !empty($liveSchedules) || !empty($upcomingSchedules);
+      @endphp
+
+      {{-- Live Schedule Widget --}}
+      <div class="mt-4">
+        @if($hasActiveSchedules)
+          {{-- Ada jadwal LIVE atau Upcoming --}}
+          <div class="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-4 space-y-3">
+            
+            {{-- Header --}}
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                @if(!empty($liveSchedules))
+                  {{-- Hijau untuk LIVE --}}
+                  <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <h3 class="text-base font-bold text-white">Kelas Berlangsung</h3>
+                @else
+                  {{-- Orange untuk Upcoming --}}
+                  <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
+                  </span>
+                  <h3 class="text-base font-bold text-white">Kelas Segera Dimulai</h3>
+                @endif
+              </div>
+              <a href="{{ route('bl.schedule') }}"
+                class="text-xs text-blue-200 hover:text-white font-semibold flex items-center gap-1 transition-colors">
+                Jadwal
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </a>
+            </div>
+
+            {{-- Live Schedules --}}
+            @foreach($liveSchedules as $schedule)
+              <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-lg p-3 relative">
+                {{-- LIVE Badge --}}
+                <div class="absolute -top-2 -right-2 px-2 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase rounded-md shadow-lg flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+                  SEDANG BERLANGSUNG
+                </div>
+                
+                <div class="flex items-start justify-between gap-2 pr-16">
+                  <div class="flex items-start gap-2">
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 mt-1 flex-shrink-0 animate-pulse"></div>
+                    <div class="flex-1 min-w-0">
+                      <h4 class="text-sm font-bold text-emerald-900 leading-tight mb-1">
+                        {{ $schedule->prody?->name ?? 'Kelas' }}
+                      </h4>
+                      <p class="text-xs text-emerald-700 flex items-center gap-1">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <span class="truncate">{{ $schedule->tutors?->pluck('name')->join(', ') ?: 'Tutor' }}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {{-- Jam di pojok kanan bawah --}}
+                <div class="absolute bottom-2 right-2">
+                  <span class="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 border border-emerald-300 rounded text-[10px] font-bold text-emerald-800">
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6l4 2"/>
+                    </svg>
+                    {{ substr($schedule->jam_mulai, 0, 5) }}–{{ substr($schedule->jam_selesai, 0, 5) }}
+                  </span>
+                </div>
+              </div>
+            @endforeach
+
+            {{-- Upcoming Schedules --}}
+            @foreach($upcomingSchedules as $item)
+              @php $schedule = $item['schedule']; $minutes = $item['minutes']; @endphp
+              <div class="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3 relative">
+                {{-- Minutes Badge --}}
+                <div class="absolute -top-2 -right-2 px-2 py-1 bg-orange-500 text-white text-[10px] font-black uppercase rounded-md shadow-lg">
+                  {{ (int) $minutes }} menit lagi
+                </div>
+                
+                <div class="flex items-start justify-between gap-2 pr-16">
+                  <div class="flex items-start gap-2">
+                    <div class="w-2 h-2 rounded-full bg-orange-400 mt-1 flex-shrink-0"></div>
+                    <div class="flex-1 min-w-0">
+                      <h4 class="text-sm font-bold text-orange-900 leading-tight mb-1">
+                        {{ $schedule->prody?->name ?? 'Kelas' }}
+                      </h4>
+                      <p class="text-xs text-orange-700 flex items-center gap-1">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <span class="truncate">{{ $schedule->tutors?->pluck('name')->join(', ') ?: 'Tutor' }}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {{-- Jam di pojok kanan bawah --}}
+                <div class="absolute bottom-2 right-2">
+                  <span class="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 border border-orange-300 rounded text-[10px] font-bold text-orange-800">
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6l4 2"/>
+                    </svg>
+                    {{ substr($schedule->jam_mulai, 0, 5) }}–{{ substr($schedule->jam_selesai, 0, 5) }}
+                  </span>
+                </div>
+              </div>
+            @endforeach
+
+          </div>
+        @else
+          {{-- Tidak ada jadwal aktif --}}
+          <a href="{{ route('bl.schedule') }}"
+            class="group flex items-center justify-between gap-3 px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-sm">Tidak Ada Kelas Hari Ini</div>
+                <div class="text-xs text-blue-200">Lihat jadwal lengkap minggu ini</div>
+              </div>
+            </div>
+            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        @endif
+      </div>
+    @endauth
+
     @guest
       <div class="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -332,12 +504,6 @@
       </ul>
     </div>
   @endif
-
-  <a href="{{ route('bl.schedule') }}"
-    class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-    <x-heroicon-o-calendar class="w-5 h-5"/>
-    Lihat Jadwal Hari Ini
-  </a>
   {{-- Sessions Grid --}}
   @if(isset($sessions) && count($sessions) > 0)
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-4">
