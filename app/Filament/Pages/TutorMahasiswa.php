@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Filament\Tables\Actions\ActionGroup;
 
 class TutorMahasiswa extends Page implements HasTable
 {
@@ -70,13 +71,17 @@ class TutorMahasiswa extends Page implements HasTable
                 Tables\Columns\TextColumn::make('prody.name')
                     ->label('Prodi')
                     ->sortable()
-                    ->badge(),
+                    ->limit(15)
+                    ->badge()
+                    ->tooltip(fn ($state) => $state),
 
                 Tables\Columns\TextColumn::make('nomor_grup_bl')
                     ->label('Grup BL')
-                    ->sortable()
-                    ->toggleable()
-                    ->formatStateUsing(fn ($state) => $state ? 'Grup '.$state : '—'),
+                    ->badge()
+                    ->alignCenter()
+                    ->width('6rem')
+                    ->extraCellAttributes(['class' => 'px-2'])
+                    ->formatStateUsing(fn ($state) => $state ? "Grup {$state}" : '—'),
 
                 Tables\Columns\TextColumn::make('attempt_status')
                     ->label('Daily Online')
@@ -201,258 +206,468 @@ class TutorMahasiswa extends Page implements HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                // Filter Angkatan via prefix SRN
+                // ================== Prefix Angkatan (SRN) ==================
                 Filter::make('angkatan')
                     ->label('Prefix Angkatan (SRN)')
                     ->form([
                         Forms\Components\TextInput::make('prefix')
                             ->placeholder('mis. 25')
                             ->default('25')
-                            ->maxLength(2)
+                            ->maxLength(4) // sedikit lebih longgar, tapi tetap aman
                             ->datalist(['25', '24', '23']),
                     ])
                     ->indicateUsing(fn (array $data): ?string =>
                         filled($data['prefix'] ?? null)
-                            ? 'Angkatan: ' . $data['prefix']
+                            ? 'Angkatan: ' . trim((string) $data['prefix'])
                             : null
                     )
                     ->query(function (Builder $query, array $data) {
-                        $prefix = trim((string)($data['prefix'] ?? ''));
+                        $prefix = trim((string) ($data['prefix'] ?? ''));
                         if ($prefix !== '') {
                             $query->where('srn', 'like', $prefix . '%');
                         }
                     }),
 
-                // Filter Prodi
+                // ================== Prodi ==================
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
                     ->options(function () use ($user) {
+                        // Tutor: batasi ke prodi binaan (dengan guard)
                         if ($user?->hasRole('tutor')) {
+                            $ids = method_exists($user, 'assignedProdyIds') ? (array) $user->assignedProdyIds() : [];
+                            if (empty($ids)) {
+                                // tidak ada prodi binaan → kosongkan opsi
+                                return [];
+                            }
+
                             return Prody::query()
-                                ->whereIn('id', $user->assignedProdyIds())
+                                ->whereIn('id', $ids)
                                 ->orderBy('name')
-                                ->pluck('name', 'id');
+                                ->pluck('name', 'id')
+                                ->toArray();
                         }
 
+                        // Admin (atau role lain yg diizinkan): semua prodi
                         return Prody::query()
                             ->orderBy('name')
-                            ->pluck('name', 'id');
+                            ->pluck('name', 'id')
+                            ->toArray();
                     })
+                    ->searchable()
+                    ->preload()
+                    ->placeholder('Semua Prodi')
                     ->query(function (Builder $query, array $data) {
-                        if (!empty($data['value'])) {
-                            $query->where('prody_id', $data['value']);
+                        $value = $data['value'] ?? null;
+                        if (filled($value)) {
+                            $query->where('prody_id', $value);
                         }
                     }),
 
+                // ================== Grup BL ==================
                 Tables\Filters\SelectFilter::make('nomor_grup_bl')
-                    ->label('Filter Grup BL')
-                    ->options(function () {
-                        // Ambil daftar grup yang ada di mahasiswa binaan saja
-                        return \App\Models\User::query()
-                            ->whereIn('prody_id', auth()->user()->assignedProdyIds())
+                    ->label('Grup BL')
+                    ->options(function () use ($user) {
+                        // Tentukan daftar prodi yang diperbolehkan
+                        $allowedProdyIds = [];
+
+                        if ($user?->hasRole('tutor')) {
+                            $allowedProdyIds = method_exists($user, 'assignedProdyIds') ? (array) $user->assignedProdyIds() : [];
+                            if (empty($allowedProdyIds)) {
+                                return []; // tutor belum punya prodi binaan
+                            }
+                        }
+
+                        $q = \App\Models\User::query()
+                            ->when(!empty($allowedProdyIds), function (Builder $qb) use ($allowedProdyIds) {
+                                $qb->whereIn('prody_id', $allowedProdyIds);
+                            })
                             ->whereNotNull('nomor_grup_bl')
                             ->distinct()
-                            ->orderBy('nomor_grup_bl')
-                            ->pluck('nomor_grup_bl', 'nomor_grup_bl')
-                            ->toArray();
+                            ->orderBy('nomor_grup_bl');
+
+                        return $q->pluck('nomor_grup_bl', 'nomor_grup_bl')->toArray();
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->placeholder('Semua Grup')
+                    ->query(function (Builder $query, array $data) {
+                        $value = $data['value'] ?? null;
+                        if (filled($value)) {
+                            $query->where('nomor_grup_bl', $value);
+                        }
                     }),
             ])
             ->actions([
-                Tables\Actions\Action::make('edit_daily')
-                    ->label('Edit Daily')
-                    ->icon('heroicon-o-pencil')
-                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor']))
-                    ->form(function (User $record) {
-                        // === Status attempt & nilai manual per meeting
-                        $attemptStatus = [];
-                        $currentScores = [];
-                        $attemptScores = [];
-
-                        // Ambil attempt terbaru per meeting
-                        $attempts = $record->basicListeningAttempts()
-                            ->whereNotNull('submitted_at')
-                            ->select(['user_id', 'session_id', 'score', 'submitted_at'])
-                            ->orderByDesc('submitted_at')
-                            ->get()
-                            ->groupBy('session_id')
-                            ->map(function ($g) {
-                                return $g->first();
-                            });
-
-                        foreach ([1,2,3,4,5] as $meeting) {
-                            $attempt = $attempts->get($meeting);
-                            $hasAttempt = !is_null($attempt);
-
-                            $attemptStatus[$meeting] = $hasAttempt;
-                            $attemptScores[$meeting] = $hasAttempt ? $attempt->score : null;
-
-                            $manualScore = BasicListeningManualScore::query()
-                                ->where('user_id', $record->id)
-                                ->where('user_year', $record->year)
-                                ->where('meeting', $meeting)
-                                ->value('score');
-
-                            $currentScores[$meeting] = $manualScore;
-                        }
-
-                        // === UI
-                        return [
-                            Forms\Components\Placeholder::make('info')
-                                ->label('Untuk Apa Ini?')
-                                ->content(function () use ($attemptStatus) {
-                                    $lockedMeetings = [];
-                                    foreach ($attemptStatus as $meeting => $hasAttempt) {
-                                        if ($hasAttempt) $lockedMeetings[] = "S{$meeting}";
-                                    }
-                                    if (!empty($lockedMeetings)) {
-                                        return "Form ini digunakan untuk input nilai untuk setiap meeting (1-5) ketika tidak menggunakan fitur quiz. Nilai Meeting " . implode(', ', $lockedMeetings) . " terkunci karena sudah mengikuti Quiz Online.";
-                                    }
-                                    return "Form ini digunakan untuk input nilai untuk setiap meeting (1-5) ketika tidak menggunakan fitur quiz.";
-                                })
-                                ->extraAttributes(['class' => 'bg-gray-50 p-4 rounded']),
-
-                            Forms\Components\Grid::make(5)->schema([
-                                TextInput::make('m1')
-                                    ->label('Meeting 1')
-                                    ->numeric()->minValue(0)->maxValue(100)
-                                    ->disabled($attemptStatus[1])
-                                    ->helperText($attemptStatus[1] ? 'Terkunci' : 'Input Nilai')
-                                    ->placeholder(is_numeric($currentScores[1]) ? "Nilai sekarang: {$currentScores[1]}" : (is_numeric($attemptScores[1]) ? "Nilai attempt: {$attemptScores[1]}" : '0-100'))
-                                    ->default(is_numeric($currentScores[1]) ? $currentScores[1] : (is_numeric($attemptScores[1]) ? $attemptScores[1] : null)),
-
-                                TextInput::make('m2')
-                                    ->label('Meeting 2')
-                                    ->numeric()->minValue(0)->maxValue(100)
-                                    ->disabled($attemptStatus[2])
-                                    ->helperText($attemptStatus[2] ? 'Terkunci' : 'Input Nilai')
-                                    ->placeholder(is_numeric($currentScores[2]) ? "Nilai sekarang: {$currentScores[2]}" : (is_numeric($attemptScores[2]) ? "Nilai attempt: {$attemptScores[2]}" : '0-100'))
-                                    ->default(is_numeric($currentScores[2]) ? $currentScores[2] : (is_numeric($attemptScores[2]) ? $attemptScores[2] : null)),
-
-                                TextInput::make('m3')
-                                    ->label('Meeting 3')
-                                    ->numeric()->minValue(0)->maxValue(100)
-                                    ->disabled($attemptStatus[3])
-                                    ->helperText($attemptStatus[3] ? 'Terkunci' : 'Input Nilai')
-                                    ->placeholder(is_numeric($currentScores[3]) ? "Nilai sekarang: {$currentScores[3]}" : (is_numeric($attemptScores[3]) ? "Nilai attempt: {$attemptScores[3]}" : '0-100'))
-                                    ->default(is_numeric($currentScores[3]) ? $currentScores[3] : (is_numeric($attemptScores[3]) ? $attemptScores[3] : null)),
-
-                                TextInput::make('m4')
-                                    ->label('Meeting 4')
-                                    ->numeric()->minValue(0)->maxValue(100)
-                                    ->disabled($attemptStatus[4])
-                                    ->helperText($attemptStatus[4] ? 'Terkunci' : 'Input Nilai')
-                                    ->placeholder(is_numeric($currentScores[4]) ? "Nilai sekarang: {$currentScores[4]}" : (is_numeric($attemptScores[4]) ? "Nilai attempt: {$attemptScores[4]}" : '0-100'))
-                                    ->default(is_numeric($currentScores[4]) ? $currentScores[4] : (is_numeric($attemptScores[4]) ? $attemptScores[4] : null)),
-
-                                TextInput::make('m5')
-                                    ->label('Meeting 5')
-                                    ->numeric()->minValue(0)->maxValue(100)
-                                    ->disabled($attemptStatus[5])
-                                    ->helperText($attemptStatus[5] ? 'Terkunci' : 'Input Nilai')
-                                    ->placeholder(is_numeric($currentScores[5]) ? "Nilai sekarang: {$currentScores[5]}" : (is_numeric($attemptScores[5]) ? "Nilai attempt: {$attemptScores[5]}" : '0-100'))
-                                    ->default(is_numeric($currentScores[5]) ? $currentScores[5] : (is_numeric($attemptScores[5]) ? $attemptScores[5] : null)),
-                            ]),
-                        ];
-                    })
-                    ->action(function (User $record, array $data) {
-                        $year = $record->year;
-                        $updatedCount = 0;
-
-                        foreach (['m1'=>1,'m2'=>2,'m3'=>3,'m4'=>4,'m5'=>5] as $key => $meeting) {
-                            $val = $data[$key] ?? null;
-
-                            // Skip jika meeting ini ada attempt (field akan disabled jadi tidak bisa diubah)
-                            $hasAttempt = $record->basicListeningAttempts()
-                                ->where('session_id', $meeting)
-                                ->whereNotNull('submitted_at')
-                                ->exists();
-
-                            if ($hasAttempt) {
-                                continue;
+                ActionGroup::make([
+                    // === Atur Grup BL (modal searchable, ringkas di UI) ===
+                    Tables\Actions\Action::make('atur_grup_bl')
+                        ->label('Atur Grup')
+                        ->icon('heroicon-o-user-group')
+                        ->visible(fn (User $record) =>
+                            auth()->user()?->hasRole('Admin') ||
+                            (auth()->user()?->hasRole('tutor') &&
+                            in_array($record->prody_id, auth()->user()->assignedProdyIds() ?? []))
+                        )
+                        ->form([
+                            Forms\Components\Select::make('nomor_grup_bl')
+                                ->label('Pilih Grup')
+                                ->options(fn () =>
+                                    User::query()
+                                        ->whereNotNull('nomor_grup_bl')
+                                        ->distinct()
+                                        ->orderBy('nomor_grup_bl')
+                                        ->pluck('nomor_grup_bl', 'nomor_grup_bl')
+                                        ->toArray()
+                                )
+                                ->searchable()
+                                ->preload()
+                                ->placeholder('Pilih grup')
+                                ->required(),
+                        ])
+                        ->action(function (User $record, array $data) {
+                            $me = auth()->user();
+                            if ($me?->hasRole('tutor') && ! in_array($record->prody_id, $me->assignedProdyIds() ?? [])) {
+                                abort(403, 'Anda tidak diizinkan mengubah grup mahasiswa ini.');
                             }
 
-                            // Hanya simpan untuk meeting yang tidak ada attempt
-                            $row = BasicListeningManualScore::firstOrCreate([
+                            $record->update(['nomor_grup_bl' => $data['nomor_grup_bl']]);
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Grup BL diperbarui')
+                                ->success()
+                                ->send();
+                        })
+                        ->modalWidth('sm'),
+
+                    // === Edit Daily (tetap seperti punyamu) ===
+                    Tables\Actions\Action::make('edit_daily')
+                        ->label('Edit Daily')
+                        ->icon('heroicon-o-pencil')
+                        ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor']))
+                        ->form(function (User $record) {
+                            // === Status attempt & nilai manual per meeting
+                            $attemptStatus = [];
+                            $currentScores = [];
+                            $attemptScores = [];
+
+                            // Ambil attempt terbaru per meeting
+                            $attempts = $record->basicListeningAttempts()
+                                ->whereNotNull('submitted_at')
+                                ->select(['user_id', 'session_id', 'score', 'submitted_at'])
+                                ->orderByDesc('submitted_at')
+                                ->get()
+                                ->groupBy('session_id')
+                                ->map(function ($g) {
+                                    return $g->first();
+                                });
+
+                            foreach ([1,2,3,4,5] as $meeting) {
+                                $attempt = $attempts->get($meeting);
+                                $hasAttempt = !is_null($attempt);
+
+                                $attemptStatus[$meeting] = $hasAttempt;
+                                $attemptScores[$meeting] = $hasAttempt ? $attempt->score : null;
+
+                                $manualScore = BasicListeningManualScore::query()
+                                    ->where('user_id', $record->id)
+                                    ->where('user_year', $record->year)
+                                    ->where('meeting', $meeting)
+                                    ->value('score');
+
+                                $currentScores[$meeting] = $manualScore;
+                            }
+
+                            // === UI
+                            return [
+                                Forms\Components\Placeholder::make('info')
+                                    ->label('Untuk Apa Ini?')
+                                    ->content(function () use ($attemptStatus) {
+                                        $lockedMeetings = [];
+                                        foreach ($attemptStatus as $meeting => $hasAttempt) {
+                                            if ($hasAttempt) $lockedMeetings[] = "S{$meeting}";
+                                        }
+                                        if (!empty($lockedMeetings)) {
+                                            return "Form ini digunakan untuk input nilai untuk setiap meeting (1-5) ketika tidak menggunakan fitur quiz. Nilai Meeting " . implode(', ', $lockedMeetings) . " terkunci karena sudah mengikuti Quiz Online.";
+                                        }
+                                        return "Form ini digunakan untuk input nilai untuk setiap meeting (1-5) ketika tidak menggunakan fitur quiz.";
+                                    })
+                                    ->extraAttributes(['class' => 'bg-gray-50 p-4 rounded']),
+
+                                Forms\Components\Grid::make(5)->schema([
+                                    // M1
+                                    TextInput::make('m1')
+                                        ->label('Meeting 1')
+                                        ->numeric()->minValue(0)->maxValue(100)
+                                        ->helperText(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[1];  // nilai quiz asli (jika ada)
+                                            $man  = $currentScores[1];  // nilai manual (jika ada)
+                                            if ($attemptStatus[1]) {
+                                                if (is_numeric($man) && $man !== $orig) {
+                                                    return "Override: Quiz {$orig} → Manual {$man}";
+                                                }
+                                                return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
+                                            }
+                                            return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
+                                        })
+                                        ->suffixIcon(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[1]; $man = $currentScores[1];
+                                            if ($attemptStatus[1] && is_numeric($man) && $man !== $orig) return 'heroicon-o-adjustments-horizontal';
+                                            return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                        })
+                                        ->suffixIconColor(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[1]; $man = $currentScores[1];
+                                            if ($attemptStatus[1] && is_numeric($man) && $man !== $orig) return 'warning';
+                                            return is_numeric($man) ? 'success' : 'info';
+                                        })
+                                        ->placeholder(
+                                            is_numeric($currentScores[1])
+                                                ? "Nilai sekarang: {$currentScores[1]}"
+                                                : (is_numeric($attemptScores[1]) ? "Nilai quiz: {$attemptScores[1]}" : '0-100')
+                                        )
+                                        ->default(
+                                            is_numeric($currentScores[1]) ? $currentScores[1]
+                                                : (is_numeric($attemptScores[1]) ? $attemptScores[1] : null)
+                                        ),
+
+                                    // M2
+                                    TextInput::make('m2')
+                                        ->label('Meeting 2')
+                                        ->numeric()->minValue(0)->maxValue(100)
+                                        ->helperText(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[2]; $man = $currentScores[2];
+                                            if ($attemptStatus[2]) {
+                                                if (is_numeric($man) && $man !== $orig) return "Override: Quiz {$orig} → Manual {$man}";
+                                                return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
+                                            }
+                                            return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
+                                        })
+                                        ->suffixIcon(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[2]; $man = $currentScores[2];
+                                            if ($attemptStatus[2] && is_numeric($man) && $man !== $orig) return 'heroicon-o-adjustments-horizontal';
+                                            return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                        })
+                                        ->suffixIconColor(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[2]; $man = $currentScores[2];
+                                            if ($attemptStatus[2] && is_numeric($man) && $man !== $orig) return 'warning';
+                                            return is_numeric($man) ? 'success' : 'info';
+                                        })
+                                        ->placeholder(
+                                            is_numeric($currentScores[2])
+                                                ? "Nilai sekarang: {$currentScores[2]}"
+                                                : (is_numeric($attemptScores[2]) ? "Nilai quiz: {$attemptScores[2]}" : '0-100')
+                                        )
+                                        ->default(
+                                            is_numeric($currentScores[2]) ? $currentScores[2]
+                                                : (is_numeric($attemptScores[2]) ? $attemptScores[2] : null)
+                                        ),
+
+                                    // M3
+                                    TextInput::make('m3')
+                                        ->label('Meeting 3')
+                                        ->numeric()->minValue(0)->maxValue(100)
+                                        ->helperText(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[3]; $man = $currentScores[3];
+                                            if ($attemptStatus[3]) {
+                                                if (is_numeric($man) && $man !== $orig) return "Override: Quiz {$orig} → Manual {$man}";
+                                                return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
+                                            }
+                                            return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
+                                        })
+                                        ->suffixIcon(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[3]; $man = $currentScores[3];
+                                            if ($attemptStatus[3] && is_numeric($man) && $man !== $orig) return 'heroicon-o-adjustments-horizontal';
+                                            return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                        })
+                                        ->suffixIconColor(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[3]; $man = $currentScores[3];
+                                            if ($attemptStatus[3] && is_numeric($man) && $man !== $orig) return 'warning';
+                                            return is_numeric($man) ? 'success' : 'info';
+                                        })
+                                        ->placeholder(
+                                            is_numeric($currentScores[3])
+                                                ? "Nilai sekarang: {$currentScores[3]}"
+                                                : (is_numeric($attemptScores[3]) ? "Nilai quiz: {$attemptScores[3]}" : '0-100')
+                                        )
+                                        ->default(
+                                            is_numeric($currentScores[3]) ? $currentScores[3]
+                                                : (is_numeric($attemptScores[3]) ? $attemptScores[3] : null)
+                                        ),
+
+                                    // M4
+                                    TextInput::make('m4')
+                                        ->label('Meeting 4')
+                                        ->numeric()->minValue(0)->maxValue(100)
+                                        ->helperText(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[4]; $man = $currentScores[4];
+                                            if ($attemptStatus[4]) {
+                                                if (is_numeric($man) && $man !== $orig) return "Override: Quiz {$orig} → Manual {$man}";
+                                                return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
+                                            }
+                                            return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
+                                        })
+                                        ->suffixIcon(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[4]; $man = $currentScores[4];
+                                            if ($attemptStatus[4] && is_numeric($man) && $man !== $orig) return 'heroicon-o-adjustments-horizontal';
+                                            return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                        })
+                                        ->suffixIconColor(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[4]; $man = $currentScores[4];
+                                            if ($attemptStatus[4] && is_numeric($man) && $man !== $orig) return 'warning';
+                                            return is_numeric($man) ? 'success' : 'info';
+                                        })
+                                        ->placeholder(
+                                            is_numeric($currentScores[4])
+                                                ? "Nilai sekarang: {$currentScores[4]}"
+                                                : (is_numeric($attemptScores[4]) ? "Nilai quiz: {$attemptScores[4]}" : '0-100')
+                                        )
+                                        ->default(
+                                            is_numeric($currentScores[4]) ? $currentScores[4]
+                                                : (is_numeric($attemptScores[4]) ? $attemptScores[4] : null)
+                                        ),
+
+                                    // M5
+                                    TextInput::make('m5')
+                                        ->label('Meeting 5')
+                                        ->numeric()->minValue(0)->maxValue(100)
+                                        ->helperText(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[5]; $man = $currentScores[5];
+                                            if ($attemptStatus[5]) {
+                                                if (is_numeric($man) && $man !== $orig) return "Override: Quiz {$orig} → Manual {$man}";
+                                                return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
+                                            }
+                                            return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
+                                        })
+                                        ->suffixIcon(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[5]; $man = $currentScores[5];
+                                            if ($attemptStatus[5] && is_numeric($man) && $man !== $orig) return 'heroicon-o-adjustments-horizontal';
+                                            return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                        })
+                                        ->suffixIconColor(function () use ($attemptStatus, $attemptScores, $currentScores) {
+                                            $orig = $attemptScores[5]; $man = $currentScores[5];
+                                            if ($attemptStatus[5] && is_numeric($man) && $man !== $orig) return 'warning';
+                                            return is_numeric($man) ? 'success' : 'info';
+                                        })
+                                        ->placeholder(
+                                            is_numeric($currentScores[5])
+                                                ? "Nilai sekarang: {$currentScores[5]}"
+                                                : (is_numeric($attemptScores[5]) ? "Nilai quiz: {$attemptScores[5]}" : '0-100')
+                                        )
+                                        ->default(
+                                            is_numeric($currentScores[5]) ? $currentScores[5]
+                                                : (is_numeric($attemptScores[5]) ? $attemptScores[5] : null)
+                                        ),
+                                ]),
+                            ];
+                        })
+                        ->action(function (User $record, array $data) {
+                            $year = $record->year;
+                            $updatedCount = 0;
+
+                            foreach (['m1' => 1, 'm2' => 2, 'm3' => 3, 'm4' => 4, 'm5' => 5] as $key => $meeting) {
+                                $val = $data[$key] ?? null;
+
+                                // Selalu simpan manual override (tanpa memeriksa attempt).
+                                $row = BasicListeningManualScore::firstOrCreate([
+                                    'user_id'   => $record->id,
+                                    'user_year' => $year,
+                                    'meeting'   => $meeting,
+                                ]);
+
+                                // Kosong/null = hapus override (kembali pakai nilai quiz kalau ada)
+                                if ($val === '' || $val === null) {
+                                    $prev = $row->score;
+                                    $row->score = null;
+                                    $row->save();
+                                    if ($prev !== null) {
+                                        $updatedCount++;
+                                    }
+                                    continue;
+                                }
+
+                                if (is_numeric($val)) {
+                                    $new = max(0, min(100, (int) $val));
+                                    if ((int) ($row->score ?? -1) !== $new) {
+                                        $row->score = $new;
+                                        $row->save();
+                                        $updatedCount++;
+                                    }
+                                }
+                            }
+
+                            // Refresh cache final/grade
+                            $grade = BasicListeningGrade::firstOrCreate([
                                 'user_id'   => $record->id,
                                 'user_year' => $year,
-                                'meeting'   => $meeting,
+                            ]);
+                            $grade->save();
+
+                            Notification::make()
+                                ->title('Nilai daily diperbarui')
+                                ->body($updatedCount > 0
+                                    ? "{$updatedCount} meeting diupdate (manual override disimpan)."
+                                    : 'Tidak ada perubahan.')
+                                ->success()
+                                ->send();
+                        })
+                        ->slideOver(),
+
+                    // === Edit Attendance & Final (tetap seperti punyamu) ===
+                    Tables\Actions\Action::make('edit_scores')
+                        ->label('Insert Final')
+                        ->icon('heroicon-o-pencil-square')
+                        ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor']))
+                        ->form(function (User $record) {
+                            $g = $record->basicListeningGrade;
+                            return [
+                                Forms\Components\Placeholder::make('mhs')
+                                    ->label('Mahasiswa')
+                                    ->content($record->srn . ' — ' . $record->name),
+
+                                TextInput::make('attendance')
+                                    ->label('Attendance (Nilai Kehadiran) (0–100)')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->validationMessages([
+                                            'numeric' => 'Nilai harus berupa angka',
+                                            'min'     => 'Nilai minimal 0',
+                                            'max'     => 'Nilai maksimal 100',
+                                        ])
+                                    ->default($g?->attendance),
+
+                                TextInput::make('final_test')
+                                    ->label('Final Test (0–100)')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->validationMessages([
+                                            'numeric' => 'Nilai harus berupa angka',
+                                            'min'     => 'Nilai minimal 0',
+                                            'max'     => 'Nilai maksimal 100',
+                                        ])
+                                    ->default($g?->final_test),
+                            ];
+                        })
+                        ->action(function (User $record, array $data) {
+                            $grade = BasicListeningGrade::firstOrCreate([
+                                'user_id'   => $record->id,
+                                'user_year' => $record->year,
                             ]);
 
-                            $row->score = is_numeric($val) ? max(0, min(100, (int)$val)) : null;
-                            $row->save();
-                            $updatedCount++;
-                        }
+                            $grade->attendance = $data['attendance'] !== null ? (int) $data['attendance'] : null;
+                            $grade->final_test = $data['final_test'] !== null ? (int) $data['final_test'] : null;
+                            $grade->save(); // model auto-update cache
 
-                        // Update cache
-                        $grade = BasicListeningGrade::firstOrCreate([
-                            'user_id'   => $record->id,
-                            'user_year' => $year,
-                        ]);
-                        $grade->save();
-
-                        Notification::make()
-                            ->title('Nilai daily berhasil diperbarui')
-                            ->body($updatedCount > 0 ? "{$updatedCount} meeting diupdate." : 'Tidak ada perubahan (semua meeting terkunci).')
-                            ->success()
-                            ->send();
-                    })
-                    ->modalWidth('xl')
-                    ->slideOver(),
-
-                // === Edit Attendance & Final
-                Tables\Actions\Action::make('edit_scores')
-                    ->label('Insert Final')
-                    ->icon('heroicon-o-pencil-square')
-                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor']))
-                    ->form(function (User $record) {
-                        $g = $record->basicListeningGrade;
-                        return [
-                            Forms\Components\Placeholder::make('mhs')
-                                ->label('Mahasiswa')
-                                ->content($record->srn . ' — ' . $record->name),
-
-                            TextInput::make('attendance')
-                                ->label('Attendance (Nilai Kehadiran) (0–100)')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(100)
-                                ->validationMessages([
-                                        'numeric' => 'Nilai harus berupa angka',
-                                        'min'     => 'Nilai minimal 0',
-                                        'max'     => 'Nilai maksimal 100',
-                                    ])
-                                ->default($g?->attendance),
-
-                            TextInput::make('final_test')
-                                ->label('Final Test (0–100)')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(100)
-                                ->validationMessages([
-                                        'numeric' => 'Nilai harus berupa angka',
-                                        'min'     => 'Nilai minimal 0',
-                                        'max'     => 'Nilai maksimal 100',
-                                    ])
-                                ->default($g?->final_test),
-                        ];
-                    })
-                    ->action(function (User $record, array $data) {
-                        $grade = BasicListeningGrade::firstOrCreate([
-                            'user_id'   => $record->id,
-                            'user_year' => $record->year,
-                        ]);
-
-                        $grade->attendance = $data['attendance'] !== null ? (int) $data['attendance'] : null;
-                        $grade->final_test = $data['final_test'] !== null ? (int) $data['final_test'] : null;
-                        $grade->save(); // model auto-update cache
-
-                        Notification::make()
-                            ->title('Nilai berhasil diperbarui')
-                            ->success()
-                            ->send();
-                    })
-                    ->modalWidth('xl')
-                    ->slideOver(),
+                            Notification::make()
+                                ->title('Nilai berhasil diperbarui')
+                                ->success()
+                                ->send();
+                        })
+                        ->modalWidth('xl')
+                        ->slideOver(),
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-cog-6-tooth'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('bulk_edit_daily')
@@ -541,6 +756,7 @@ class TutorMahasiswa extends Page implements HasTable
                                     Forms\Components\Hidden::make('attempt_score_5'),
 
                                     Forms\Components\Grid::make(5)->schema([
+                                        // M1
                                         TextInput::make('m1')
                                             ->label('Meeting 1')
                                             ->numeric()->minValue(0)->maxValue(100)
@@ -549,26 +765,38 @@ class TutorMahasiswa extends Page implements HasTable
                                                 'min'     => 'Nilai minimal 0',
                                                 'max'     => 'Nilai maksimal 100',
                                             ])
-                                            ->disabled(fn ($get) => filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN))
                                             ->suffixIcon(function ($get) {
-                                                $locked = filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'heroicon-o-lock-closed';
-                                                return is_numeric($get('m1')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                                $orig = $get('attempt_score_1'); // nilai quiz asli
+                                                $man  = $get('m1');              // nilai manual saat ini
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'heroicon-o-adjustments-horizontal'; // override
+                                                }
+                                                return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
                                             })
                                             ->suffixIconColor(function ($get) {
-                                                $locked = filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'gray';
-                                                return is_numeric($get('m1')) ? 'success' : 'info';
+                                                $orig = $get('attempt_score_1'); $man = $get('m1');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'warning';
+                                                }
+                                                return is_numeric($man) ? 'success' : 'info';
                                             })
                                             ->helperText(function ($get) {
-                                                if (filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN)) {
-                                                    $attemptScore = $get('attempt_score_1');
-                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                $hasAttempt = filter_var($get('attempt_1'), FILTER_VALIDATE_BOOLEAN);
+                                                $orig = $get('attempt_score_1'); $man = $get('m1');
+                                                if ($hasAttempt) {
+                                                    if (is_numeric($man) && is_numeric($orig) && (int)$man !== (int)$orig) {
+                                                        return "Override: Quiz {$orig} → Manual {$man}";
+                                                    }
+                                                    return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
                                                 }
-                                                return is_numeric($get('m1')) ? 'Sudah diisi' : 'Perlu diisi';
+                                                return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
                                             })
-                                            ->placeholder(fn ($get) => is_numeric($get('m1')) ? "Nilai sekarang: {$get('m1')}" : '0-100'),
+                                            ->placeholder(function ($get) {
+                                                $man = $get('m1'); $orig = $get('attempt_score_1');
+                                                return is_numeric($man) ? "Nilai sekarang: {$man}" : (is_numeric($orig) ? "Nilai quiz: {$orig}" : '0-100');
+                                            }),
 
+                                        // M2
                                         TextInput::make('m2')
                                             ->label('Meeting 2')
                                             ->numeric()->minValue(0)->maxValue(100)
@@ -577,26 +805,37 @@ class TutorMahasiswa extends Page implements HasTable
                                                 'min'     => 'Nilai minimal 0',
                                                 'max'     => 'Nilai maksimal 100',
                                             ])
-                                            ->disabled(fn ($get) => filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN))
                                             ->suffixIcon(function ($get) {
-                                                $locked = filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'heroicon-o-lock-closed';
-                                                return is_numeric($get('m2')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                                $orig = $get('attempt_score_2'); $man = $get('m2');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'heroicon-o-adjustments-horizontal';
+                                                }
+                                                return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
                                             })
                                             ->suffixIconColor(function ($get) {
-                                                $locked = filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'gray';
-                                                return is_numeric($get('m2')) ? 'success' : 'info';
+                                                $orig = $get('attempt_score_2'); $man = $get('m2');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'warning';
+                                                }
+                                                return is_numeric($man) ? 'success' : 'info';
                                             })
                                             ->helperText(function ($get) {
-                                                if (filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN)) {
-                                                    $attemptScore = $get('attempt_score_2');
-                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                $hasAttempt = filter_var($get('attempt_2'), FILTER_VALIDATE_BOOLEAN);
+                                                $orig = $get('attempt_score_2'); $man = $get('m2');
+                                                if ($hasAttempt) {
+                                                    if (is_numeric($man) && is_numeric($orig) && (int)$man !== (int)$orig) {
+                                                        return "Override: Quiz {$orig} → Manual {$man}";
+                                                    }
+                                                    return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
                                                 }
-                                                return is_numeric($get('m2')) ? 'Sudah diisi' : 'Perlu diisi';
+                                                return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
                                             })
-                                            ->placeholder(fn ($get) => is_numeric($get('m2')) ? "Nilai sekarang: {$get('m2')}" : '0-100'),
+                                            ->placeholder(function ($get) {
+                                                $man = $get('m2'); $orig = $get('attempt_score_2');
+                                                return is_numeric($man) ? "Nilai sekarang: {$man}" : (is_numeric($orig) ? "Nilai quiz: {$orig}" : '0-100');
+                                            }),
 
+                                        // M3
                                         TextInput::make('m3')
                                             ->label('Meeting 3')
                                             ->numeric()->minValue(0)->maxValue(100)
@@ -605,26 +844,37 @@ class TutorMahasiswa extends Page implements HasTable
                                                 'min'     => 'Nilai minimal 0',
                                                 'max'     => 'Nilai maksimal 100',
                                             ])
-                                            ->disabled(fn ($get) => filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN))
                                             ->suffixIcon(function ($get) {
-                                                $locked = filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'heroicon-o-lock-closed';
-                                                return is_numeric($get('m3')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                                $orig = $get('attempt_score_3'); $man = $get('m3');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'heroicon-o-adjustments-horizontal';
+                                                }
+                                                return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
                                             })
                                             ->suffixIconColor(function ($get) {
-                                                $locked = filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'gray';
-                                                return is_numeric($get('m3')) ? 'success' : 'info';
+                                                $orig = $get('attempt_score_3'); $man = $get('m3');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'warning';
+                                                }
+                                                return is_numeric($man) ? 'success' : 'info';
                                             })
                                             ->helperText(function ($get) {
-                                                if (filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN)) {
-                                                    $attemptScore = $get('attempt_score_3');
-                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                $hasAttempt = filter_var($get('attempt_3'), FILTER_VALIDATE_BOOLEAN);
+                                                $orig = $get('attempt_score_3'); $man = $get('m3');
+                                                if ($hasAttempt) {
+                                                    if (is_numeric($man) && is_numeric($orig) && (int)$man !== (int)$orig) {
+                                                        return "Override: Quiz {$orig} → Manual {$man}";
+                                                    }
+                                                    return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
                                                 }
-                                                return is_numeric($get('m3')) ? 'Sudah diisi' : 'Perlu diisi';
+                                                return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
                                             })
-                                            ->placeholder(fn ($get) => is_numeric($get('m3')) ? "Nilai sekarang: {$get('m3')}" : '0-100'),
+                                            ->placeholder(function ($get) {
+                                                $man = $get('m3'); $orig = $get('attempt_score_3');
+                                                return is_numeric($man) ? "Nilai sekarang: {$man}" : (is_numeric($orig) ? "Nilai quiz: {$orig}" : '0-100');
+                                            }),
 
+                                        // M4
                                         TextInput::make('m4')
                                             ->label('Meeting 4')
                                             ->numeric()->minValue(0)->maxValue(100)
@@ -633,26 +883,37 @@ class TutorMahasiswa extends Page implements HasTable
                                                 'min'     => 'Nilai minimal 0',
                                                 'max'     => 'Nilai maksimal 100',
                                             ])
-                                            ->disabled(fn ($get) => filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN))
                                             ->suffixIcon(function ($get) {
-                                                $locked = filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'heroicon-o-lock-closed';
-                                                return is_numeric($get('m4')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                                $orig = $get('attempt_score_4'); $man = $get('m4');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'heroicon-o-adjustments-horizontal';
+                                                }
+                                                return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
                                             })
                                             ->suffixIconColor(function ($get) {
-                                                $locked = filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'gray';
-                                                return is_numeric($get('m4')) ? 'success' : 'info';
+                                                $orig = $get('attempt_score_4'); $man = $get('m4');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'warning';
+                                                }
+                                                return is_numeric($man) ? 'success' : 'info';
                                             })
                                             ->helperText(function ($get) {
-                                                if (filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN)) {
-                                                    $attemptScore = $get('attempt_score_4');
-                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                $hasAttempt = filter_var($get('attempt_4'), FILTER_VALIDATE_BOOLEAN);
+                                                $orig = $get('attempt_score_4'); $man = $get('m4');
+                                                if ($hasAttempt) {
+                                                    if (is_numeric($man) && is_numeric($orig) && (int)$man !== (int)$orig) {
+                                                        return "Override: Quiz {$orig} → Manual {$man}";
+                                                    }
+                                                    return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
                                                 }
-                                                return is_numeric($get('m4')) ? 'Sudah diisi' : 'Perlu diisi';
+                                                return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
                                             })
-                                            ->placeholder(fn ($get) => is_numeric($get('m4')) ? "Nilai sekarang: {$get('m4')}" : '0-100'),
+                                            ->placeholder(function ($get) {
+                                                $man = $get('m4'); $orig = $get('attempt_score_4');
+                                                return is_numeric($man) ? "Nilai sekarang: {$man}" : (is_numeric($orig) ? "Nilai quiz: {$orig}" : '0-100');
+                                            }),
 
+                                        // M5
                                         TextInput::make('m5')
                                             ->label('Meeting 5')
                                             ->numeric()->minValue(0)->maxValue(100)
@@ -661,25 +922,35 @@ class TutorMahasiswa extends Page implements HasTable
                                                 'min'     => 'Nilai minimal 0',
                                                 'max'     => 'Nilai maksimal 100',
                                             ])
-                                            ->disabled(fn ($get) => filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN))
                                             ->suffixIcon(function ($get) {
-                                                $locked = filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'heroicon-o-lock-closed';
-                                                return is_numeric($get('m5')) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
+                                                $orig = $get('attempt_score_5'); $man = $get('m5');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'heroicon-o-adjustments-horizontal';
+                                                }
+                                                return is_numeric($man) ? 'heroicon-o-check-circle' : 'heroicon-o-pencil-square';
                                             })
                                             ->suffixIconColor(function ($get) {
-                                                $locked = filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN);
-                                                if ($locked) return 'gray';
-                                                return is_numeric($get('m5')) ? 'success' : 'info';
+                                                $orig = $get('attempt_score_5'); $man = $get('m5');
+                                                if (is_numeric($orig) && is_numeric($man) && (int)$man !== (int)$orig) {
+                                                    return 'warning';
+                                                }
+                                                return is_numeric($man) ? 'success' : 'info';
                                             })
                                             ->helperText(function ($get) {
-                                                if (filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN)) {
-                                                    $attemptScore = $get('attempt_score_5');
-                                                    return 'Terkunci' . (is_numeric($attemptScore) ? " (Quiz: {$attemptScore})" : '');
+                                                $hasAttempt = filter_var($get('attempt_5'), FILTER_VALIDATE_BOOLEAN);
+                                                $orig = $get('attempt_score_5'); $man = $get('m5');
+                                                if ($hasAttempt) {
+                                                    if (is_numeric($man) && is_numeric($orig) && (int)$man !== (int)$orig) {
+                                                        return "Override: Quiz {$orig} → Manual {$man}";
+                                                    }
+                                                    return is_numeric($orig) ? "Nilai quiz: {$orig} (bisa diubah)" : 'Belum ada nilai quiz';
                                                 }
-                                                return is_numeric($get('m5')) ? 'Sudah diisi' : 'Perlu diisi';
+                                                return is_numeric($man) ? 'Sudah diisi (manual)' : 'Perlu diisi';
                                             })
-                                            ->placeholder(fn ($get) => is_numeric($get('m5')) ? "Nilai sekarang: {$get('m5')}" : '0-100'),
+                                            ->placeholder(function ($get) {
+                                                $man = $get('m5'); $orig = $get('attempt_score_5');
+                                                return is_numeric($man) ? "Nilai sekarang: {$man}" : (is_numeric($orig) ? "Nilai quiz: {$orig}" : '0-100');
+                                            }),
                                     ])->columnSpanFull(),
                                 ])
                                 ->columns(1)
@@ -694,56 +965,69 @@ class TutorMahasiswa extends Page implements HasTable
                     })
                     ->action(function (Collection $records, array $data) {
                         $updatedCount = 0;
-                        $skippedCount = 0;
-                        $attemptViolations = [];
+
+                        // Safety: kalau tidak ada data students, hentikan dengan info
+                        if (empty($data['students']) || !is_array($data['students'])) {
+                            Notification::make()
+                                ->title('Tidak ada data untuk diperbarui')
+                                ->body('Form tidak mengirimkan item mahasiswa.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
 
                         foreach ($data['students'] as $studentData) {
-                            $userId = $studentData['user_id'];
-                            $user = User::find($userId);
+                            $userId = $studentData['user_id'] ?? null;
+                            if (!$userId) {
+                                continue;
+                            }
 
-                            if (!$user) continue;
+                            /** @var \App\Models\User|null $user */
+                            $user = User::find($userId);
+                            if (!$user) {
+                                continue;
+                            }
 
                             $year = $user->year;
+                            $studentUpdated = false;
 
                             foreach (['m1'=>1, 'm2'=>2, 'm3'=>3, 'm4'=>4, 'm5'=>5] as $key => $meeting) {
                                 $val = $studentData[$key] ?? null;
 
-                                $hasAttempt = $user->basicListeningAttempts()
-                                    ->where('session_id', $meeting)
-                                    ->whereNotNull('submitted_at')
-                                    ->exists();
+                                // Ambil/siapkan baris manual score
+                                $row = BasicListeningManualScore::firstOrCreate([
+                                    'user_id'   => $userId,
+                                    'user_year' => $year,
+                                    'meeting'   => $meeting,
+                                ]);
 
-                                if ($hasAttempt) {
-                                    $currentManualScore = BasicListeningManualScore::query()
-                                        ->where('user_id', $userId)
-                                        ->where('user_year', $year)
-                                        ->where('meeting', $meeting)
-                                        ->value('score');
+                                $before = $row->score;
 
-                                    $newValue = is_numeric($val) ? (int)$val : null;
-                                    $currentValue = is_numeric($currentManualScore) ? (int)$currentManualScore : null;
-
-                                    if ($newValue !== $currentValue) {
-                                        $attemptViolations[] = "{$user->name} S{$meeting}";
-                                        $skippedCount++;
-                                        continue;
+                                // Kosong/null = hapus override manual (gunakan nilai quiz jika ada)
+                                if ($val === '' || $val === null) {
+                                    if ($before !== null) {
+                                        $row->score = null;
+                                        $row->save();
+                                        $updatedCount++;
+                                        $studentUpdated = true;
                                     }
+                                    continue;
                                 }
 
-                                if ($val !== null && $val !== '') {
-                                    $row = BasicListeningManualScore::firstOrCreate([
-                                        'user_id'   => $userId,
-                                        'user_year' => $year,
-                                        'meeting'   => $meeting,
-                                    ]);
-
-                                    $row->score = max(0, min(100, (int)$val));
-                                    $row->save();
-                                    $updatedCount++;
+                                // Normalisasi nilai 0..100 (hanya simpan kalau berubah)
+                                if (is_numeric($val)) {
+                                    $new = max(0, min(100, (int) $val));
+                                    if ((int) ($before ?? -1) !== $new) {
+                                        $row->score = $new;
+                                        $row->save();
+                                        $updatedCount++;
+                                        $studentUpdated = true;
+                                    }
                                 }
                             }
 
-                            if ($updatedCount > 0) {
+                            // Refresh cache final/grade untuk mahasiswa ini jika ada perubahan
+                            if ($studentUpdated) {
                                 $grade = BasicListeningGrade::firstOrCreate([
                                     'user_id'   => $userId,
                                     'user_year' => $year,
@@ -752,22 +1036,13 @@ class TutorMahasiswa extends Page implements HasTable
                             }
                         }
 
-                        if (!empty($attemptViolations)) {
-                            $violationList = implode(', ', array_slice($attemptViolations, 0, 5));
-                            $moreText = count($attemptViolations) > 5 ? ' dan lainnya...' : '';
-
-                            Notification::make()
-                                ->title('Bulk update dengan peringatan')
-                                ->body("{$updatedCount} nilai diupdate. Beberapa tidak dapat diubah karena ada attempt: {$violationList}{$moreText}")
-                                ->warning()
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->title('Bulk update selesai')
-                                ->body("{$updatedCount} nilai diupdate, {$skippedCount} di-skip (ada attempt)")
-                                ->success()
-                                ->send();
-                        }
+                        Notification::make()
+                            ->title('Bulk update selesai')
+                            ->body($updatedCount > 0
+                                ? "{$updatedCount} nilai meeting diupdate (manual override disimpan)."
+                                : 'Tidak ada perubahan.')
+                            ->success()
+                            ->send();
                     })
                     ->deselectRecordsAfterCompletion(),
 
@@ -900,6 +1175,69 @@ class TutorMahasiswa extends Page implements HasTable
                         Notification::make()
                             ->title('Reset nilai berhasil')
                             ->body("{$resetCount} mahasiswa berhasil direset")
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+                Tables\Actions\BulkAction::make('bulk_set_group_bl')
+                    ->label('Atur Grup BL')
+                    ->icon('heroicon-o-user-group')
+                    ->color('success')
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin','tutor']))
+                    ->form([
+                        Forms\Components\Select::make('nomor_grup_bl')
+                            ->label('Pilih Grup')
+                            ->options(fn () =>
+                                \App\Models\User::query()
+                                    ->whereNotNull('nomor_grup_bl')
+                                    ->distinct()
+                                    ->orderBy('nomor_grup_bl')
+                                    ->pluck('nomor_grup_bl', 'nomor_grup_bl')
+                                    ->toArray()
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+                        Forms\Components\Toggle::make('only_empty')
+                            ->label('Hanya yang belum punya grup')
+                            ->default(true),
+                    ])
+                    ->action(function (Collection $records, array $data) {
+                        $me   = auth()->user();
+                        $isAdmin  = $me?->hasRole('Admin');
+                        $isTutor  = $me?->hasRole('tutor');
+                        $allowed  = $isTutor && method_exists($me, 'assignedProdyIds') ? (array) $me->assignedProdyIds() : [];
+
+                        $targetGroup = $data['nomor_grup_bl'] ?? null;
+                        $onlyEmpty   = (bool) ($data['only_empty'] ?? false);
+
+                        $updated = 0; $skippedRestricted = 0; $skippedAlready = 0;
+
+                        foreach ($records as $user) {
+                            /** @var \App\Models\User $user */
+                            // Batasan tutor: hanya prodi binaan
+                            if ($isTutor && ! $isAdmin) {
+                                if (empty($allowed) || ! in_array($user->prody_id, $allowed, true)) {
+                                    $skippedRestricted++;
+                                    continue;
+                                }
+                            }
+
+                            if ($onlyEmpty && filled($user->nomor_grup_bl)) {
+                                $skippedAlready++;
+                                continue;
+                            }
+
+                            $user->nomor_grup_bl = $targetGroup;
+                            $user->save();
+                            $updated++;
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Bulk atur grup selesai')
+                            ->body("Diupdate: {$updated}" .
+                                ($skippedAlready ? " | Dilewati (sudah punya grup): {$skippedAlready}" : '') .
+                                ($skippedRestricted ? " | Dibatasi akses: {$skippedRestricted}" : ''))
                             ->success()
                             ->send();
                     })

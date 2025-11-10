@@ -329,7 +329,10 @@ class BasicListeningAttemptResource extends Resource
                 Tables\Columns\TextColumn::make('user.prody.name')
                     ->label('Prodi')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(14)
+                    ->badge()
+                    ->tooltip(fn ($state) => $state),
 
                 Tables\Columns\TextColumn::make('session.number')
                     ->label('Pert.')
@@ -356,7 +359,9 @@ class BasicListeningAttemptResource extends Resource
 
                 Tables\Columns\TextColumn::make('session.title')
                     ->label('Judul')
-                    ->limit(30)
+                    ->limit(14)
+                    ->badge()
+                    ->tooltip(fn ($state) => $state)
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('score')
@@ -381,12 +386,12 @@ class BasicListeningAttemptResource extends Resource
 
                 Tables\Columns\TextColumn::make('started_at')
                     ->label('Dimulai')
-                    ->dateTime('d M Y H:i')
+                    ->dateTime('d/m/y H:i')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('submitted_at')
                     ->label('Dikumpul')
-                    ->dateTime('d M Y H:i')
+                    ->dateTime('d/m/y H:i')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('updated_at')
@@ -395,9 +400,42 @@ class BasicListeningAttemptResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('prody')
+                Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
-                    ->relationship('user.prody', 'name'),
+                    ->options(function () {
+                        $user = auth()->user();
+
+                        // Tutor: hanya prodi binaan
+                        if ($user?->hasAnyRole(['tutor', 'Tutor'])) {
+                            // Pastikan assignedProdyIds() ada; kalau tidak, fallback kosong
+                            $ids = method_exists($user, 'assignedProdyIds') ? (array) $user->assignedProdyIds() : [];
+                            return \App\Models\Prody::query()
+                                ->whereIn('id', $ids ?: [-1])
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->toArray();
+                        }
+
+                        // Admin/superuser: semua prodi
+                        if ($user?->hasAnyRole(['Admin', 'superuser'])) {
+                            return \App\Models\Prody::query()
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->toArray();
+                        }
+
+                        // Role lain: kosongkan
+                        return [];
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->whereHas('user', function (Builder $uq) use ($data) {
+                                $uq->where('prody_id', $data['value']);
+                            });
+                        }
+                    })
+                    ->searchable()
+                    ->preload(),
 
                 Tables\Filters\SelectFilter::make('session')
                     ->label('Pertemuan')
@@ -417,11 +455,17 @@ class BasicListeningAttemptResource extends Resource
                     ),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                \Filament\Tables\Actions\ActionGroup::make([
+                    
+                    Tables\Actions\ViewAction::make(),
 
-                Tables\Actions\EditAction::make()
-                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin','Tutor','tutor']) ?? false)
-                    ->authorize(fn ($record) => auth()->user()?->hasAnyRole(['Admin','Tutor','tutor']) ?? false),
+                    Tables\Actions\EditAction::make()
+                        ->visible(fn () => auth()->user()?->hasAnyRole(['Admin','tutor']))
+                        ->authorize(fn () => auth()->user()?->hasAnyRole(['Admin','tutor'])),
+                    
+                ])
+                ->label('Aksi')
+                ->icon('heroicon-m-cog-6-tooth')
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

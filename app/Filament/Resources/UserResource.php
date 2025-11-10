@@ -79,7 +79,7 @@ class UserResource extends Resource
                     ->label('Roles')
                     ->relationship('roles', 'name')
                     ->preload()
-                    ->multiple()
+                    ->live()
                     ->searchable(),
 
                 Forms\Components\FileUpload::make('image')
@@ -98,9 +98,54 @@ class UserResource extends Resource
                             ->preload()
                             ->searchable()
                             ->helperText('Tutor bisa mengampu lebih dari satu prodi, dan satu prodi bisa diampu banyak tutor.')
-                            ->visible(fn () => auth()->user()?->hasRole('Admin') === true),
+                            // Wajib diisi hanya ketika role tutor dipilih
+                            ->required(function (Forms\Get $get) {
+                                $roles = $get('roles');
+
+                                // Normalisasi ke array
+                                $roles = is_array($roles) ? $roles : (filled($roles) ? [$roles] : []);
+
+                                // Jika angka, berarti ID role -> ambil namanya
+                                $roleNames = collect($roles)->map(function ($val) {
+                                    if (is_numeric($val)) {
+                                        return optional(\Spatie\Permission\Models\Role::find($val))->name;
+                                    }
+                                    return $val; // mungkin sudah nama
+                                })->filter()->map(fn ($n) => strtolower($n))->all();
+
+                                return in_array('tutor', $roleNames, true);
+                            })
+                            ->visible(function (Forms\Get $get) {
+                                // Tampilkan input ini hanya saat Section tampil (admin + tutor)
+                                $userIsAdmin = auth()->user()?->hasRole('Admin') === true;
+
+                                $roles = $get('roles');
+                                $roles = is_array($roles) ? $roles : (filled($roles) ? [$roles] : []);
+                                $roleNames = collect($roles)->map(function ($val) {
+                                    if (is_numeric($val)) {
+                                        return optional(\Spatie\Permission\Models\Role::find($val))->name;
+                                    }
+                                    return $val;
+                                })->filter()->map(fn ($n) => strtolower($n))->all();
+
+                                return $userIsAdmin && in_array('tutor', $roleNames, true);
+                            }),
                     ])
-                    ->visible(fn () => auth()->user()?->hasRole('Admin') === true),
+                    ->visible(function (Forms\Get $get) {
+                        // Section hanya tampil kalau: (1) admin yang sedang login, dan (2) role tutor dipilih
+                        $userIsAdmin = auth()->user()?->hasRole('Admin') === true;
+
+                        $roles = $get('roles');
+                        $roles = is_array($roles) ? $roles : (filled($roles) ? [$roles] : []);
+                        $roleNames = collect($roles)->map(function ($val) {
+                            if (is_numeric($val)) {
+                                return optional(\Spatie\Permission\Models\Role::find($val))->name;
+                            }
+                            return $val;
+                        })->filter()->map(fn ($n) => strtolower($n))->all();
+
+                        return $userIsAdmin && in_array('tutor', $roleNames, true);
+                    }),
             ]);
     }
 
@@ -125,9 +170,11 @@ class UserResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('nilaibasiclistening')
                     ->label('Score BL')
-                    ->numeric(),
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\ImageColumn::make('image')
-                    ->label('Foto Profil'),
+                    ->label('Foto Profil')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\BadgeColumn::make('roles.name')
                     ->label('Role')
                     ->colors([
@@ -149,9 +196,86 @@ class UserResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                // === Role (ambil dari Spatie Roles) ===
+                Tables\Filters\SelectFilter::make('role')
+                    ->label('Role')
+                    ->options(fn () =>
+                        \Spatie\Permission\Models\Role::query()
+                            ->orderBy('name')
+                            ->pluck('name', 'name') // pakai nama sbg key agar mudah
+                    )
+                    ->searchable()
+                    ->preload()
+                    ->query(function (Builder $query, array $data) {
+                        if (filled($data['value'] ?? null)) {
+                            $query->whereHas('roles', fn (Builder $rq) =>
+                                $rq->where('name', $data['value'])
+                            );
+                        }
+                    }),
+
+                // === Prodi ===
+                Tables\Filters\SelectFilter::make('prody_id')
+                    ->label('Prodi')
+                    ->options(fn () =>
+                        \App\Models\Prody::query()
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                    )
+                    ->searchable()
+                    ->preload(),
+
+                // === Grup BL ===
+                Tables\Filters\SelectFilter::make('nomor_grup_bl')
+                    ->label('Grup BL')
+                    ->options(fn () =>
+                        \App\Models\User::query()
+                            ->whereNotNull('nomor_grup_bl')
+                            ->distinct()
+                            ->orderBy('nomor_grup_bl')
+                            ->pluck('nomor_grup_bl', 'nomor_grup_bl')
+                    )
+                    ->searchable()
+                    ->preload(),
+
+                // === Angkatan (range year) ===
+                Tables\Filters\Filter::make('angkatan')
+                    ->label('Angkatan')
+                    ->form([
+                        Forms\Components\TextInput::make('from')
+                            ->numeric()->minValue(2000)->maxValue(2100)
+                            ->placeholder('dari (mis. 2024)'),
+                        Forms\Components\TextInput::make('to')
+                            ->numeric()->minValue(2000)->maxValue(2100)
+                            ->placeholder('sampai (mis. 2025)'),
+                    ])
+                    ->indicateUsing(function (array $data): ?string {
+                        $from = $data['from'] ?? null;
+                        $to   = $data['to']   ?? null;
+                        if ($from && $to)   return "Angkatan: {$from}–{$to}";
+                        if ($from)          return "Angkatan ≥ {$from}";
+                        if ($to)            return "Angkatan ≤ {$to}";
+                        return null;
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        $from = $data['from'] ?? null;
+                        $to   = $data['to']   ?? null;
+                        if ($from) $query->where('year', '>=', (int) $from);
+                        if ($to)   $query->where('year', '<=', (int) $to);
+                    }),
+
+                // === Ada Attempt BL? ===
+                Tables\Filters\TernaryFilter::make('has_attempts')
+                    ->label('Ada Attempt BL?')
+                    ->boolean()
+                    ->queries(
+                        true:  fn (Builder $q) => $q->whereHas('basicListeningAttempts'),
+                        false: fn (Builder $q) => $q->whereDoesntHave('basicListeningAttempts'),
+                        blank: fn (Builder $q) => $q
+                    ),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -197,7 +321,7 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            \App\Filament\Resources\UserResource\RelationManagers\BasicListeningAttemptsRelationManager::class,
         ];
     }
 
@@ -217,6 +341,7 @@ class UserResource extends Resource
             'index' => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
+            'view'   => Pages\ViewUser::route('/{record}'),
         ];
     }
 }

@@ -20,7 +20,7 @@ class BasicListeningScheduleResource extends Resource
     protected static ?string $model = BasicListeningSchedule::class;
 
     protected static ?string $navigationIcon  = 'heroicon-o-calendar-days';
-    protected static ?string $navigationLabel = 'Jadwal Listening';
+    protected static ?string $navigationLabel = 'Jadwal Basic Listening';
     protected static ?string $pluralModelLabel = 'Jadwal Basic Listening';
 
     public static function form(Form $form): Form
@@ -70,6 +70,7 @@ class BasicListeningScheduleResource extends Resource
                 Tables\Columns\TextColumn::make('jam_mulai')->time('H:i'),
                 Tables\Columns\TextColumn::make('jam_selesai')->time('H:i'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('hari')
                     ->options(['Senin'=>'Senin','Selasa'=>'Selasa','Rabu'=>'Rabu','Kamis'=>'Kamis','Jumat'=>'Jumat']),
