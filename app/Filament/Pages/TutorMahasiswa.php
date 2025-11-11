@@ -25,6 +25,11 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Filament\Tables\Actions\ActionGroup;
 
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\TutorMahasiswaTemplateExport;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
+
 class TutorMahasiswa extends Page implements HasTable
 {
     use InteractsWithTable;
@@ -1242,6 +1247,161 @@ class TutorMahasiswa extends Page implements HasTable
                             ->send();
                     })
                     ->deselectRecordsAfterCompletion(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('export_excel')
+                    ->label('Export Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->form([
+                        // Default: gunakan FILTER AKTIF; tapi sediakan opsi override di modal export
+                        Select::make('prody_id')
+                            ->label('Prodi')
+                            ->options(function () {
+                                return \App\Models\Prody::query()
+                                    ->orderBy('name')->pluck('name','id')->toArray();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Gunakan filter tabel'),
+                        Select::make('nomor_grup_bl')
+                            ->label('Nomor Grup BL')
+                            ->options(function () {
+                                return \App\Models\User::query()
+                                    ->whereNotNull('nomor_grup_bl')
+                                    ->distinct()
+                                    ->orderBy('nomor_grup_bl')
+                                    ->pluck('nomor_grup_bl','nomor_grup_bl')
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Gunakan filter tabel'),
+                        Toggle::make('only_complete')
+                            ->label('Hanya yang nilainya lengkap (S1–S5, Attendance, Final Test)')
+                            ->default(true),
+                    ])
+                    ->action(function (array $data) {
+                        // Ambil filter aktif dari tabel
+                        $filters = $this->getTableFiltersForm()->getState();
+
+                        $prodyFromFilter = $filters['prody_id']['value'] ?? null;
+                        $groupFromFilter = $filters['nomor_grup_bl']['value'] ?? null;
+
+                        // Jika user memilih override di modal export, pakai itu
+                        $prodyId = $data['prody_id'] ?? $prodyFromFilter;
+                        $groupNo = $data['nomor_grup_bl'] ?? $groupFromFilter;
+
+                        // Base query + relasi yang diperlukan untuk export
+                        $q = $this->baseQuery(auth()->user())
+                            ->with([
+                                'prody:id,name',
+                                'basicListeningGrade:id,user_id,user_year,attendance,final_test,final_numeric_cached,final_letter_cached',
+                                'basicListeningManualScores:id,user_id,user_year,meeting,score',
+                                'basicListeningAttempts' => function ($qq) {
+                                    $qq->select(['id','user_id','session_id','score','submitted_at']);
+                                },
+                            ])
+                            ->when($prodyId, fn($qq) => $qq->where('prody_id', $prodyId))
+                            ->when($groupNo, fn($qq) => $qq->where('nomor_grup_bl', $groupNo));
+
+                        $users = $q->get();
+
+                        // Validasi kelengkapan nilai bila diminta
+                        $onlyComplete = (bool) ($data['only_complete'] ?? true);
+
+                        if ($onlyComplete) {
+                            $incomplete = [];
+
+                            foreach ($users as $u) {
+                                // Attendance & Final Test wajib ada
+                                $att   = optional($u->basicListeningGrade)->attendance;
+                                $final = optional($u->basicListeningGrade)->final_test;
+
+                                // S1..S5 wajib ada (manual > attempt submitted)
+                                $missingMeetings = [];
+                                foreach ([1,2,3,4,5] as $m) {
+                                    $manual = $u->basicListeningManualScores
+                                        ->firstWhere('meeting', $m)
+                                        ->score ?? null;
+
+                                    if (is_numeric($manual)) {
+                                        continue;
+                                    }
+
+                                    $attempt = $u->basicListeningAttempts
+                                        ->where('session_id', $m)
+                                        ->filter(fn ($a) => !is_null($a->submitted_at))
+                                        ->sortByDesc('submitted_at')
+                                        ->first();
+
+                                    if (!is_numeric($attempt?->score)) {
+                                        $missingMeetings[] = "S{$m}";
+                                    }
+                                }
+
+                                $isComplete = (is_numeric($att) && is_numeric($final) && empty($missingMeetings));
+
+                                if (!$isComplete) {
+                                    $incomplete[] = [
+                                        'name' => $u->name,
+                                        'srn'  => $u->srn,
+                                        'missing' => (is_numeric($att) ? [] : ['Attendance'])
+                                            + (is_numeric($final) ? [] : ['Final Test'])
+                                            // tampilkan deskripsi meeting yang kurang
+                                    ];
+                                }
+                            }
+
+                            if (!empty($incomplete)) {
+                                // Tampilkan notifikasi ringkas siapa saja yang belum lengkap
+                                $list = collect($users)->filter(function ($u) {
+                                    // hitung status lengkap lagi cepat (biar simpel)
+                                    $att   = optional($u->basicListeningGrade)->attendance;
+                                    $final = optional($u->basicListeningGrade)->final_test;
+                                    $ok = is_numeric($att) && is_numeric($final);
+                                    if (!$ok) return true;
+
+                                    foreach ([1,2,3,4,5] as $m) {
+                                        $manual = $u->basicListeningManualScores->firstWhere('meeting', $m)->score ?? null;
+                                        if (is_numeric($manual)) continue;
+                                        $attempt = $u->basicListeningAttempts
+                                            ->where('session_id', $m)
+                                            ->filter(fn ($a) => !is_null($a->submitted_at))
+                                            ->sortByDesc('submitted_at')->first();
+                                        if (!is_numeric($attempt?->score)) {
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                })
+                                ->take(8)
+                                ->map(fn($u) => "{$u->srn} — {$u->name}")
+                                ->implode(', ');
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Export dibatalkan: masih ada nilai yang belum lengkap')
+                                    ->body($list ? "Contoh belum lengkap: {$list}." : 'Ada data belum lengkap.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+                        }
+
+                        // Siapkan file export (pakai data users yang sudah difilter)
+                        $fileName = 'BL_Export_' . now()->format('Ymd_His') . '.xlsx';
+
+                        $prodyName = null;
+                        if ($prodyId) {
+                            $prodyName = optional(\App\Models\Prody::find($prodyId))->name;
+                        }
+
+                        return Excel::download(
+                            new TutorMahasiswaTemplateExport($users, $groupNo, $prodyName),
+                            $fileName
+                        );
+                    }),
             ])
             ->emptyStateHeading('Belum ada data')
             ->emptyStateDescription('Ubah filter angkatan atau pastikan prodi yang Anda ampu sudah diatur.');

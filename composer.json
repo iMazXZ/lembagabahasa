@@ -15,6 +15,7 @@
         "intervention/image": "^3.8",
         "laravel/framework": "^11.31",
         "laravel/tinker": "^2.9",
+        "maatwebsite/excel": "^3.1",
         "mews/purifier": "^3.4",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-permission": "^6.18",
