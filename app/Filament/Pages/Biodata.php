@@ -87,8 +87,16 @@ class Biodata extends Page
                     //     ->hintColor('danger'),
 
                     TextInput::make('srn')
-                        ->label('Nomor Pokok Mahasiswa (NPM)'),
-                        // ->helperText(str('Jika Anda **Mahasiswa**, isi NPM. Jika **Dosen**, isi NIDN. Jika **Umum**, isi NIK.')->inlineMarkdown()->toHtmlString()),
+                        ->label('Nomor Pokok Mahasiswa (NPM)')
+                        ->required()
+                        ->unique(
+                            table: 'users',
+                            column: 'srn',
+                            ignorable: fn ($record) => $record,
+                        )
+                        ->validationMessages([
+                            'unique' => 'NPM ini sudah terdaftar pada pengguna lain.',
+                        ]),
 
                     Select::make('prody_id')
                         ->label('Program Studi')

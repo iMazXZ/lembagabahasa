@@ -56,9 +56,13 @@ class UserResource extends Resource
                     ->required(fn (Page $livewire): bool => $livewire instanceof CreateRecord)
                     ->maxLength(255),
                 Forms\Components\TextInput::make('srn')
-                    ->label('SRN / NPM')
+                    ->label('NPM')
                     ->maxLength(255)
-                    ->default(null),
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->validationMessages([
+                        'unique' => 'NPM ini sudah terdaftar pada pengguna lain.',
+                    ]),
                 Forms\Components\Select::make('prody_id')
                     ->label('Program Studi')
                     ->relationship('prody', 'name')

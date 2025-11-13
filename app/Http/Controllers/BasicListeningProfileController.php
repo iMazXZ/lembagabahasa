@@ -47,13 +47,24 @@ class BasicListeningProfileController extends Controller
         $next = $request->input('next', route('bl.index'));
 
         $data = $request->validate([
-            'prody_id' => ['required', Rule::exists('prodies','id')], // sesuaikan nama tabel jika Prody kamu 'prodies'
-            'srn'      => ['required','string','max:50'],
-            'year'     => ['required','integer','min:2015','max:'.(int)now()->year],
+            'prody_id' => ['required', Rule::exists('prodies','id')],
+            'srn'      => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('users', 'srn')->ignore($user->id),
+            ],
+            'year'     => [
+                'required',
+                'integer',
+                'min:2015',
+                'max:' . (int) now()->year,
+            ],
         ], [
             'prody_id.required' => 'Pilih Program Studi.',
             'prody_id.exists'   => 'Program Studi tidak valid.',
-            'srn.required'      => 'SRN wajib diisi.',
+            'srn.required'      => 'NPM wajib diisi.',
+            'srn.unique'        => 'NPM ini sudah terdaftar pada pengguna lain. Silakan periksa kembali.',
             'year.required'     => 'Tahun angkatan wajib diisi.',
         ]);
 
