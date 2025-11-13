@@ -3,11 +3,11 @@
 namespace App\Filament\Pages\Auth;
 
 use Exception;
+use App\Notifications\ResetPasswordNotification;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Contracts\Auth\CanResetPassword;
-use App\Notifications\ResetPasswordNotification; 
+use Illuminate\Validation\ValidationException;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Pages\Auth\PasswordReset\RequestPasswordReset as BaseRequestPasswordReset;
 
@@ -15,59 +15,53 @@ class RequestPasswordReset extends BaseRequestPasswordReset
 {
     public function request(): void
     {
+        // Prevent spam
         try {
             $this->rateLimit(2);
-        } catch (TooManyRequestsException $exception) {
+        } catch (TooManyRequestsException $e) {
             Notification::make()
-                ->title(__('filament-panels::pages/auth/password-reset/request-password-reset.notifications.throttled.title', [
-                    'seconds' => $exception->secondsUntilAvailable,
-                    'minutes' => ceil($exception->secondsUntilAvailable / 60),
-                ]))
-                ->body(array_key_exists('body', __('filament-panels::pages/auth/password-reset/request-password-reset.notifications.throttled') ?: []) ? __('filament-panels::pages/auth/password-reset/request-password-reset.notifications.throttled.body', [
-                    'seconds' => $exception->secondsUntilAvailable,
-                    'minutes' => ceil($exception->secondsUntilAvailable / 60),
-                ]) : null)
+                ->title('Terlalu Banyak Percobaan')
+                ->body("Silakan coba lagi dalam {$e->secondsUntilAvailable} detik.")
                 ->danger()
                 ->send();
- 
             return;
         }
- 
-        $data = $this->form->getState();
-        $status = Password::broker(Filament::getAuthPasswordBroker())->sendResetLink(
-            $data,
-            function (CanResetPassword $user, string $token): void {
-                if (! method_exists($user, 'notify')) {
-                    $userClass = $user::class;
-                    throw new Exception("Model [{$userClass}] does not have a [notify()] method.");
+
+        // Ambil email
+        $email = $this->form->getState()['email'] ?? null;
+
+        if (! $email) {
+            throw ValidationException::withMessages([
+                'email' => 'Email wajib diisi.',
+            ]);
+        }
+
+        // Kirim reset link
+        $status = Password::broker(Filament::getAuthPasswordBroker())
+            ->sendResetLink(
+                ['email' => $email],
+                function ($user, string $token) {
+                    $notification = new ResetPasswordNotification($token);
+                    $notification->url = Filament::getResetPasswordUrl($token, $user);
+                    $user->notify($notification);
                 }
- 
-                $notification = new ResetPasswordNotification($token); 
-                $notification->url = Filament::getResetPasswordUrl($token, $user); 
-                $user->notify($notification);
-            },
-        );
- 
+            );
+
         if ($status !== Password::RESET_LINK_SENT) {
             Notification::make()
-                ->title('Gagal Mengirim Tautan Reset Kata Sandi')
-                ->body(__($status))
-                ->icon('heroicon-o-exclamation-triangle')
-                ->seconds(5)
-                ->color('danger')
+                ->title('Gagal Mengirim Tautan Reset')
+                ->body('Email tidak ditemukan atau tidak valid.')
+                ->danger()
                 ->send();
- 
             return;
         }
- 
+
         Notification::make()
-            ->title('Tautan Reset Kata Sandi Terkirim')
-            ->body(str('Silakan periksa email Anda, termasuk folder **Spam** atau **Kotak Masuk**')->inlineMarkdown()->toHtmlString())
-            ->icon('heroicon-o-check-circle')
-            ->color('success')
-            ->persistent()
+            ->title('Tautan Reset Terkirim')
+            ->body('Silakan cek email Anda (termasuk folder Spam).')
+            ->success()
             ->send();
- 
+
         $this->form->fill();
     }
 }
