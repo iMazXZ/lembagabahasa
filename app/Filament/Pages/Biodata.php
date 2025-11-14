@@ -87,13 +87,10 @@ class Biodata extends Page
                     //     ->hintColor('danger'),
 
                     TextInput::make('srn')
-                        ->label('Nomor Pokok Mahasiswa (NPM)')
+                        ->label('NPM')
+                        ->maxLength(255)
                         ->required()
-                        ->unique(
-                            table: 'users',
-                            column: 'srn',
-                            ignorable: fn ($record) => $record,
-                        )
+                        ->unique(ignoreRecord: true)
                         ->validationMessages([
                             'unique' => 'NPM ini sudah terdaftar pada pengguna lain.',
                         ]),

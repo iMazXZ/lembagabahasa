@@ -3,11 +3,9 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Filament\Facades\Filament;
-use Illuminate\Support\Facades\Lang;
 
 class ResetPasswordNotification extends Notification
 {
@@ -23,12 +21,14 @@ class ResetPasswordNotification extends Notification
  
     public function toMail(object $notifiable): MailMessage
     {
+        $expireMinutes = config('auth.passwords.' . config('auth.defaults.passwords') . '.expire');
+
         return (new MailMessage)
             ->subject('Lupa Kata Sandi - Lembaga Bahasa')
             ->greeting("Hai {$notifiable->name}")
             ->line('Permintaan untuk mengubah kata sandi akun Anda telah diterima.')
             ->action('Ubah Kata Sandi', $this->resetUrl($notifiable))
-            ->line("Tautan aman ini berlaku selama " . config('auth.passwords.'.config('auth.defaults.passwords').'.expire') . " menit ke depan.")
+            ->line("Tautan aman ini berlaku selama {$expireMinutes} menit ke depan.")
             ->line('Jika Anda tidak meminta perubahan ini, abaikan pesan ini.');
     }
  
@@ -36,5 +36,4 @@ class ResetPasswordNotification extends Notification
     {
         return Filament::getResetPasswordUrl($this->token, $notifiable);
     }
- 
 }
