@@ -73,10 +73,6 @@
       <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-8">
         <h2 class="text-xl font-bold text-gray-900 mb-4 text-center">Ringkasan Hasil</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="text-center bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <div class="text-2xl font-bold text-gray-900">{{ $totalUnits }}</div>
-            <div class="text-xs text-slate-600 mt-1">Total Unit</div>
-          </div>
           <div class="text-center bg-emerald-50 border border-emerald-200 rounded-lg p-4">
             <div class="text-2xl font-bold text-emerald-600">{{ $correctUnits }}</div>
             <div class="text-xs text-slate-700 mt-1">Benar</div>
@@ -84,10 +80,6 @@
           <div class="text-center bg-red-50 border border-red-200 rounded-lg p-4">
             <div class="text-2xl font-bold text-red-600">{{ $incorrectUnits }}</div>
             <div class="text-xs text-slate-700 mt-1">Salah</div>
-          </div>
-          <div class="text-center bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div class="text-2xl font-bold text-blue-600">{{ $accuracy }}%</div>
-            <div class="text-xs text-slate-700 mt-1">Akurasi</div>
           </div>
         </div>
       </div>
@@ -172,9 +164,9 @@
 
               <div class="bg-white rounded-lg border-l-4 {{ $allCorrect ? 'border-emerald-500' : 'border-red-500' }} border-t border-r border-b border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
                 <div class="flex items-start gap-3 mb-4">
-                  <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-700">
+                  <!-- <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-700">
                     {{ $idx + 1 }}
-                  </div>
+                  </div> -->
                   <div class="flex-1">
                     <div class="font-semibold text-gray-900 mb-1">Fill in the Blank</div>
                     <div class="text-gray-700 leading-relaxed whitespace-pre-line">{!! $rendered !!}</div>

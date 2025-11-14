@@ -42,27 +42,21 @@ class BasicListeningConnectController extends Controller
         $plain = trim((string) $request->input('code'));
         $hash  = hash('sha256', $plain);
 
-        // Ambil daftar code aktif untuk session ini lalu cocokkan hash
         $now = now();
 
+        // === Ambil SEMUA kode untuk sesi ini (termasuk yang sudah kedaluwarsa/nonaktif) ===
         $codes = BasicListeningConnectCode::query()
             ->where('session_id', $session->id)
-            ->where('is_active', true)
-            ->where(function ($q) use ($now) {
-                // starts_at NULL dianggap sudah aktif
-                $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
-            })
-            ->where(function ($q) use ($now) {
-                // ends_at NULL dianggap belum kedaluwarsa
-                $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
-            })
             ->get();
 
         /** @var \App\Models\BasicListeningConnectCode|null $connect */
         $connect = $codes->first(fn ($c) => hash_equals($c->code_hash, $hash));
 
         if (! $connect) {
-            return back()->withErrors(['code' => 'Kode salah atau kedaluwarsa.'])->withInput();
+            // Tidak ada kode dengan hash ini sama sekali
+            return back()
+                ->withErrors(['code' => 'Kode salah atau kedaluwarsa.'])
+                ->withInput();
         }
 
         // ===== Guardrail: Validasi pembatasan prodi =====
@@ -84,20 +78,53 @@ class BasicListeningConnectController extends Controller
         }
         // ================================================
 
-        // Batas pemakaian
+        // Tentukan quiz yang akan dibuka (dipakai juga untuk cek attempt lama)
+        $quiz = $connect->quiz
+            ?? $session->quizzes()->active()->latest('id')->first();
+
+        // Flag status "kode masih bisa dipakai untuk attempt baru"
+        $isWithinWindow =
+            (is_null($connect->starts_at) || $connect->starts_at <= $now) &&
+            (is_null($connect->ends_at)   || $connect->ends_at   >= $now);
+
+        $isUsable = $connect->is_active && $isWithinWindow;
+
+        // === Kalau kode SUDAH TIDAK USABLE (expired/nonaktif) ===
+        if (! $isUsable) {
+            if ($quiz) {
+                // Cek apakah user sudah pernah menyelesaikan kuis ini
+                $completed = BasicListeningAttempt::where('user_id', $request->user()->id)
+                    ->where('session_id', $session->id)
+                    ->where('quiz_id', $quiz->id)
+                    ->whereNotNull('submitted_at')
+                    ->latest('submitted_at')
+                    ->first();
+
+                if ($completed) {
+                    // Pakai connect code lama hanya untuk melihat hasil
+                    return redirect()
+                        ->route('bl.history.show', $completed->id)
+                        ->with('warning', 'Kodenya sudah kedaluwarsa, menampilkan hasil attempt yang sudah Anda selesaikan.');
+                }
+            }
+
+            // Tidak ada attempt yang sudah selesai → tetap error
+            return back()
+                ->withErrors(['code' => 'Kode salah atau kedaluwarsa.'])
+                ->withInput();
+        }
+
+        // Pada titik ini, kode MASIH AKTIF dan boleh dipakai buat attempt baru
+        if (! $quiz || ! $quiz->is_active) {
+            return back()->withErrors(['code' => 'Quiz belum tersedia.'])->withInput();
+        }
+
+        // Batas pemakaian (hanya dihitung kalau kode masih usable)
         if (! is_null($connect->max_uses)) {
             $uses = BasicListeningCodeUsage::where('connect_code_id', $connect->id)->count();
             if ($uses >= (int) $connect->max_uses) {
                 return back()->withErrors(['code' => 'Kode sudah mencapai batas pemakaian.'])->withInput();
             }
-        }
-
-        // Tentukan quiz yang akan dibuka
-        $quiz = $connect->quiz
-            ?? $session->quizzes()->active()->latest('id')->first();
-
-        if (! $quiz || ! $quiz->is_active) {
-            return back()->withErrors(['code' => 'Quiz belum tersedia.'])->withInput();
         }
 
         // Deteksi tipe: FIB atau MC
@@ -129,7 +156,7 @@ class BasicListeningConnectController extends Controller
                 ->withInput();
         }
 
-        // Catat penggunaan code (audit)
+        // Catat penggunaan code (audit) — hanya jika kode masih usable
         BasicListeningCodeUsage::create([
             'connect_code_id' => $connect->id,
             'user_id'         => $request->user()->id,

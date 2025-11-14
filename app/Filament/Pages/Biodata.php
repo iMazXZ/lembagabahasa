@@ -90,9 +90,9 @@ class Biodata extends Page
                         ->label('NPM')
                         ->maxLength(255)
                         ->required()
-                        ->unique(ignoreRecord: true)
+                        ->rule(fn () => 'unique:users,srn,' . Auth::id())
                         ->validationMessages([
-                            'unique' => 'NPM ini sudah terdaftar pada pengguna lain.',
+                            'unique' => 'NPM ini sudah terdaftar. Hubungi Admin jika ini memang NPM Anda.',
                         ]),
 
                     Select::make('prody_id')

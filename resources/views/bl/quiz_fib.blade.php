@@ -5,17 +5,98 @@
 @push('styles')
 <style>
   :root{ --line:#e5e7eb; --muted:#64748b; --brand:#6366f1; --ok:#10b981; --warn:#f59e0b; }
-  .wrap{max-width:960px;margin:1.5rem auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 10px 30px rgba(2,6,23,.06);padding:1.25rem}
-  .hdr{display:flex;justify-content:space-between;gap:.75rem;align-items:center;margin-bottom:.5rem}
-  .ttl{font-weight:800;font-size:1.25rem}
-  .sub{color:#334155}
-  .progress{height:8px;background:#eef2ff;border-radius:999px;overflow:hidden;margin:.25rem 0 1rem}
-  .progress>span{display:block;height:100%;width:0;background:linear-gradient(90deg,#6366f1,#22d3ee)}
-  .timer{display:flex;align-items:center;gap:.5rem;background:#f1f5f9;border:1px solid var(--line);padding:.4rem .7rem;border-radius:10px;font-weight:700}
-  .timer.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412;animation:pulse 1.15s infinite}
-  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
-  .note{background:#f8fafc;border:1px dashed var(--line);border-radius:14px;padding:12px;margin:.75rem 0}
-  .para{line-height:1.9;color:#0f172a;font-size:1.05rem;border:1px solid var(--line);border-radius:16px;padding:14px 16px;white-space:pre-line}
+
+  /* ===== Fixed timer bar di atas layar ===== */
+  .timer-bar-fixed{
+    position: fixed;
+    top: 3.5rem;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    background: rgba(248,250,252,.97);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .timer-bar-inner{
+    max-width: 960px;
+    margin: 0 auto;
+    padding: .75rem 1.25rem .6rem;
+  }
+
+  .wrap{
+    max-width: 960px;
+    margin: 2.75rem auto 1.5rem; /* top besar supaya tidak ketutup bar */
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(2,6,23,.06);
+    padding: 1.25rem;
+  }
+
+  .hdr{
+    display:flex;
+    justify-content:space-between;
+    gap:.75rem;
+    align-items:center;
+    margin-bottom:.25rem;
+  }
+  .ttl{font-weight:800;font-size:1.1rem}
+  .sub{color:#334155;font-size:.8rem}
+
+  .progress{
+    height:8px;
+    background:#eef2ff;
+    border-radius:999px;
+    overflow:hidden;
+    margin:0 0 .55rem;
+  }
+  .progress>span{
+    display:block;
+    height:100%;
+    width:0;
+    background:linear-gradient(90deg,#6366f1,#22d3ee);
+    transition:width .2s linear;
+  }
+
+  .timer{
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    background:#f1f5f9;
+    border:1px solid var(--line);
+    padding:.35rem .7rem;
+    border-radius:10px;
+    font-weight:700;
+    font-size:.9rem;
+  }
+  .timer.warn{
+    background:#fff7ed;
+    border-color:#fed7aa;
+    color:#9a3412;
+    animation:pulse 1.15s infinite;
+  }
+  @keyframes pulse{
+    0%,100%{transform:scale(1)}
+    50%{transform:scale(1.03)}
+  }
+
+  .note{
+    background:#f8fafc;
+    border:1px dashed var(--line);
+    border-radius:14px;
+    padding:12px;
+    margin:.75rem 0;
+  }
+  .para{
+    line-height:1.9;
+    color:#0f172a;
+    font-size:1.05rem;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:14px 16px;
+    white-space:pre-line;
+  }
+
   .fib-input{
     text-align:left;
     padding:.12rem .40rem;
@@ -24,126 +105,215 @@
     line-height:1.1;
     margin:0 .08rem;
   }
-  .fib-input:focus{outline:none;border-color:#60a5fa;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
-  .fib-input.filled{background:#f0f9ff;border-color:#38bdf8}
-  .chips{display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0}
-  .chip{background:#eef2ff;color:#3730a3;border:1px solid #e0e7ff;border-radius:999px;padding:.3rem .65rem;font-weight:700;font-size:.85rem}
-  .btns{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.8rem}
-  .btn{appearance:none;border:0;border-radius:12px;padding:.75rem 1.05rem;font-weight:700}
-  .btn.submit{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
-  .btn.gray{background:#f3f4f6;color:#111827;border:1px solid #e5e7eb}
-  .btn:disabled{opacity:.65;cursor:not-allowed}
+  .fib-input:focus{
+    outline:none;
+    border-color:#60a5fa;
+    box-shadow:0 0 0 3px rgba(37,99,235,.15);
+  }
+  .fib-input.filled{
+    background:#f0f9ff;
+    border-color:#38bdf8;
+  }
+
+  .chips{
+    display:flex;
+    gap:.5rem;
+    flex-wrap:wrap;
+    margin:.6rem 0;
+  }
+  .chip{
+    background:#eef2ff;
+    color:#3730a3;
+    border:1px solid #e0e7ff;
+    border-radius:999px;
+    padding:.3rem .65rem;
+    font-weight:700;
+    font-size:.85rem;
+  }
+
+  .btns{
+    display:flex;
+    flex-wrap:wrap;
+    gap:.6rem;
+    margin-top:.8rem;
+  }
+  .btn{
+    appearance:none;
+    border:0;
+    border-radius:12px;
+    padding:.75rem 1.05rem;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn.submit{
+    background:linear-gradient(135deg,#059669,#10b981);
+    color:#fff;
+  }
+  .btn.gray{
+    background:#f3f4f6;
+    color:#111827;
+    border:1px solid #e5e7eb;
+  }
+  .btn:disabled{
+    opacity:.65;
+    cursor:not-allowed;
+  }
+
   /* modal */
-  .backdrop{position:fixed;inset:0;background:rgba(2,6,23,.45);display:none;align-items:center;justify-content:center;padding:1rem;z-index:50}
-  .modal{width:100%;max-width:520px;background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 30px 60px rgba(2,6,23,.25);overflow:hidden}
+  .backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(2,6,23,.45);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:1rem;
+    z-index:50;
+  }
+  .modal{
+    width:100%;
+    max-width:520px;
+    background:#fff;
+    border-radius:18px;
+    border:1px solid #e5e7eb;
+    box-shadow:0 30px 60px rgba(2,6,23,.25);
+    overflow:hidden;
+  }
   .mhd{padding:1rem 1.2rem;border-bottom:1px solid #f1f5f9;font-weight:800}
   .mbd{padding:1rem 1.2rem}
-  .mft{display:flex;justify-content:flex-end;gap:.5rem;padding:1rem 1.2rem;background:#f9fafb;border-top:1px solid #f1f5f9}
+  .mft{
+    display:flex;
+    justify-content:flex-end;
+    gap:.5rem;
+    padding:1rem 1.2rem;
+    background:#f9fafb;
+    border-top:1px solid #f1f5f9;
+  }
   .small{font-size:.9rem;color:#475569}
-  @media (max-width:640px){ .wrap{padding:1rem} .para{font-size:1rem} .fib-input{min-width:64px}}
+
+  @media (max-width:640px){
+    .timer-bar-inner{padding:.6rem .9rem .5rem;}
+    .wrap{margin:4rem .75rem 1.25rem;padding:1rem;}
+    .para{font-size:1rem}
+    .fib-input{min-width:64px}
+  }
 </style>
 @endpush
 
 @section('content')
-<div class="wrap">
 
-  {{-- progress --}}
-  @if(($remainingSeconds ?? 0) > 0)
-    <div class="progress" aria-hidden="true"><span id="bar"></span></div>
-  @endif
+  {{-- ===== FIXED TIMER BAR DI ATAS VIEWPORT ===== --}}
+  <div class="timer-bar-fixed">
+    <div class="timer-bar-inner">
 
-  <div class="hdr">
-    <div>
-      <div class="ttl">Fill in the Blank</div>
-      <div class="sub">
-        @if($attempt->session?->title)
-          <strong>{{ $attempt->session->title }}</strong> •
-        @endif
-        Soal {{ ($currentIndex ?? 0) + 1 }} dari {{ $totalQuestions ?? 1 }}
-      </div>
-    </div>
-    <div class="timer" id="timerBox">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span id="t">--:--</span>
-    </div>
-  </div>
+      @if(($remainingSeconds ?? 0) > 0)
+        <div class="progress" aria-hidden="true">
+          <span id="bar"></span>
+        </div>
+      @endif
 
-  {{-- audio (opsional) --}}
-  @if($question->audio_url)
-    <div class="mb-3">
-      <audio controls class="w-full">
-        <source src="{{ \Illuminate\Support\Facades\Storage::url($question->audio_url) }}" type="audio/mpeg">
-      </audio>
-      <div class="small">Dengarkan audio lalu isi bagian yang kosong.</div>
-    </div>
-  @endif
+      <div class="hdr">
+        <div>
+          <div class="ttl">Fill in the Blank</div>
+          <div class="sub">
+            @if($attempt->session?->title)
+              <strong>{{ $attempt->session->title }}</strong>
+            @endif
+          </div>
+        </div>
 
-  <div class="note small">
-    <div><strong>Petunjuk:</strong></div>
-    <ul style="margin-left:1rem; margin-top:.25rem">
-      <li>Isi kotak kosong sesuai konteks kalimat.</li>
-      <li><strong>Kumpulkan Jawaban</strong> akan menyelesaikan kuis dan menuju halaman hasil.</li>
-    </ul>
-  </div>
-
-  {{-- form --}}
-  <form id="f" method="POST" action="{{ route('bl.quiz.fib.answer', $attempt) }}">
-    @csrf
-    <input type="hidden" name="question_id" value="{{ $question->id }}">
-
-    {{-- ===== Paragraf dengan blank ===== --}}
-    <div class="para" id="para">
-      @php
-        $html = '';
-        if (!empty($processedParagraph) && str_contains($processedParagraph, '<input')) {
-            $html = $processedParagraph;
-        } else {
-            $src = $question->paragraph_text ?? $question->paragraph ?? '';
-            $src = nl2br($src);
-            $i = 0;
-            $html = preg_replace_callback('/\[\[(\d+)\]\]|\[blank\]/', function($m) use (&$i){
-                $idx = $i++;
-                $name = "answers[$idx]";
-                $ph   = '...';
-                return '<input type="text" class="fib-input" name="'.$name.'" value="" placeholder="'.$ph.'">';
-            }, $src) ?? $src;
-        }
-        echo $html;
-      @endphp
-    </div>
-
-    <div class="chips">
-      <div class="chip">Kosong: <span id="empty">0</span></div>
-      <div class="chip">Terisi: <span id="filled">0</span></div>
-    </div>
-
-    <div class="btns">
-      <button type="button" class="btn submit" id="finalBtn">Kumpulkan Jawaban</button>
-      @php
-        $backUrl = url()->previous();
-        if (!$backUrl || $backUrl === url()->current()) {
-            $backUrl = route('bl.index');
-        }
-      @endphp
-      <a href="{{ $backUrl }}" class="btn gray">Kembali</a>
-    </div>
-  </form>
-
-  {{-- modal konfirmasi --}}
-  <div class="backdrop" id="md">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div class="mhd">Kumpulkan Jawaban?</div>
-      <div class="mbd">
-        <p class="small">Setelah dikumpulkan, kamu akan diarahkan ke halaman riwayat.</p>
-        <p class="small">Terisi: <strong id="mf">0</strong> • Kosong: <strong id="me" style="color:#9a3412">0</strong></p>
-      </div>
-      <div class="mft">
-        <button type="button" class="btn gray" id="mc">Batal</button>
-        <button type="button" class="btn submit" id="my">Ya, Kumpulkan</button>
+        <div class="timer" id="timerBox">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 8v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="t">--:--</span>
+        </div>
       </div>
     </div>
   </div>
-</div>
+
+  {{-- ===== KARTU UTAMA ===== --}}
+  <div class="wrap">
+
+    {{-- audio (opsional) --}}
+    @if($question->audio_url)
+      <div class="mb-3">
+        <audio controls class="w-full">
+          <source src="{{ \Illuminate\Support\Facades\Storage::url($question->audio_url) }}" type="audio/mpeg">
+        </audio>
+        <div class="small">Dengarkan audio lalu isi bagian yang kosong.</div>
+      </div>
+    @endif
+
+    <div class="note small">
+      <div><strong>Petunjuk:</strong></div>
+      <ul style="margin-left:1rem; margin-top:.25rem">
+        <li>Isi kotak kosong sesuai konteks kalimat.</li>
+        <li><strong>Kumpulkan Jawaban</strong> akan menyelesaikan kuis dan menuju halaman hasil.</li>
+      </ul>
+    </div>
+
+    {{-- form --}}
+    <form id="f" method="POST" action="{{ route('bl.quiz.fib.answer', $attempt) }}">
+      @csrf
+      <input type="hidden" name="question_id" value="{{ $question->id }}">
+
+      {{-- paragraf dengan blank --}}
+      <div class="para mt-4" id="para">
+        @php
+          $html = '';
+          if (!empty($processedParagraph) && str_contains($processedParagraph, '<input')) {
+              $html = $processedParagraph;
+          } else {
+              $src = $question->paragraph_text ?? $question->paragraph ?? '';
+              $src = nl2br($src);
+              $i = 0;
+              $html = preg_replace_callback('/\[\[(\d+)\]\]|\[blank\]/', function($m) use (&$i){
+                  $idx = $i++;
+                  $name = "answers[$idx]";
+                  $ph   = '...';
+                  return '<input type="text" class="fib-input" name="'.$name.'" value="" placeholder="'.$ph.'">';
+              }, $src) ?? $src;
+          }
+          echo $html;
+        @endphp
+      </div>
+
+      <div class="chips">
+        <div class="chip">Kosong: <span id="empty">0</span></div>
+        <div class="chip">Terisi: <span id="filled">0</span></div>
+      </div>
+
+      <div class="btns">
+        <button type="button" class="btn submit" id="finalBtn">Kumpulkan Jawaban</button>
+        @php
+          $backUrl = url()->previous();
+          if (!$backUrl || $backUrl === url()->current()) {
+              $backUrl = route('bl.index');
+          }
+        @endphp
+        <a href="{{ $backUrl }}" class="btn gray">Kembali</a>
+      </div>
+    </form>
+
+    {{-- modal konfirmasi --}}
+    <div class="backdrop" id="md">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="mhd">Kumpulkan Jawaban?</div>
+        <div class="mbd">
+          <p class="small">Setelah dikumpulkan, kamu akan diarahkan ke halaman riwayat.</p>
+          <p class="small">
+            Terisi: <strong id="mf">0</strong> •
+            Kosong: <strong id="me" style="color:#9a3412">0</strong>
+          </p>
+        </div>
+        <div class="mft">
+          <button type="button" class="btn gray" id="mc">Batal</button>
+          <button type="button" class="btn submit" id="my">Ya, Kumpulkan</button>
+        </div>
+      </div>
+    </div>
+  </div>
 @endsection
 
 @push('scripts')
@@ -197,7 +367,6 @@
     const obj = {}; inputs().forEach((el,i)=>obj[i]=el.value||'');
     try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(_) {}
     recount();
-    // optional: autosave ke server ringan setiap input (throttled di autoSave)
     autoSave();
   });
 
@@ -241,14 +410,13 @@
     }
     if(secs <= 30 && tbox) tbox.classList.add('warn');
 
-    // autosave sekali saat <= 5 detik
     if (secs <= 5 && !didAutoSaveBeforeTimeout){
       didAutoSaveBeforeTimeout = true;
       autoSave();
     }
 
     if(secs <= 0){
-      setTimeout(finalize, 120); // beri micro-delay agar autosave terkirim
+      setTimeout(finalize, 120);
       return;
     }
     secs--;
@@ -297,7 +465,6 @@
     inputs().forEach(function(i){ i.readOnly = v; });
   }
 
-  // bersihkan localStorage setelah submit (indikasi: form dikunci)
   window.addEventListener('beforeunload', function(){
     if(form && form.dataset.locked === '1'){
       try{ localStorage.removeItem(key); }catch(_){}

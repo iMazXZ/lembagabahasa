@@ -63,7 +63,7 @@ class BasicListeningQuizFibController extends Controller
 
         // --- Wajib punya session terkait
         $session = $quiz->session ?? null;
-        if (!$session) {
+        if (! $session) {
             return redirect()
                 ->route('bl.index')
                 ->with('error', 'Quiz ini tidak terhubung ke sesi mana pun. Hubungi tutor/admin.');
@@ -72,15 +72,30 @@ class BasicListeningQuizFibController extends Controller
         $userId    = $request->user()->id;
         $sessionId = $session->id;
 
-        // --- Attempt unik per (user, session, quiz)
+        // --- Attempt aktif (belum submit) untuk kuis ini
         $attempt = BasicListeningAttempt::where('user_id', $userId)
             ->where('session_id', $sessionId)
             ->where('quiz_id', $quiz->id)
             ->whereNull('submitted_at')
             ->first();
 
-        if (!$attempt) {
-            // (Opsional) Blokir jika masih ada attempt aktif untuk kuis lain di sesi yang sama
+        if (! $attempt) {
+            // 1) Cek dulu: apakah kuis ini sudah pernah selesai dikerjakan?
+            $completed = BasicListeningAttempt::where('user_id', $userId)
+                ->where('session_id', $sessionId)
+                ->where('quiz_id', $quiz->id)
+                ->whereNotNull('submitted_at')
+                ->latest('submitted_at')
+                ->first();
+
+            if ($completed) {
+                // Sudah pernah dikerjakan → langsung ke riwayat
+                return redirect()
+                    ->route('bl.history.show', $completed->id)
+                    ->with('warning', 'Anda sudah menyelesaikan kuis ini. Menampilkan hasil terakhir.');
+            }
+
+            // 2) (Opsional) Blokir jika masih ada attempt aktif untuk kuis lain di sesi yang sama
             $otherActive = BasicListeningAttempt::where('user_id', $userId)
                 ->where('session_id', $sessionId)
                 ->where('quiz_id', '!=', $quiz->id)
@@ -93,24 +108,21 @@ class BasicListeningQuizFibController extends Controller
                     ->with('error', 'Anda masih memiliki attempt aktif untuk kuis lain di sesi ini. Selesaikan terlebih dahulu.');
             }
 
+            // 3) Benar-benar belum ada attempt apa pun untuk kuis ini → buat baru
             $durationSeconds = (int) ($session->duration_minutes ? $session->duration_minutes * 60 : ($quiz->duration_seconds ?? 600));
             $durationSeconds = max(60, $durationSeconds);
 
-            $attempt = BasicListeningAttempt::firstOrCreate(
-                [
-                    'user_id'      => $userId,
-                    'session_id'   => $sessionId,
-                    'quiz_id'      => $quiz->id,   // ← kunci unik per kuis
-                    'submitted_at' => null,
-                ],
-                [
-                    'started_at' => now(),
-                    'expires_at' => now()->addSeconds($durationSeconds),
-                ]
-            );
+            $attempt = BasicListeningAttempt::create([
+                'user_id'      => $userId,
+                'session_id'   => $sessionId,
+                'quiz_id'      => $quiz->id,
+                'submitted_at' => null,
+                'started_at'   => now(),
+                'expires_at'   => now()->addSeconds($durationSeconds),
+            ]);
         }
 
-        // Sudah submitted? ke riwayat
+        // Sudah submitted? (harusnya nggak kejadian karena sudah difilter di atas, tapi jaga-jaga)
         if ($attempt->submitted_at) {
             return redirect()
                 ->route('bl.history.show', $attempt->id)
@@ -124,6 +136,7 @@ class BasicListeningQuizFibController extends Controller
         if (empty($attempt->started_at)) {
             $attempt->forceFill(['started_at' => now()])->save();
         }
+
         if ($attempt->started_at && $attempt->expires_at) {
             $span = $attempt->expires_at->diffInSeconds($attempt->started_at);
             if (abs($span - $durationSeconds) > 3) {

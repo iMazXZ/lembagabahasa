@@ -484,15 +484,70 @@
 
 {{-- Content Section --}}
 <div class="max-w-7xl mx-auto px-4 py-6">
+  @php
+    $warning = session('warning');
+    $showGroupModal = $warning && is_null($groupNumber);
+  @endphp
+
+  @if($showGroupModal)
+    <div class="fixed inset-0 z-40 flex items-center justify-center px-4">
+      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+      <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-5 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="mt-0.5 flex-shrink-0">
+            <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v4m0 4h.01M4.93 4.93l14.14 14.14M12 4a8 8 0 100 16 8 8 0 000-16z" />
+              </svg>
+            </div>
+          </div>
+          <div class="flex-1">
+            <h2 class="text-base font-semibold text-gray-900 mb-1">
+              Isi Nomor Grup Basic Listening
+            </h2>
+            <p class="text-sm text-gray-700 mb-1">
+              {{ $warning }}
+            </p>
+          </div>
+        </div>
+
+        <form action="{{ route('bl.groupNumber.update') }}" method="POST" class="space-y-3">
+          @csrf
+          <div>
+            <label for="modal_group" class="block text-xs font-medium text-gray-700 mb-1">
+              Tanyakan Nomor Grup ke Tutor
+            </label>
+            <select id="modal_group" name="nomor_grup_bl" required
+                    class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+              <option value="">Pilih Grup...</option>
+              <option value="1">Grup 1</option>
+              <option value="2">Grup 2</option>
+              <option value="3">Grup 3</option>
+              <option value="4">Grup 4</option>
+            </select>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 pt-1">
+            <button type="submit"
+                    class="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm">
+              Simpan Nomor Grup
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  @endif
+
   {{-- Flash Messages --}}
   @if (session('success'))
     <div class="mb-4 rounded-lg border-l-4 border-emerald-500 bg-emerald-50 px-3 py-2.5 text-emerald-800 text-sm">
       {{ session('success') }}
     </div>
   @endif
-  @if (session('warning'))
+  @if ($warning && ! $showGroupModal)
     <div class="mb-4 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-3 py-2.5 text-amber-800 text-sm">
-      {{ session('warning') }}
+      {{ $warning }}
     </div>
   @endif
   @if ($errors->any())
@@ -504,6 +559,7 @@
       </ul>
     </div>
   @endif
+
   {{-- Sessions Grid --}}
   @if(isset($sessions) && count($sessions) > 0)
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-4">

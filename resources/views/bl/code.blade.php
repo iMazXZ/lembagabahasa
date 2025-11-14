@@ -4,11 +4,20 @@
 
 @section('content')
 
+@php
+    $sessionTitle = trim($session->title ?? '');
+
+    $durationMinutes = (int) ($session->duration_minutes ?? 0);
+    if ($durationMinutes <= 0) {
+        $durationMinutes = 10;
+    }
+@endphp
+
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center px-4 py-12">
   <div class="w-full max-w-md">
     
     {{-- Header Card --}}
-    <div class="bg-white rounded-t-2xl shadow-xl p-8 border-b-4 border-blue-600">
+    <div class="bg-white rounded-t-2xl shadow-xl p-4 border-b-4 border-blue-600">
       <div class="text-center mb-6">
         {{-- Icon --}}
         <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
@@ -22,25 +31,23 @@
           Masukkan Connect Code
         </h1>
 
-        {{-- Session Badge --}}
-        <div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full text-sm font-semibold shadow-md">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
-          </svg>
-          Pertemuan {{ $session->number <= 5 ? $session->number : 'UAS' }}
+        {{-- Session Badge (diperbaiki, tapi layout tetap sama) --}}
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full text-sm font-semibold shadow-md">
+          <span class="text-xl sm:text-xl leading-snug">
+            @if ($sessionTitle !== '')
+              {{ $sessionTitle }}
+            @endif
+          </span>
         </div>
-      </div>
 
-      {{-- Description --}}
-      <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg">
-        <div class="flex items-start gap-3">
-          <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        <div class="inline-flex mt-3 items-center gap-2 px-4 py-1 bg-gradient-to-r from-green-600 to-green-900 text-white rounded-full text-sm shadow-sm">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"d="M12 8v4l2.5 2.5M12 22a10 10 0 110-20 10 10 0 010 20z"/>
           </svg>
-          <div class="text-sm text-gray-700">
-            <p class="font-medium mb-1">Kode diperlukan untuk akses quiz.</p>
-            <p class="text-gray-600">Hubungi dosen/asisten jika ada masalah.</p>
-          </div>
+          <span class="text-sm sm:text-sm">
+            Waktu Pengerjaan: 
+            <span class="font-bold">{{ $durationMinutes }} menit</span>
+          </span>
         </div>
       </div>
     </div>
@@ -106,36 +113,23 @@
             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
           @else
             <p class="mt-2 text-xs text-gray-500">
-              Masukkan kode yang diberikan oleh pengajar
+              Masukkan kode yang diberikan oleh tutor.
             </p>
           @enderror
         </div>
 
         <button 
           type="submit"
-          class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+          class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-green-600 to-green-800 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-[0.98]"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
-          Mulai Quiz Sekarang
+          Mulai Sekarang
         </button>
       </form>
 
-      {{-- Help Section --}}
-      <div class="mt-6 pt-6 border-t border-gray-200">
-        <div class="flex items-start gap-3 text-sm">
-          <svg class="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <div>
-            <p class="font-medium text-gray-700 mb-1">Butuh bantuan?</p>
-            <p class="text-gray-600">Silakan hubungi dosen atau asisten lab untuk mendapatkan kode akses.</p>
-          </div>
-        </div>
-      </div>
-
-      {{-- Back Link --}}
+      {{-- Back Link + Riwayat Skor --}}
       <div class="mt-6 text-center">
         <a 
           href="{{ route('bl.session.show', $session) }}" 
@@ -145,6 +139,17 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
           </svg>
           Kembali ke Detail Sesi
+        </a>
+
+        <p class="mt-5 text-xs text-gray-500">
+          Jika sudah mengerjakan quiz, cek Riwayat Skor:
+        </p>
+
+        <a
+          href="{{ route('bl.history') }}" {{-- SESUAIKAN jika nama route beda --}}
+          class="mt-2 inline-flex items-center justify-center px-4 py-2 rounded-full border border-blue-600 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+        >
+          Lihat Riwayat Skor
         </a>
       </div>
     </div>

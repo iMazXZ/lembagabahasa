@@ -28,6 +28,7 @@ use App\Filament\Widgets\PengumumanWidget;
 use App\Filament\Pages\DashboardKustom;
 use Illuminate\Support\Facades\Blade;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+// use Filament\Enums\ThemeMode;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -48,6 +49,8 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Sky,
             ])
+            ->darkMode(false)
+            // ->defaultThemeMode(ThemeMode::Light)
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
