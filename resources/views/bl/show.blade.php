@@ -259,36 +259,88 @@ HTML;
     @if ($isOpen)
         @auth
         @php
+            /** @var \App\Models\User $u */
             $u = auth()->user();
+
+            // butuh lengkapi biodata?
             $needProfile = ! $u?->prody_id || ! $u?->srn || ! $u?->year;
-            $next = route('bl.code.form', $session); // tujuan setelah lengkap biodata
-            $targetHref = $needProfile
+            $next        = route('bl.code.form', $session); // tujuan setelah lengkap biodata
+            $targetHref  = $needProfile
             ? route('bl.profile.complete', ['next' => $next])
             : $next;
+
+            // cek attempt user di sesi ini
+            $activeAttempt = \App\Models\BasicListeningAttempt::query()
+            ->where('user_id', $u->id)
+            ->where('session_id', $session->id)
+            ->whereNull('submitted_at')
+            ->first();
+
+            $lastCompletedAttempt = \App\Models\BasicListeningAttempt::query()
+            ->where('user_id', $u->id)
+            ->where('session_id', $session->id)
+            ->whereNotNull('submitted_at')
+            ->latest('submitted_at')
+            ->first();
         @endphp
 
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        @if ($activeAttempt || $lastCompletedAttempt)
+            {{-- SUDAH PERNAH / SEDANG MENGERJAKAN --}}
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-1">Siap Mengerjakan Quiz?</h3>
-            <p class="text-sm text-gray-600">Pastikan Anda sudah memahami materi sebelum memulai.</p>
-            @if ($needProfile)
-                <p class="text-xs text-amber-600 mt-1">
-                Lengkapi <strong>Prodi, SRN, Tahun</strong> terlebih dahulu.
+                @if ($activeAttempt)
+                <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                    Kamu sudah memulai quiz untuk pertemuan ini.
+                </h3>
+                <p class="text-sm text-gray-600">
+                    Lanjutkan pengerjaan lewat halaman <strong>Riwayat Skor</strong>.
                 </p>
-            @endif
+                @else
+                <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                    Kamu sudah menyelesaikan quiz untuk pertemuan ini.
+                </h3>
+                <p class="text-sm text-gray-600">
+                    Lihat detail jawaban dan skor di halaman <strong>Riwayat Skor</strong>.
+                </p>
+                @endif
+            </div>
+
+            <a href="{{ route('bl.history') }}"
+                class="inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-700 font-semibold rounded-lg shadow-md hover:bg-blue-50 transition-all"
+                aria-label="Lihat Riwayat Skor">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Lihat Riwayat Skor
+            </a>
+            </div>
+        @else
+            {{-- BELUM PERNAH MENGERJAKAN → TAMPILKAN "KERJAKAN QUIZ" --}}
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-1">Siap Mengerjakan Quiz?</h3>
+                <p class="text-sm text-gray-600">Pastikan Anda sudah memahami materi sebelum memulai.</p>
+                @if ($needProfile)
+                <p class="text-xs text-amber-600 mt-1">
+                    Lengkapi <strong>Prodi, SRN, Tahun</strong> terlebih dahulu.
+                </p>
+                @endif
             </div>
 
             <a href="{{ $targetHref }}"
-            class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all transform hover:scale-105"
-            aria-label="Kerjakan Quiz">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all transform hover:scale-105"
+                aria-label="Kerjakan Quiz">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-            </svg>
-            Kerjakan Quiz
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                </svg>
+                Kerjakan Quiz
             </a>
-        </div>
+            </div>
+        @endif
         @else
+        {{-- Belum login --}}
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
             <h3 class="text-lg font-semibold text-gray-900 mb-1">Login Diperlukan</h3>
@@ -306,6 +358,7 @@ HTML;
         </div>
         @endauth
     @else
+        {{-- Sesi belum dibuka / sudah ditutup --}}
         <div class="text-center py-4">
         <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
