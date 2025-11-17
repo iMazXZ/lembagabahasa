@@ -9,7 +9,6 @@ use Illuminate\Contracts\Support\Htmlable;
 use App\Filament\Widgets\StatsWidget;
 use App\Filament\Widgets\BiodataStatusWidget;
 use App\Filament\Widgets\PengumumanWidget;
-use App\Filament\Widgets\EptStatusWidget;
 use App\Filament\Widgets\PenerjemahanStatusWidget;
 use App\Filament\Widgets\MyEptSubmissionStatus;
 use Filament\Widgets\AccountWidget;
@@ -49,7 +48,6 @@ class DashboardKustom extends Page
             PengumumanWidget::class,
             QuickLinks::class,
             StatsWidget::class,
-            EptStatusWidget::class,
             PenerjemahanStatusWidget::class,
             MyEptSubmissionStatus::class,
             StudentBasicListeningWidget::class,

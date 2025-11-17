@@ -8,13 +8,9 @@ use Illuminate\Support\Facades\Gate;
 use Filament\Http\Responses\Auth\Contracts\LogoutResponse;
 use App\Http\Responses\LogoutResponse as CustomLogoutResponse;
 
-use App\Models\PendaftaranEpt;
-use App\Observers\PendaftaranEptObserver;
-
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 
-// === Tambahan: model & policy yang mau diregistrasi ===
 use App\Models\BasicListeningAttempt;
 use App\Models\BasicListeningConnectCode;
 use App\Policies\BasicListeningAttemptPolicy;
@@ -35,8 +31,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        \Carbon\Carbon::setLocale('id');
-        PendaftaranEpt::observe(PendaftaranEptObserver::class);
 
         FilamentAsset::register([
             Css::make('custom-stylesheet', __DIR__ . '/../../resources/css/custom.css'),

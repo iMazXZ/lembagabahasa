@@ -7,9 +7,6 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PostController;
 
 // Cetak & laporan
-use App\Http\Controllers\CetakGrupTesController;
-use App\Http\Controllers\CetakNilaiGrupController;
-use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\PenerjemahanPdfController;
 
 // Verifikasi & EPT PDF
@@ -58,26 +55,6 @@ Route::get('/post/{post:slug}', [PostController::class, 'show'])
 
 Route::get('/login', fn () => redirect()->route('filament.admin.auth.login'))
     ->name('login');
-
-/*
-|--------------------------------------------------------------------------
-| Cetak / Laporan
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/cetak-grup/{id}', [CetakGrupTesController::class, 'cetak'])
-    ->name('grup.cetak');
-
-Route::get('/grup/{id}/cetak-nilai', [CetakNilaiGrupController::class, 'cetak'])
-    ->name('grup.cetak-nilai');
-
-Route::get('/laporan/export/pdf', [LaporanController::class, 'exportPdf'])
-    ->middleware('auth')
-    ->name('laporan.export.pdf');
-
-Route::get('/laporan/export/all', [LaporanController::class, 'exportAllPdf'])
-    ->middleware('auth')
-    ->name('laporan.export.all.pdf');
 
 /*
 |--------------------------------------------------------------------------
