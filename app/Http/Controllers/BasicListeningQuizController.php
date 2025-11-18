@@ -17,7 +17,7 @@ class BasicListeningQuizController extends Controller
         $user = $request->user();
 
         // 🔒 Pastikan pemilik attempt
-        if (!$user || $attempt->user_id !== $user->id) {
+        if (! $user || $attempt->user_id !== $user->id) {
             abort(403, 'Anda tidak memiliki akses ke attempt ini.');
         }
 
@@ -37,7 +37,7 @@ class BasicListeningQuizController extends Controller
         }
 
         // 🚫 Sesi sudah tutup
-        if (!$session->isOpen()) {
+        if (! $session->isOpen()) {
             return redirect()
                 ->route('bl.history')
                 ->with('error', 'Waktu quiz sudah berakhir.');
@@ -53,9 +53,12 @@ class BasicListeningQuizController extends Controller
         $durationMin = (int) ($session->duration_minutes ?? 0);
         if ($durationMin > 0 && $attempt->started_at) {
             $deadline = $attempt->started_at->clone()->addMinutes($durationMin);
+
+            // Jika sudah lewat, langsung finalize
             if (now()->greaterThanOrEqualTo($deadline)) {
                 return $this->finalize($attempt);
             }
+
             $remainingSeconds = now()->diffInSeconds($deadline, false);
         }
 
@@ -92,10 +95,14 @@ class BasicListeningQuizController extends Controller
         ));
     }
 
+    /**
+     * Simpan jawaban untuk satu soal Multiple Choice.
+     */
     public function answer(BasicListeningAttempt $attempt, Request $request)
     {
         $this->authorizeAttempt($attempt, $request);
 
+        // ⏳ Cek apakah waktu sudah habis
         $session = $attempt->session;
         $durationMin = (int) ($session->duration_minutes ?? 0);
         if ($durationMin > 0 && $attempt->started_at) {
@@ -111,14 +118,24 @@ class BasicListeningQuizController extends Controller
             'q'           => ['nullable', 'integer'],
         ]);
 
+        // Ambil / buat entri jawaban
         $ans = BasicListeningAnswer::firstOrNew([
             'attempt_id'  => $attempt->id,
             'question_id' => (int) $data['question_id'],
         ]);
-        $ans->answer = $data['answer'] ?? null;
+
+        $ans->answer     = $data['answer'] ?? null;
         $ans->is_correct = ($data['answer'] ?? null) === $ans->question?->correct;
+
+        // 🔧 FIX: untuk soal Multiple Choice, blank_index tidak dipakai
+        // tapi kolom di DB NOT NULL → isi dengan 0 supaya tidak error.
+        if ($ans->blank_index === null) {
+            $ans->blank_index = 0;
+        }
+
         $ans->save();
 
+        // Hitung index soal berikutnya
         $currentIndex = max(0, (int) ($data['q'] ?? 0));
         $total = $attempt->quiz->questions()->count();
         $nextIndex = min($currentIndex + 1, max(0, $total - 1));
@@ -129,6 +146,9 @@ class BasicListeningQuizController extends Controller
         ]);
     }
 
+    /**
+     * Submit quiz (cek masih ada soal kosong atau tidak).
+     */
     public function submit(BasicListeningAttempt $attempt, Request $request)
     {
         $this->authorizeAttempt($attempt, $request);
@@ -141,19 +161,29 @@ class BasicListeningQuizController extends Controller
 
         if ($unansweredCount > 0) {
             return redirect()->back()
-                ->with('warning', "Masih ada <strong>{$unansweredCount} soal</strong> yang belum terjawab. Yakin ingin mengumpulkan?")
+                ->with(
+                    'warning',
+                    "Masih ada <strong>{$unansweredCount} soal</strong> yang belum terjawab. Yakin ingin mengumpulkan?"
+                )
                 ->with('showSubmitConfirm', true);
         }
 
         return $this->finalize($attempt);
     }
 
+    /**
+     * Submit paksa dari timer habis / tombol paksa.
+     */
     public function forceSubmit(BasicListeningAttempt $attempt, Request $request)
     {
         $this->authorizeAttempt($attempt, $request);
+
         return $this->finalize($attempt);
     }
 
+    /**
+     * Hitung skor akhir dan kunci attempt.
+     */
     protected function finalize(BasicListeningAttempt $attempt)
     {
         if ($attempt->submitted_at) {
@@ -166,12 +196,20 @@ class BasicListeningQuizController extends Controller
         $answers = $attempt->answers()->get()->keyBy('question_id');
 
         $correct = 0;
+
         foreach ($questions as $q) {
             $ans = $answers->get($q->id);
-            if (!$ans) continue;
+            if (! $ans) {
+                continue;
+            }
+
+            // Re-check kebenaran jawaban
             $ans->is_correct = $ans->answer === $q->correct;
             $ans->save();
-            if ($ans->is_correct) $correct++;
+
+            if ($ans->is_correct) {
+                $correct++;
+            }
         }
 
         $score = $questions->count()
@@ -188,6 +226,9 @@ class BasicListeningQuizController extends Controller
             ->with('success', "Submit selesai. Skor kamu: {$score}");
     }
 
+    /**
+     * Guard: pastikan attempt milik user yang sedang login.
+     */
     protected function authorizeAttempt(BasicListeningAttempt $attempt, Request $request): void
     {
         abort_unless(

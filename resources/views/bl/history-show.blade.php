@@ -72,7 +72,7 @@
       {{-- Summary Stats --}}
       <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-8">
         <h2 class="text-xl font-bold text-gray-900 mb-4 text-center">Ringkasan Hasil</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 gap-3">
           <div class="text-center bg-emerald-50 border border-emerald-200 rounded-lg p-4">
             <div class="text-2xl font-bold text-emerald-600">{{ $correctUnits }}</div>
             <div class="text-xs text-slate-700 mt-1">Benar</div>
