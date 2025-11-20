@@ -9,38 +9,48 @@ use Illuminate\Validation\ValidationException;
 
 class Login extends BaseLogin
 {
+    /**
+     * Ambil kredensial dari form login.
+     * Di sini kita:
+     * - Cari user pakai email yang dinormalisasi (lowercase + trim) via WHERE LOWER(email)
+     * - Tampilkan pesan khusus untuk kasus .com / .con
+     * - Jika cocok, kirim balik email persis seperti yang ada di database ke Auth::attempt()
+     */
     protected function getCredentialsFromFormData(array $data): array
     {
-        $email = strtolower(trim($data['email']));
+        $rawEmail      = $data['email'];                 // apa adanya dari form
+        $normalized    = strtolower(trim($rawEmail));    // untuk pencarian & analisis
 
-        // 1. Coba cari user berdasarkan email yang diketik
-        $user = User::where('email', $email)->first();
+        // 1. Cari user berdasarkan email (case-insensitive)
+        $user = User::whereRaw('LOWER(email) = ?', [$normalized])->first();
 
-        // 2. Kalau tidak ketemu, coba cek kemungkinan typo .com / .con
+        // 2. Kalau tidak ketemu, cek kemungkinan typo .com / .con
         if (! $user) {
             // Kalau ketiknya .com, cek apakah di database ada .con
-            if (str_ends_with($email, '.com')) {
-                $altEmail = preg_replace('/\.com$/i', '.con', $email);
-                $altUser  = User::where('email', $altEmail)->first();
+            if (str_ends_with($normalized, '.com')) {
+                $altEmailLower = preg_replace('/\.com$/i', '.con', $normalized);
+
+                $altUser = User::whereRaw('LOWER(email) = ?', [$altEmailLower])->first();
 
                 if ($altUser) {
                     throw ValidationException::withMessages([
                         'data.email' => 'Email ini tidak ditemukan. '
-                            . 'Saat mendaftar, Anda mungkin mengetik: ' . $altEmail . '. '
+                            . 'Saat mendaftar, Anda mungkin mengetik: ' . $altUser->email . '. '
                             . 'Coba gunakan email tersebut atau hubungi admin untuk pembaruan.',
                     ]);
                 }
             }
 
             // Kalau ketiknya .con, cek apakah di database ada .com
-            if (str_ends_with($email, '.con')) {
-                $altEmail = preg_replace('/\.con$/i', '.com', $email);
-                $altUser  = User::where('email', $altEmail)->first();
+            if (str_ends_with($normalized, '.con')) {
+                $altEmailLower = preg_replace('/\.con$/i', '.com', $normalized);
+
+                $altUser = User::whereRaw('LOWER(email) = ?', [$altEmailLower])->first();
 
                 if ($altUser) {
                     throw ValidationException::withMessages([
                         'data.email' => 'Email ini tidak ditemukan. '
-                            . 'Mungkin maksud Anda: ' . $altEmail . '.',
+                            . 'Mungkin maksud Anda: ' . $altUser->email . '.',
                     ]);
                 }
             }
@@ -51,17 +61,26 @@ class Login extends BaseLogin
             ]);
         }
 
-        // 3. Kalau user ketemu, cek password
+        // 3. Kalau user ketemu, cek password manual
         if (! Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'data.password' => 'Kata sandi yang Anda masukkan salah. Klik Lupa Kata Sandi atau Hubungi Admin.',
             ]);
         }
 
-        // 4. Kembalikan kredensial standar
+        // 4. Kembalikan kredensial untuk Auth::attempt()
+        //    PENTING: pakai email persis seperti di database, bukan $normalized
         return [
-            'email'    => $email,
+            'email'    => $user->email,
             'password' => $data['password'],
         ];
+    }
+
+    /**
+     * Setelah login sukses, arahkan ke /dashboard (Blade, bukan panel admin langsung)
+     */
+    protected function getRedirectUrl(): string
+    {
+        return route('dashboard');
     }
 }

@@ -33,7 +33,7 @@
         </p>
         
         {{-- Tombol ini akan mengarahkan pengguna yang sudah login ke dasbor mereka --}}
-        <a href="{{ route('filament.admin.pages.2') }}" 
+        <a href="{{ route('dashboard') }}" 
            class="inline-block bg-white hover:bg-gray-200 text-red-800 px-8 py-3 rounded-full font-bold text-lg transition-colors">
             <i class="fas fa-arrow-left mr-2"></i>Kembali ke Dasbor
         </a>

@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Gate;
 use Filament\Http\Responses\Auth\Contracts\LogoutResponse;
 use App\Http\Responses\LogoutResponse as CustomLogoutResponse;
 
+use App\Http\Responses\LoginResponse;
+use Filament\Http\Responses\Auth\Contracts\LoginResponse as LoginResponseContract;
+
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 
@@ -24,6 +27,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(LogoutResponse::class, CustomLogoutResponse::class);
+
+        $this->app->bind(
+        LoginResponseContract::class,
+        LoginResponse::class,
+    );
     }
 
     /**

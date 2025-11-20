@@ -20,33 +20,6 @@
     @endrole
 
     {{-- =========================
-         Role: pendaftar
-       ========================= --}}
-    @role('pendaftar')
-      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
-        <x-filament::button tag="a" href="{{ url('/#berita') }}" size="lg" color="warning"
-            class="w-full justify-start" icon="heroicon-o-arrow-down-circle">
-          Cek Jadwal & Nilai EPT
-        </x-filament::button>
-
-        <x-filament::button tag="a" href="{{ route('bl.index') }}" size="lg" color="warning"
-            class="w-full justify-start" icon="heroicon-o-musical-note">
-          Basic Listening
-        </x-filament::button>
-
-        <x-filament::button tag="a" href="{{ route('verification.index') }}" size="lg" color="warning"
-            class="w-full justify-start" icon="heroicon-o-check-badge">
-          Verifikasi Dokumen
-        </x-filament::button>
-
-        <x-filament::button tag="a" href="{{ route('front.home') }}" size="lg" color="primary"
-            class="w-full justify-start" icon="heroicon-o-home">
-          Halaman Utama
-        </x-filament::button>
-      </div>
-    @endrole
-
-    {{-- =========================
          Role: Admin
        ========================= --}}
     @role('Admin')

@@ -58,7 +58,6 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('srn')
                     ->label('NPM')
                     ->maxLength(255)
-                    ->required()
                     ->unique(ignoreRecord: true)
                     ->validationMessages([
                         'unique' => 'NPM ini sudah terdaftar pada pengguna lain.',
@@ -84,6 +83,7 @@ class UserResource extends Resource
                     ->relationship('roles', 'name')
                     ->preload()
                     ->live()
+                    ->multiple()
                     ->searchable(),
 
                 Forms\Components\FileUpload::make('image')

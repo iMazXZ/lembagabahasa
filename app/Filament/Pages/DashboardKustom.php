@@ -7,10 +7,7 @@ use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Illuminate\Contracts\Support\Htmlable;
 
 use App\Filament\Widgets\StatsWidget;
-use App\Filament\Widgets\BiodataStatusWidget;
 use App\Filament\Widgets\PengumumanWidget;
-use App\Filament\Widgets\PenerjemahanStatusWidget;
-use App\Filament\Widgets\MyEptSubmissionStatus;
 use Filament\Widgets\AccountWidget;
 use App\Filament\Widgets\QuickLinks;
 use App\Filament\Widgets\StudentBasicListeningWidget;
@@ -44,12 +41,9 @@ class DashboardKustom extends Page
     {
         return [
             AccountWidget::class,
-            BiodataStatusWidget::class,
             PengumumanWidget::class,
             QuickLinks::class,
             StatsWidget::class,
-            PenerjemahanStatusWidget::class,
-            MyEptSubmissionStatus::class,
             StudentBasicListeningWidget::class,
         ];
     }

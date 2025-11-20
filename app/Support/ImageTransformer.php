@@ -5,8 +5,9 @@ namespace App\Support;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver; // kalau nanti pakai Imagick: use Intervention\Image\Drivers\Imagick\Driver;
+use Intervention\Image\Drivers\Gd\Driver;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Http\UploadedFile;
 
 class ImageTransformer
 {
@@ -21,13 +22,13 @@ class ImageTransformer
     }
 
     public static function toWebpFromUploaded(
-        \Livewire\Features\SupportFileUploads\TemporaryUploadedFile $uploaded,
-        string $targetDisk  = 'public',
-        string $targetDir   = 'uploads/images',
-        int $quality        = 82,
-        ?int $maxWidth      = 2000,
-        ?int $maxHeight     = null,
-        ?string $basename   = null   // ← NEW
+        TemporaryUploadedFile|UploadedFile $uploaded,
+        string $targetDisk = 'public',
+        string $targetDir = 'uploads/images',
+        int $quality = 82,
+        ?int $maxWidth = 2000,
+        ?int $maxHeight = null,
+        ?string $basename = null
     ): array {
         $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
 

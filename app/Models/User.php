@@ -16,8 +16,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 
-class User extends Authenticatable implements HasAvatar
+class User extends Authenticatable implements HasAvatar, FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
@@ -161,6 +163,23 @@ class User extends Authenticatable implements HasAvatar
         }
 
         return $cacheByUser[$this->id];
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        if ($panel->getId() === 'admin') {
+            return $this->hasAnyRole([
+                'Admin',
+                'Staf',
+                'Staf Administrasi',
+                'Kepala Lembaga',
+                'super_admin',
+                'pendaftar',
+                'tutor',
+            ]);
+        }
+
+        return false;
     }
 
 }

@@ -53,4 +53,9 @@ class Register extends AuthRegister
 
         return $user;
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return route('dashboard');
+    }
 }

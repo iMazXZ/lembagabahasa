@@ -61,12 +61,29 @@
             </a>
           </div>
         @else
-          <a href="{{ route('filament.admin.pages.2') }}"
+          @php
+              $user = Auth::user();
+
+              if ($user->hasRole('tutor')) {
+                  $dashboardRoute = route('dashboard.pendaftar');
+              } elseif ($user->hasRole('pendaftar')) {
+                  $dashboardRoute = route('dashboard.pendaftar');
+              } elseif ($user->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga', 'Penerjemah'])) {
+                  $dashboardRoute = route('filament.admin.pages.2');
+              } else {
+                  $dashboardRoute = route('front.home');
+              }
+          @endphp
+
+          {{-- Tombol profil / dashboard --}}
+          <a href="{{ $dashboardRoute }}"
             class="inline-flex items-center gap-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md hover:scale-[1.02] transition">
             <i class="fas fa-user-circle" aria-hidden="true"></i>
-            <span class="truncate max-w-[180px]">{{ Auth::user()->name }}</span>
+            <span class="truncate max-w-[180px]">{{ $user->name }}</span>
           </a>
-          <form method="POST" action="{{ route('filament.admin.auth.logout') }}">
+
+          {{-- Logout --}}
+          <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit"
               class="inline-flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md hover:scale-[1.02] transition">
@@ -110,12 +127,27 @@
           <span>Login</span>
         </a>
       @else
-        <a href="{{ route('filament.admin.pages.2') }}"
+        @php
+            $user = Auth::user();
+
+            if ($user->hasRole('tutor')) {
+                $dashboardRoute = route('dashboard.pendaftar');
+            } elseif ($user->hasRole('pendaftar')) {
+                $dashboardRoute = route('dashboard.pendaftar');
+            } elseif ($user->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga', 'Penerjemah'])) {
+                $dashboardRoute = route('filament.admin.pages.2');
+            } else {
+                $dashboardRoute = route('front.home');
+            }
+        @endphp
+
+        <a href="{{ $dashboardRoute }}"
           class="mt-2 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-um-green to-teal-600 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md transition">
           <i class="fas fa-user-circle" aria-hidden="true"></i>
-          <span class="truncate max-w-[180px]">{{ Auth::user()->name }}</span>
+          <span class="truncate max-w-[180px]">{{ $user->name }}</span>
         </a>
-        <form method="POST" action="{{ route('filament.admin.auth.logout') }}" class="mt-2">
+
+        <form method="POST" action="{{ route('logout') }}" class="mt-2">
           @csrf
           <button type="submit"
             class="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-5 py-2.5 rounded-full shadow-sm hover:shadow-md transition">

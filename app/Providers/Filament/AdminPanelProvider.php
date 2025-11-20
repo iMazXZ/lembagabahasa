@@ -39,7 +39,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->maxContentWidth('full')
             ->id('admin')
-            ->path('dashboard')
+            ->path('admin')
             ->login(CustomLogin::class)
             ->registration(Register::class)
             ->passwordReset(RequestPasswordReset::class)
