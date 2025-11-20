@@ -19,6 +19,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Auth\Register;
+use App\Filament\Auth\Login as CustomLogin;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 
@@ -39,7 +40,7 @@ class AdminPanelProvider extends PanelProvider
             ->maxContentWidth('full')
             ->id('admin')
             ->path('dashboard')
-            ->login()
+            ->login(CustomLogin::class)
             ->registration(Register::class)
             ->passwordReset(RequestPasswordReset::class)
             ->emailVerification()
