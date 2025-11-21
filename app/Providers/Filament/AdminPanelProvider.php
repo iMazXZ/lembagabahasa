@@ -48,7 +48,12 @@ class AdminPanelProvider extends PanelProvider
             ->emailVerificationPromptRouteSlug('abort')
             ->emailVerificationRouteSlug('send')
             ->colors([
-                'primary' => Color::Sky,
+                'primary' => Color::Teal,    // Hijau kebiruan segar
+                'gray'    => Color::Neutral, // Abu-abu murni (bersih)
+                'info'    => Color::Cyan,
+                'success' => Color::Green,
+                'warning' => Color::Orange,
+                'danger'  => Color::Red,
             ])
             ->darkMode(false)
             // ->defaultThemeMode(ThemeMode::Light)
