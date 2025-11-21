@@ -224,6 +224,44 @@ class BasicListeningQuizController extends Controller
     }
 
     /**
+     * Heartbeat — dipanggil setiap 20 detik.
+     * Jika waktu habis & user koneksi terputus, server tetap finalize otomatis.
+     */
+    public function ping(BasicListeningAttempt $attempt, Request $request)
+    {
+        // Pastikan user benar
+        $this->authorizeAttempt($attempt, $request);
+
+        // Jika sudah submit, langsung kembalikan redirect
+        if ($attempt->submitted_at) {
+            return response()->json([
+                'expired' => true,
+                'redirect' => route('bl.history.show', $attempt)
+            ]);
+        }
+
+        $session = $attempt->session;
+        $duration = (int) ($session->duration_minutes ?? $attempt->quiz->duration_minutes);
+
+        if ($duration > 0 && $attempt->started_at) {
+            $deadline = $attempt->started_at->clone()->addMinutes($duration);
+
+            // Jika waktu habis (server yang memutuskan)
+            if (now()->greaterThanOrEqualTo($deadline)) {
+                // Pastikan finalize dijalankan di server, tanpa butuh browser
+                $this->finalize($attempt);
+
+                return response()->json([
+                    'expired' => true,
+                    'redirect' => route('bl.history.show', $attempt)
+                ]);
+            }
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
      * Finalisasi & Penilaian.
      */
     protected function finalize(BasicListeningAttempt $attempt)

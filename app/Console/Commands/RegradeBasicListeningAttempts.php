@@ -13,11 +13,17 @@ class RegradeBasicListeningAttempts extends Command
      * --only-weird=1 : hanya attempt yang score NULL / 0 / belum submit
      * --prody=ID     : filter berdasarkan prody_id user
      * --session=ID   : filter berdasarkan session_id
+     * --attempt=ID   : filter spesifik ke satu attempt_id
+     * --user=ID      : filter berdasarkan user_id
+     * --connect=ID   : filter berdasarkan connect_code_id
      */
     protected $signature = 'bl:regrade-attempts
         {--only-weird=1 : Hanya attempt yang skor null / 0 / belum submit}
         {--prody= : Hanya attempt dari prodi tertentu (prody_id)}
-        {--session= : Hanya attempt dari session tertentu (session_id)}';
+        {--session= : Hanya attempt dari session tertentu (session_id)}
+        {--attempt= : Hanya attempt dengan ID tertentu}
+        {--user= : Hanya attempt milik user dengan ID tertentu}
+        {--connect= : Hanya attempt dengan connect_code_id tertentu}';
 
     protected $description = 'Hitung ulang skor & is_correct untuk Basic Listening Attempt secara massal.';
 
@@ -26,12 +32,30 @@ class RegradeBasicListeningAttempts extends Command
         $onlyWeird = (bool) $this->option('only-weird');
         $prodyId   = $this->option('prody');
         $sessionId = $this->option('session');
+        $attemptId = $this->option('attempt');
+        $userId    = $this->option('user');
+        $connectId = $this->option('connect');
 
         $query = BasicListeningAttempt::with([
             'quiz.questions',
             'answers',
-            'user',      // supaya whereHas user jalan
+            'user', // supaya whereHas user jalan
         ]);
+
+        // Filter ATTEMPT SPESIFIK (paling tajam)
+        if (!empty($attemptId)) {
+            $query->where('id', $attemptId);
+        }
+
+        // Filter USER
+        if (!empty($userId)) {
+            $query->where('user_id', $userId);
+        }
+
+        // Filter CONNECT CODE
+        if (!empty($connectId)) {
+            $query->where('connect_code_id', $connectId);
+        }
 
         // Filter PRODI (user.prody_id)
         if (!empty($prodyId)) {
@@ -46,6 +70,7 @@ class RegradeBasicListeningAttempts extends Command
         }
 
         // Hanya yang "aneh" (skor null/0/belum submit)
+        // Kalau mau regrade SEMUA (termasuk yang sudah normal), panggil dengan --only-weird=0
         if ($onlyWeird) {
             $query->where(function ($q) {
                 $q->whereNull('score')
@@ -62,6 +87,9 @@ class RegradeBasicListeningAttempts extends Command
         }
 
         $this->info('Mulai regrade ' . $attempts->count() . ' attempt...');
+        if ($attemptId) $this->line('  - Filter attempt   : ' . $attemptId);
+        if ($userId)    $this->line('  - Filter user      : ' . $userId);
+        if ($connectId) $this->line('  - Filter connect   : ' . $connectId);
         if ($prodyId)   $this->line('  - Filter prodi     : ' . $prodyId);
         if ($sessionId) $this->line('  - Filter session   : ' . $sessionId);
         $this->line('  - Hanya yang aneh : ' . ($onlyWeird ? 'YA' : 'TIDAK'));

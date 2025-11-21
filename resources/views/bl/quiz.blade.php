@@ -286,7 +286,8 @@
 
   // --- 1. SIMPAN JAWABAN FIB KE SERVER (AJAX) ---
   function saveToServer() {
-      if (!document.getElementById('answerForm')) return;
+      const form = document.getElementById('answerForm');
+      if (!form) return;
 
       // Tampilkan status "Menyimpan..."
       if (statusEl) {
@@ -294,7 +295,6 @@
           statusEl.classList.add('show');
       }
 
-      const form    = document.getElementById('answerForm');
       const formData = new FormData(form);
 
       fetch(saveUrl, {
@@ -343,6 +343,7 @@
 
   // --- 3. INIT FIB AUTOSAVE ---
   document.addEventListener('DOMContentLoaded', function() {
+      // FIB input autosave
       document.querySelectorAll('.fib-input').forEach(input => {
           // Set lebar awal
           triggerResize(input);
@@ -356,6 +357,40 @@
           // Saat pindah fokus -> langsung save
           input.addEventListener('blur', function() {
              saveToServer();
+          });
+      });
+
+      // --- 3b. AUTOSAVE MC VIA AJAX ---
+      document.querySelectorAll('.answer-option').forEach(btn => {
+          btn.addEventListener('click', function (e) {
+              e.preventDefault(); // hentikan submit normal, kita simpan dulu via AJAX
+
+              const form = document.getElementById('answerForm');
+              if (!form) {
+                  this.closest('form')?.submit();
+                  return;
+              }
+
+              const fd = new FormData(form);
+              fd.set('answer', this.value); // paksa jawaban sesuai tombol yang diklik
+
+              fetch(saveUrl, {
+                  method: "POST",
+                  headers: {
+                      "X-CSRF-TOKEN": csrfToken,
+                      "X-Requested-With": "XMLHttpRequest",
+                      "Accept": "application/json",
+                  },
+                  body: fd
+              })
+              .then(() => {
+                  // Setelah tersimpan ke server -> baru submit form biasa
+                  form.submit();
+              })
+              .catch(() => {
+                  // Kalau koneksi error, tetap submit form supaya controller bisa handle
+                  form.submit();
+              });
           });
       });
   });
@@ -389,6 +424,28 @@
     setInterval(tick, 1000);
     tick();
   }
+
+  // --- 4b. HEARTBEAT KE SERVER (ANTI FREEZE & ANTI HILANG JAWABAN) ---
+  setInterval(() => {
+      fetch("{{ route('bl.quiz.ping', $attempt) }}", {
+          method: "POST",
+          headers: {
+              "X-CSRF-TOKEN": "{{ csrf_token() }}",
+              "X-Requested-With": "XMLHttpRequest",
+              "Accept": "application/json",
+          }
+      })
+      .then(res => res.json())
+      .then(data => {
+          if (data.expired && data.redirect) {
+              window.location.href = data.redirect;
+          }
+      })
+      .catch(() => {
+          // offline / error? tidak apa-apa.
+          // server tetap akan finalize saat dapat request lain setelah deadline.
+      });
+  }, 20000); // ping tiap 20 detik
 
   // --- 5. FINISH & FORCE SUBMIT ---
   function validateAndFinish() {

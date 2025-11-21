@@ -345,3 +345,7 @@ Route::middleware(['auth', 'role:pendaftar'])
         Route::put('/translation/{penerjemahan}', [TranslationController::class, 'update'])
             ->name('dashboard.translation.update');
     });
+
+Route::post('/bl/quiz/ping/{attempt}', [BasicListeningQuizController::class, 'ping'])
+    ->middleware('auth')
+    ->name('bl.quiz.ping');

@@ -29,6 +29,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
 use Illuminate\Support\Facades\DB;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Actions;
+use Filament\Forms;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Artisan;
 
 class BasicListeningAttemptResource extends Resource
 {
@@ -400,6 +404,84 @@ class BasicListeningAttemptResource extends Resource
                 ])
                 ->label('Aksi')
                 ->icon('heroicon-m-cog-6-tooth')
+            ])
+            ->headerActions([
+                Actions\Action::make('regradeByFilter')
+                    ->label('Regrade Attempt (Filter)')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->modalHeading('Regrade Attempt Basic Listening')
+                    ->modalSubmitActionLabel('Jalankan Regrade')
+                    ->modalWidth('lg')
+                    ->visible(fn () => auth()->user()?->hasRole('Admin')) // 🔒 Hanya Admin
+                    ->form([
+                        Forms\Components\Grid::make(2)->schema([
+                            Forms\Components\TextInput::make('attempt_id')
+                                ->label('ID Attempt')
+                                ->numeric()
+                                ->helperText('Jika diisi, filter lain boleh kosong. Paling spesifik.'),
+
+                            Forms\Components\TextInput::make('user_id')
+                                ->label('ID User')
+                                ->numeric()
+                                ->helperText('Regrade semua attempt milik user ini.'),
+
+                            Forms\Components\TextInput::make('connect_id')
+                                ->label('ID Connect Code')
+                                ->numeric()
+                                ->helperText('Regrade semua attempt dari connect code ini.'),
+
+                            Forms\Components\TextInput::make('session_id')
+                                ->label('ID Session')
+                                ->numeric()
+                                ->helperText('Regrade attempt pada sesi tertentu.'),
+
+                            Forms\Components\TextInput::make('prody_id')
+                                ->label('ID Prodi (prody_id)')
+                                ->numeric()
+                                ->helperText('Filter berdasarkan prodi mahasiswa.'),
+
+                            Forms\Components\Toggle::make('only_weird')
+                                ->label('Hanya attempt "aneh" (score null/0/belum submit)')
+                                ->default(true),
+                        ]),
+                        Forms\Components\Textarea::make('note')
+                            ->label('Catatan (opsional)')
+                            ->rows(2)
+                            ->helperText('Untuk pengingat internal, tidak mempengaruhi proses.'),
+                    ])
+                    ->action(function (array $data): void {
+                        $params = [];
+
+                        // Ambil nilai dari form jika diisi
+                        if (!empty($data['attempt_id'])) {
+                            $params['--attempt'] = $data['attempt_id'];
+                        }
+                        if (!empty($data['user_id'])) {
+                            $params['--user'] = $data['user_id'];
+                        }
+                        if (!empty($data['connect_id'])) {
+                            $params['--connect'] = $data['connect_id'];
+                        }
+                        if (!empty($data['session_id'])) {
+                            $params['--session'] = $data['session_id'];
+                        }
+                        if (!empty($data['prody_id'])) {
+                            $params['--prody'] = $data['prody_id'];
+                        }
+
+                        // only-weird: default true, tapi bisa dimatikan
+                        $params['--only-weird'] = !empty($data['only_weird']) ? 1 : 0;
+
+                        // Jalankan command Artisan
+                        Artisan::call('bl:regrade-attempts', $params);
+
+                        Notification::make()
+                            ->title('Proses regrade dijalankan')
+                            ->body('Command bl:regrade-attempts sudah dipanggil dengan filter yang dipilih.')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
