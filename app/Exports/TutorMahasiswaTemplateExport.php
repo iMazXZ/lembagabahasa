@@ -23,17 +23,16 @@ class TutorMahasiswaTemplateExport implements
     protected Collection $users;
     protected ?string $groupNo;
     protected ?string $prodyName;
-    protected int $rowIndex = 0; // untuk kolom "No."
+    protected int $rowIndex = 0;
 
     public function __construct(Collection $users, ?string $groupNo = null, ?string $prodyName = null)
     {
-        // Urutkan SRN (NPM) terbesar di atas
-        $this->users = $users
-            ->sortByDesc(fn (User $u) => (int) preg_replace('/\D/', '', (string) $u->srn))
-            ->values();
+        // JANGAN SORTING LAGI DI SINI.
+        // Terima apa adanya dari Controller.
+        $this->users = $users; 
 
-        $this->groupNo  = $groupNo;
-        $this->prodyName= $prodyName;
+        $this->groupNo   = $groupNo;
+        $this->prodyName = $prodyName;
     }
 
     public function collection()
@@ -48,9 +47,6 @@ class TutorMahasiswaTemplateExport implements
             $groupLine = trim('Group ' . ($this->groupNo ?? '') . ($this->prodyName ? " — {$this->prodyName}" : ''));
         }
 
-        // Baris 1: judul "Group …" (akan di-merge A1:H1)
-        // Baris 2: kolom MEETING (akan di-merge D2:F2)
-        // Baris 3: subheader nyata
         return [
             [$groupLine],
             ['', '', '', 'MEETING', '', '', '', ''],
@@ -61,17 +57,10 @@ class TutorMahasiswaTemplateExport implements
     public function map($user): array
     {
         /** @var User $user */
-        $s1 = $this->meetingScore($user, 1);
-        $s2 = $this->meetingScore($user, 2);
-        $s3 = $this->meetingScore($user, 3);
-        $s4 = $this->meetingScore($user, 4);
-        $s5 = $this->meetingScore($user, 5);
-
         $daily = BlCompute::dailyAvgForUser($user->id, $user->year);
         $att   = optional($user->basicListeningGrade)->attendance;
         $final = optional($user->basicListeningGrade)->final_test;
 
-        // Final numeric & letter (pakai cache kalau ada; fallback rata-rata dari 3 komponen)
         $finalNumeric = optional($user->basicListeningGrade)->final_numeric_cached;
         if ($finalNumeric === null) {
             $parts = [];
@@ -83,47 +72,32 @@ class TutorMahasiswaTemplateExport implements
         $finalLetter = optional($user->basicListeningGrade)->final_letter_cached ?? '';
 
         return [
-            ++$this->rowIndex,            // No
-            $user->name,                  // Name
-            (string) $user->srn,          // SRN (string supaya nol depan tidak hilang)
-            $this->fmt($att),             // Attendance
-            $this->fmt($daily),           // Daily
-            $this->fmt($final),           // Final Test
-            $this->fmt($finalNumeric),    // SCORE
-            $finalLetter,                 // ALPHABETICAL SCORE
+            ++$this->rowIndex,            
+            $user->name,                  
+            (string) $user->srn,          
+            $this->fmt($att),             
+            $this->fmt($daily),           
+            $this->fmt($final),           
+            $this->fmt($finalNumeric),    
+            $finalLetter,                 
         ];
     }
 
     public function columnWidths(): array
     {
         return [
-            'A' => 6,   // No
-            'B' => 34,  // Name
-            'C' => 14,  // SRN
-            'D' => 13,  // Attendance
-            'E' => 13,  // Daily
-            'F' => 13,  // Final Test
-            'G' => 12,  // SCORE
-            'H' => 22,  // ALPHABETICAL SCORE
+            'A' => 6,   'B' => 34,  'C' => 14,  'D' => 13,
+            'E' => 13,  'F' => 13,  'G' => 12,  'H' => 22,
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
-        // Tebalkan baris judul & header
         $sheet->getStyle('A1:H1')->getFont()->setBold(true);
         $sheet->getStyle('A2:H3')->getFont()->setBold(true);
-
-        // Rata tengah judul & header
-        $sheet->getStyle('A1:H1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A2:H2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A3:H3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        // Rata tengah untuk kolom angka
+        $sheet->getStyle('A1:H3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('A:G')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('H:H')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        // Wrap text untuk judul panjang
         $sheet->getStyle('A1:H1')->getAlignment()->setWrapText(true);
     }
 
@@ -132,22 +106,16 @@ class TutorMahasiswaTemplateExport implements
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
+                $sheet->mergeCells('A1:H1'); 
+                $sheet->mergeCells('D2:F2'); 
 
-                // Merge header
-                $sheet->mergeCells('A1:H1'); // "Group …"
-                $sheet->mergeCells('D2:F2'); // "MEETING"
-
-                // Garis border untuk header + tabel
-                $lastRow = 3 + $this->users->count(); // data mulai baris 4
+                $lastRow = 3 + $this->users->count(); 
                 $sheet->getStyle("A3:H{$lastRow}")->applyFromArray([
                     'borders' => [
-                        'allBorders' => [
-                            'borderStyle' => Border::BORDER_THIN,
-                        ],
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN],
                     ],
                 ]);
 
-                // Tinggi baris header
                 $sheet->getRowDimension(1)->setRowHeight(24);
                 $sheet->getRowDimension(2)->setRowHeight(18);
                 $sheet->getRowDimension(3)->setRowHeight(22);
@@ -158,24 +126,5 @@ class TutorMahasiswaTemplateExport implements
     private function fmt($val): string
     {
         return is_numeric($val) ? (string) $val : '';
-    }
-
-    private function meetingScore(User $user, int $meeting): ?float
-    {
-        // 1) Manual override
-        $manual = $user->basicListeningManualScores
-            ->firstWhere('meeting', $meeting)
-            ->score ?? null;
-
-        if (is_numeric($manual)) return (float) $manual;
-
-        // 2) Attempt submitted terbaru
-        $attempt = $user->basicListeningAttempts
-            ->where('session_id', $meeting)
-            ->filter(fn ($a) => !is_null($a->submitted_at))
-            ->sortByDesc('submitted_at')
-            ->first();
-
-        return is_numeric($attempt?->score) ? (float) $attempt->score : null;
     }
 }

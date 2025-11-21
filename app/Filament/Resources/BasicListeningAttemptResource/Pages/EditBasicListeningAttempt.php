@@ -3,151 +3,165 @@
 namespace App\Filament\Resources\BasicListeningAttemptResource\Pages;
 
 use App\Filament\Resources\BasicListeningAttemptResource;
-use App\Models\BasicListeningAnswer;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
+use Filament\Pages\Actions;
+use Filament\Notifications\Notification;
+use App\Models\BasicListeningQuestion;
 
-/**
- * Edit attempt FIB:
- * - Tidak lagi mengandalkan key array sebagai ID; selalu pakai $row['id'].
- * - Normalisasi boolean untuk is_correct dari berbagai bentuk input ("1"/"0"/true/false/"on"/"yes").
- * - Recalculate score secara konsisten di mutateFormDataBeforeSave() dan disinkronkan lagi setelah save.
- * - Biarkan Repeater::relationship() menyimpan anak; afterSave hanya melakukan sinkronisasi & sanity check.
- */
 class EditBasicListeningAttempt extends EditRecord
 {
     protected static string $resource = BasicListeningAttemptResource::class;
 
-    /**
-     * (Opsional) Jika perlu normalisasi sebelum form diisi.
-     * Di sini kita biarkan apa adanya supaya tidak bentrok dengan tampilan.
-     */
-    protected function mutateFormDataBeforeFill(array $data): array
+    protected function getHeaderActions(): array
     {
-        return $data;
+        return [
+            // Tombol Ajaib: Koreksi Otomatis
+            Actions\Action::make('auto_grade')
+                ->label('Koreksi Otomatis (Auto-Grade)')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Hitung Ulang Nilai?')
+                ->modalSubheading('Sistem akan mencocokkan ulang jawaban teks siswa dengan kunci jawaban dan memperbarui skor.')
+                ->action(function () {
+                    $this->performAutoGrade();
+                }),
+                
+            Actions\DeleteAction::make(),
+        ];
     }
 
     /**
-     * Normalisasi state dan hitung skor sebelum disimpan oleh Filament.
-     * Penting: jangan bergantung pada key array sebagai ID; kita perbaiki isi $data['answers'] saja.
+     * Logika Hitung Skor saat tombol "Simpan" ditekan (Manual Edit)
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Ambil data jawaban dari form repeater
         $answers = $data['answers'] ?? [];
-        $correct = 0;
-        $total   = 0;
+        $total = count($answers);
+        
+        // Hitung jumlah yang statusnya "Benar" (1)
+        $correct = collect($answers)
+            ->filter(fn ($row) => in_array($row['is_correct'] ?? 0, [1, '1', true, 'true'], true))
+            ->count();
 
-        foreach ($answers as &$row) {
-            $raw = $row['is_correct'] ?? null;
-            $bool = $this->toBool($raw);
-            $row['is_correct'] = $bool;
-
-            $total++;
-            if ($bool) {
-                $correct++;
-            }
-        }
-        unset($row);
-
-        // Hindari bagi 0
-        if ($total > 0) {
-            $data['score'] = round(($correct / $total) * 100, 2);
-        } else {
-            $data['score'] = 0.0;
-        }
-
-        // Kembalikan answers yang telah dinormalisasi agar Repeater::relationship() menyimpan dengan benar
-        $data['answers'] = $answers;
-
-        Log::info('mutateFormDataBeforeSave - recalc score', [
-            'correct' => $correct,
-            'total'   => $total,
-            'score'   => $data['score'],
-        ]);
+        // Update Skor
+        $data['score'] = $total > 0 ? round(($correct / $total) * 100, 2) : 0;
 
         return $data;
     }
 
-    /**
-     * Setelah Filament menyimpan parent + children (via relationship()),
-     * kita pastikan setiap child tersinkronisasi dan ID digunakan dengan benar.
-     * Lalu kita lakukan sanity re-calc skor dari database sebagai final check.
-     */
-    protected function afterSave(): void
+    protected function getRedirectUrl(): string
     {
-        /** @var \App\Models\BasicListeningAttempt $attempt */
+        return $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
+    }
+    
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Perubahan disimpan & skor diperbarui';
+    }
+
+    /**
+     * Fungsi Auto-Grade: Mencocokkan Teks vs Kunci
+     */
+    private function performAutoGrade()
+    {
         $attempt = $this->getRecord();
+        // Eager load untuk performa
+        $attempt->load('answers.question'); 
 
-        $answersState = $this->form->getState()['answers'] ?? [];
-        Log::info('afterSave - incoming answers state', [
-            'attempt_id' => $attempt->id,
-            'count'      => count($answersState),
-        ]);
+        $total = 0;
+        $correctCount = 0;
 
-        // Sinkronisasi jawaban berdasarkan ID (bila ada). Ini aman untuk kasus Select boolean -> string.
-        foreach ($answersState as $row) {
-            $id = $row['id'] ?? null;
-            if (!$id) {
-                Log::warning('afterSave - skip row without id', ['row' => $row]);
+        foreach ($attempt->answers as $ans) {
+            $q = $ans->question;
+            if (!$q) continue;
+
+            $isCorrect = false;
+            
+            // 1. Logika FIB
+            if ($q->type === 'fib_paragraph') {
+                $userVal = (string) $ans->answer;
+                $idx     = (int) $ans->blank_index;
+                $keys    = $q->fib_answer_key ?? [];
+                $scoring = $q->fib_scoring ?? [];
+
+                // Deteksi Index 1-based (seperti di Controller)
+                $hasKey1 = array_key_exists(1, $keys) || array_key_exists('1', $keys);
+                $hasKey0 = array_key_exists(0, $keys) || array_key_exists('0', $keys);
+                $isOneBased = $hasKey1 && !$hasKey0;
+
+                $lookupIndex = $isOneBased ? ($idx + 1) : $idx;
+                $key = $keys[$lookupIndex] ?? null;
+
+                if ($key) {
+                    $isCorrect = $this->checkMatch($userVal, $key, $scoring);
+                }
+            } 
+            // 2. Logika Multiple Choice / True False
+            else {
+                $isCorrect = ($ans->answer === $q->correct);
+            }
+
+            // Simpan status per jawaban
+            $ans->is_correct = $isCorrect;
+            $ans->save();
+
+            $total++;
+            if ($isCorrect) $correctCount++;
+        }
+
+        // Simpan Skor Akhir ke Attempt
+        $finalScore = $total > 0 ? round(($correctCount / $total) * 100, 2) : 0;
+        $attempt->score = $finalScore;
+        $attempt->save();
+
+        // Refresh halaman untuk melihat hasil
+        $this->fillForm();
+        
+        Notification::make()
+            ->title('Auto-grade selesai')
+            ->body("Skor baru: {$finalScore} (Benar: {$correctCount}/{$total})")
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Helper: Mencocokkan string dengan opsi konfigurasi
+     */
+    private function checkMatch($userVal, $key, $scoring): bool
+    {
+        // Ambil setting penilaian
+        $caseSensitive = filter_var($scoring['case_sensitive'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $allowTrim     = filter_var($scoring['allow_trim'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        $stripPunct    = filter_var($scoring['strip_punctuation'] ?? true, FILTER_VALIDATE_BOOLEAN);
+
+        // Normalisasi User Input
+        $u = (string)$userVal;
+        if ($allowTrim) $u = trim($u);
+        if (!$caseSensitive) $u = mb_strtolower($u);
+        if ($stripPunct) $u = preg_replace('/[\p{P}\p{S}]+/u', '', $u);
+        $u = preg_replace('/\s+/u', ' ', $u); // Rapatkan spasi
+
+        // Normalisasi Kunci (bisa string atau array opsi)
+        $keys = is_array($key) ? $key : [$key];
+
+        foreach ($keys as $k) {
+            // Support Regex
+            if (is_array($k) && isset($k['regex'])) {
+                if (@preg_match('/' . $k['regex'] . '/ui', $userVal)) return true;
                 continue;
             }
 
-            $isCorrect = $this->toBool($row['is_correct'] ?? null);
+            $kStr = (string)$k;
+            if ($allowTrim) $kStr = trim($kStr);
+            if (!$caseSensitive) $kStr = mb_strtolower($kStr);
+            if ($stripPunct) $kStr = preg_replace('/[\p{P}\p{S}]+/u', '', $kStr);
+            $kStr = preg_replace('/\s+/u', ' ', $kStr);
 
-            BasicListeningAnswer::query()
-                ->where('id', $id)
-                ->where('attempt_id', $attempt->id)
-                ->update([
-                    'answer'     => $row['answer'] ?? null,
-                    'is_correct' => $isCorrect,
-                ]);
+            if ($u === $kStr) return true;
         }
 
-        // Sanity check: hitung ulang skor dari DB
-        $total   = max(1, (int) $attempt->answers()->count());
-        $correct = (int) $attempt->answers()->where('is_correct', true)->count();
-        $attempt->score = round(($correct / $total) * 100, 2);
-        $attempt->save();
-
-        Log::info('afterSave - final score recomputed', [
-            'attempt_id' => $attempt->id,
-            'correct'    => $correct,
-            'total'      => $total,
-            'score'      => $attempt->score,
-        ]);
-    }
-
-    /**
-     * Judul notifikasi sukses.
-     */
-    protected function getSavedNotificationTitle(): ?string
-    {
-        return 'Attempt berhasil disimpan';
-    }
-
-    /**
-     * (Opsional) Arahkan kembali ke halaman edit yang sama atau ke index.
-     * Kembalikan ke halaman sebelumnya supaya nyaman lanjut edit.
-     */
-    protected function getRedirectUrl(): string
-    {
-        // Kembali ke halaman detail/edit yang sama
-        return static::getResource()::getUrl('edit', ['record' => $this->getRecord()]);
-    }
-
-    /**
-     * Helper robust untuk konversi berbagai representasi nilai form menjadi boolean murni.
-     */
-    private function toBool(mixed $value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-        if (is_int($value)) {
-            return $value === 1;
-        }
-        $str = strtolower((string) $value);
-        return in_array($str, ['1', 'true', 'on', 'yes', 'y'], true);
+        return false;
     }
 }

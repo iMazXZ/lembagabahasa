@@ -19,11 +19,10 @@
             if ($type === 'fib_paragraph') {
                 // Logic FIB
                 $keys         = (array)($q->fib_answer_key ?? []);
-                $placeholders = (array)($q->fib_placeholders ?? array_keys($keys));
-                $placeholders = array_values(array_unique(array_map('strval', $placeholders)));
-
-                $unitCount = count($placeholders);
+                // Hitung unit berdasarkan jumlah kunci jawaban
+                $unitCount    = count($keys);
                 if ($unitCount <= 0) {
+                    // Fallback jika kunci kosong, hitung dari placeholder/input user
                     $unitCount = $answers->where('question_id', $q->id)->count();
                 }
                 $unitCount    = max(1, (int)$unitCount);
@@ -32,7 +31,7 @@
                 $ansCorrect   = $answers->where('question_id', $q->id)->where('is_correct', true)->count();
                 $correctUnits += min($unitCount, $ansCorrect);
             } else {
-                // Logic PG
+                // Logic PG / True False
                 $totalUnits += 1;
                 $ans = $answers->firstWhere('question_id', $q->id);
                 if ($ans && $ans->is_correct) $correctUnits += 1;
@@ -60,15 +59,15 @@
 
         {{-- Session Info --}}
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 backdrop-blur-md mb-4">
-            @php $isUAS = (int)$attempt->session->number > 5; @endphp
+            @php $isUAS = (int)($attempt->session->number ?? 0) > 5; @endphp
             <span class="h-2 w-2 rounded-full {{ $isUAS ? 'bg-pink-500' : 'bg-blue-500' }}"></span>
             <span class="text-xs font-bold text-slate-200 uppercase tracking-wide">
-                {{ $isUAS ? 'Final Exam' : 'Meeting ' . $attempt->session->number }}
+                {{ $isUAS ? 'Final Exam' : 'Meeting ' . ($attempt->session->number ?? '-') }}
             </span>
         </div>
 
         <h1 class="text-2xl md:text-4xl font-bold text-white mb-2 leading-tight">
-            {{ $attempt->session->title }}
+            {{ $attempt->session->title ?? 'Basic Listening' }}
         </h1>
 
         @if($isSubmitted)
@@ -136,19 +135,15 @@
                 @foreach($questions as $idx => $q)
                     @php $qType = $q->type ?? 'multiple_choice'; @endphp
 
-                    {{-- TYPE: MULTIPLE CHOICE --}}
+                    {{-- TYPE: MULTIPLE CHOICE / TRUE FALSE --}}
                     @if($qType !== 'fib_paragraph')
                         @php
                             $ans       = $answers->firstWhere('question_id', $q->id);
                             $chosen    = $ans->answer ?? null;
                             $isCorrect = (bool)($ans->is_correct ?? false);
-                            $correctKey = $q->answer_key ?? null; // Pastikan model Question punya attribute ini atau logic serupa
                             
-                            // Fallback logic untuk mencari kunci jawaban jika tidak ada di attribute langsung
-                            // (Biasanya sistem kuis menyimpan kunci, disini kita asumsikan kita tahu kuncinya 
-                            //  berdasarkan jika option match dengan logic grading, 
-                            //  tapi untuk display "kunci" saat user salah, kita butuh data explicit).
-                            //  DISINI SAYA ASUMSIKAN LOGIC SEDERHANA: Kita highlight row yang benar.
+                            // Kunci jawaban (correct) dari tabel questions
+                            $correctKey = $q->correct ?? null; 
                         @endphp
 
                         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-blue-300 transition-colors">
@@ -193,18 +188,12 @@
                             {{-- Options --}}
                             <div class="p-5 space-y-2.5">
                                 @foreach(['A' => $q->option_a, 'B' => $q->option_b, 'C' => $q->option_c, 'D' => $q->option_d] as $key => $text)
+                                    {{-- Skip jika option kosong (misal untuk True/False yg cuma A/B) --}}
+                                    @if(empty($text)) @continue @endif
+                                    
                                     @php
                                         $isUserChoice = ($key === $chosen);
-                                        // Logic visual: 
-                                        // 1. Jika ini pilihan user & Benar -> Hijau
-                                        // 2. Jika ini pilihan user & Salah -> Merah
-                                        // 3. Jika user TIDAK pilih ini, tapi ini Kunci Jawaban -> Outline Hijau (Supaya user tau yg benar mana)
-                                        // Note: Karena kita tidak punya variabel $correctKey eksplisit di view ini tanpa query ulang,
-                                        // Kita gunakan logika: Jika user salah, kita biasanya ingin memberi tahu mana yang benar.
-                                        // Namun jika backend tidak mengirim $correctKey, kita hanya bisa highlight pilihan user.
-                                        // ASUMSI: Variable $q->answer_key tersedia. Jika tidak, hapus bagian logic no 3.
-                                        
-                                        $isActuallyCorrect = ($key === ($q->answer_key ?? '')); 
+                                        $isActuallyCorrect = ($key === $correctKey);
                                         
                                         $rowClass = "border-slate-200 bg-white hover:bg-slate-50";
                                         $icon = null;
@@ -253,19 +242,26 @@
                         @php
                             $ansRows   = $answers->where('question_id', $q->id)->keyBy('blank_index');
                             $paragraph = $q->paragraph_text ?? '';
-                            $pos = -1;
+                            
+                            // Counter untuk Sequential Index (0, 1, 2...)
+                            // Logic ini harus sama persis dengan Controller
+                            $seqCounter = 0;
 
                             // Render Logic
                             $rendered = preg_replace_callback(
                               '/\[\[(\d+)\]\]|\[blank\]/',
-                              function($m) use (&$pos, $ansRows) {
-                                $pos++;
-                                $row   = $ansRows->get((string)$pos);
+                              function($m) use (&$seqCounter, $ansRows) {
+                                // Gunakan Sequential Index (0, 1, 2...)
+                                $idx = $seqCounter++;
+                                
+                                $row   = $ansRows->get((string)$idx);
                                 $val   = trim((string)($row->answer ?? ''));
                                 $ok    = (bool)($row->is_correct ?? false);
+                                
+                                // Tampilkan jawaban user atau placeholder ...
                                 $label = $val !== '' ? e($val) : '<span class="opacity-50">...</span>';
                                 
-                                // Styling Badge dalam paragraf
+                                // Styling Badge
                                 $baseCls = "inline-flex items-center px-2 py-0.5 rounded mx-0.5 text-sm font-bold border-b-2 shadow-sm align-middle transition-all ";
                                 $cls     = $ok 
                                     ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
@@ -276,7 +272,7 @@
                               e($paragraph)
                             );
                             
-                            $allCorrect = $ansRows->where('is_correct', false)->isEmpty();
+                            $allCorrect = $ansRows->isNotEmpty() && $ansRows->where('is_correct', false)->isEmpty();
                         @endphp
 
                         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -298,7 +294,6 @@
                                 @endif
                             </div>
                             <div class="p-6">
-                                {{-- REVISI DI SINI: Ditambahkan 'whitespace-pre-line' agar enter terbaca --}}
                                 <div class="prose prose-slate max-w-none prose-p:leading-loose text-gray-800 text-base bg-slate-50/50 p-5 rounded-lg border border-slate-200 whitespace-pre-line leading-8">
                                     {!! $rendered !!}
                                 </div>
@@ -308,11 +303,12 @@
                 @endforeach
             </div>
 
-            {{-- Clear LocalStorage Script (Functional) --}}
+            {{-- Clear LocalStorage Script --}}
             <script>
                 (function(){
                     try {
-                        const prefix = 'BL_FIB_ATTEMPT_{{ (int) $attempt->id }}_Q';
+                        // Hapus data autosave jika sudah submit
+                        const prefix = 'BL_QUIZ_A{{ (int) $attempt->id }}';
                         for (let i = localStorage.length - 1; i >= 0; i--) {
                             const k = localStorage.key(i);
                             if (k && k.startsWith(prefix)) { localStorage.removeItem(k); }
@@ -336,12 +332,8 @@
                     Anda belum menyelesaikan sesi ini. Silakan lanjutkan pengerjaan quiz untuk mendapatkan nilai dan pembahasan.
                 </p>
 
-                @php
-                    $isFib = $attempt->quiz && $attempt->quiz->questions()->where('type', 'fib_paragraph')->exists();
-                    $url   = $isFib ? route('bl.quiz', $attempt->quiz_id) : route('bl.quiz.show', $attempt->id);
-                @endphp
-
-                <a href="{{ $url }}" class="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all transform hover:-translate-y-1">
+                {{-- PERBAIKAN ROUTE: Selalu arahkan ke bl.quiz.show --}}
+                <a href="{{ route('bl.quiz.show', $attempt->id) }}" class="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all transform hover:-translate-y-1">
                     Lanjutkan Mengerjakan <i class="fa-solid fa-arrow-right"></i>
                 </a>
             </div>

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\BasicListeningAttemptResource\Pages;
 use App\Models\BasicListeningAttempt;
+use App\Models\BasicListeningQuestion;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
@@ -13,12 +14,12 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\DateTimePicker;
+use Illuminate\Database\Eloquent\Collection;
 
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section as InfoSection;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
-use Filament\Infolists\Components\RepeatableEntry;
 
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -27,7 +28,6 @@ use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class BasicListeningAttemptResource extends Resource
 {
@@ -38,420 +38,285 @@ class BasicListeningAttemptResource extends Resource
     protected static ?string $pluralLabel     = 'Attempts (Hasil Kuis)';
     protected static ?string $modelLabel      = 'Attempt';
 
+    // Cache sederhana untuk menyimpan data soal selama request berlangsung
+    protected static array $questionCache = [];
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
             ->with([
                 'user.prody',
                 'session',
-                'quiz.questions',
+                'quiz.questions', 
                 'connectCode',
                 'answers',
             ]);
 
         $user = auth()->user();
 
-        // Admin / superuser: semua data
         if ($user && ($user->hasRole('Admin') || $user->hasRole('superuser'))) {
             return $query;
         }
 
-        // Tutor: hanya prodi binaan
         if ($user && ($user->hasRole('Tutor') || $user->hasRole('tutor'))) {
-            // Jika punya helper sendiri, gunakan itu
+            $prodyIds = [];
             if (method_exists($user, 'assignedProdyIds')) {
-                $prodyIds = array_values(array_filter((array) $user->assignedProdyIds()));
-            } else {
-                // Auto-deteksi kolom kunci di pivot tutor_prody
-                $keyCol = Schema::hasColumn('tutor_prody', 'tutor_id')
-                    ? 'tutor_id'
-                    : (Schema::hasColumn('tutor_prody', 'user_id') ? 'user_id' : null);
-
-                if ($keyCol === null) {
-                    // Pivot tidak memiliki kolom kunci yang dikenal → jangan tampilkan data
-                    return $query->whereRaw('1=0');
-                }
-
-                $prodyIds = DB::table('tutor_prody')
-                    ->where($keyCol, $user->id)   // ← tidak lagi hardcode tutor_id
-                    ->pluck('prody_id')
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
-            }
-
+                $prodyIds = $user->assignedProdyIds();
+            } 
+            
             if (empty($prodyIds)) {
                 return $query->whereRaw('1=0');
             }
 
-            // Filter attempt berdasarkan prodi user peserta
             return $query->whereHas('user', fn (Builder $q) => $q->whereIn('prody_id', $prodyIds));
         }
 
-        // Role lain: tidak boleh lihat
         return $query->whereRaw('1=0');
     }
 
-    /** ----------------------------------------------------------------
-     * FORM
-     * -----------------------------------------------------------------*/
     public static function form(Form $form): Form
     {
         return $form->schema([
             Section::make('Informasi Attempt')
                 ->columns(12)
                 ->schema([
-                    // Informasi peserta & quiz — tampil (non-dehydrated)
                     Placeholder::make('user_name')
                         ->label('Peserta')
-                        ->content(fn (?BasicListeningAttempt $record) => $record?->user?->name ?? '-')
-                        ->columnSpan(4)
-                        ->extraAttributes(['class' => 'text-gray-900']),
-
-                    Placeholder::make('user_srn')
-                        ->label('SRN/NIM')
-                        ->content(fn (?BasicListeningAttempt $record) => $record?->user?->srn ?? '-')
-                        ->columnSpan(3),
+                        ->content(fn ($record) => $record?->user?->name . ' (' . ($record?->user?->srn ?? '-') . ')')
+                        ->columnSpan(5)
+                        ->extraAttributes(['class' => 'text-gray-900 font-bold']),
 
                     Placeholder::make('prody_name')
                         ->label('Prodi')
-                        ->content(fn (?BasicListeningAttempt $record) => $record?->user?->prody?->name ?? '-')
+                        ->content(fn ($record) => $record?->user?->prody?->name ?? '-')
                         ->columnSpan(3),
 
                     Placeholder::make('quiz_title')
-                        ->label('Quiz')
-                        ->content(fn (?BasicListeningAttempt $record) => $record?->quiz?->title ?? '-')
-                        ->columnSpan(2),
+                        ->label('Paket Soal')
+                        ->content(fn ($record) => $record?->quiz?->title ?? '-')
+                        ->columnSpan(4),
 
                     Grid::make(12)->schema([
                         TextInput::make('score')
-                            ->label('Skor (%)')
+                            ->label('Skor Akhir')
+                            ->helperText('Skor dihitung ulang otomatis saat disimpan.')
                             ->numeric()
-                            ->step('0.01')
+                            ->suffix('%')
                             ->columnSpan(3),
 
                         DateTimePicker::make('submitted_at')
                             ->label('Waktu Submit')
                             ->seconds(false)
                             ->native(false)
-                            ->columnSpan(5),
+                            ->columnSpan(4),
+                            
+                        DateTimePicker::make('created_at')
+                            ->label('Waktu Mulai')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->columnSpan(4),
                     ])->columnSpan(12),
                 ]),
 
-            Section::make('Jawaban (FIB)')
-                ->description('Edit jawaban peserta dan tandai benar/salah. Skor dihitung ulang saat simpan.')
+            Section::make('Koreksi Jawaban')
+                ->description('Koreksi manual jawaban siswa.')
                 ->collapsible()
                 ->schema([
                     Repeater::make('answers')
                         ->relationship('answers')
                         ->reorderable(false)
+                        ->addable(false)
+                        ->deletable(false)
                         ->grid(1)
                         ->schema([
                             Hidden::make('id'),
-                            Hidden::make('question_id'), // ← pastikan ikut terdehidrasi agar kita bisa baca kunci
+                            Hidden::make('question_id'),
+                            
+                            // PERBAIKAN PENTING:
+                            // Simpan index murni (0, 1, 2) di Hidden Field agar logika $get('blank_index') akurat
+                            Hidden::make('blank_index')
+                                ->default(0),
 
                             Grid::make(12)->schema([
-                                TextInput::make('blank_index')
-                                    ->label('Blank #')
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->formatStateUsing(fn ($state) => is_numeric($state) ? ((int)$state + 1) : ($state ?? '—'))
+                                // Tampilkan Label menggunakan Placeholder (Visual Saja)
+                                Placeholder::make('blank_label')
+                                    ->label('#')
+                                    ->content(fn (Get $get) => 'Isian #'.((int)$get('blank_index') + 1))
+                                    ->extraAttributes(['class' => 'text-gray-500 font-mono text-sm'])
                                     ->columnSpan(2),
 
                                 TextInput::make('answer')
-                                    ->label('Jawaban Peserta')
+                                    ->label('Jawaban Siswa')
                                     ->columnSpan(5),
 
-                                // === Kunci jawaban (readonly) ===
+                                // Kunci Jawaban (Logic Cerdas)
                                 Placeholder::make('correct_key')
-                                    ->label('Kunci')
+                                    ->label('Kunci Jawaban')
                                     ->content(function (Get $get) {
-                                        $questionId = $get('question_id');
-                                        $blankIndex = (int) $get('blank_index');
+                                        $qId = $get('question_id');
+                                        // Ambil index murni dari hidden field (0, 1, 2...)
+                                        $idx = (int) $get('blank_index');
+                                        
+                                        if (!$qId) return '—';
 
-                                        if (!$questionId) return '—';
-
-                                        /** @var \App\Models\BasicListeningQuestion|null $q */
-                                        $q = \App\Models\BasicListeningQuestion::find($questionId);
-                                        if (!$q) return '—';
-
-                                        $type = $q->type ?? 'unknown';
-
-                                        // MC: tampilkan huruf kunci (atau teks opsi jika mau)
-                                        if ($type === 'multiple_choice') {
-                                            return $q->correct ?? '—';
+                                        if (!isset(static::$questionCache[$qId])) {
+                                            static::$questionCache[$qId] = BasicListeningQuestion::find($qId);
                                         }
+                                        $q = static::$questionCache[$qId];
 
-                                        // FIB: robust mapping (coba 0-based lalu 1-based)
-                                        if ($type === 'fib_paragraph') {
-                                            $keys = is_array($q->fib_answer_key ?? null) ? $q->fib_answer_key : [];
+                                        if (!$q) return '?';
 
-                                            // Kandidat indeks untuk dicoba berurutan (prioritas 0-based dulu)
-                                            $candidates = [$blankIndex, $blankIndex + 1];
+                                        if ($q->type === 'fib_paragraph') {
+                                            $keys = $q->fib_answer_key ?? [];
+                                            
+                                            // Deteksi apakah kunci dimulai dari 1 (1-based)
+                                            $hasKey1 = array_key_exists(1, $keys) || array_key_exists('1', $keys);
+                                            $hasKey0 = array_key_exists(0, $keys) || array_key_exists('0', $keys);
+                                            $isOneBased = $hasKey1 && !$hasKey0;
 
-                                            foreach ($candidates as $idx) {
-                                                if (array_key_exists($idx, $keys)) {
-                                                    $keyRaw = $keys[$idx];
-                                                    return is_array($keyRaw) ? implode(' / ', $keyRaw) : ($keyRaw ?? '—');
-                                                }
-                                            }
-
+                                            // Jika 1-based, kita geser index DB (+1)
+                                            $lookupIndex = $isOneBased ? ($idx + 1) : $idx;
+                                            
+                                            $key = $keys[$lookupIndex] ?? null;
+                                            
+                                            if (is_array($key)) return implode(' / ', $key);
+                                            if (is_string($key) || is_numeric($key)) return $key;
                                             return '—';
-                                        }
-
-                                        return '—';
+                                        } 
+                                        
+                                        return $q->correct ?? '—';
                                     })
+                                    ->extraAttributes(['class' => 'text-emerald-600 font-mono font-bold'])
                                     ->columnSpan(3),
 
                                 Select::make('is_correct')
                                     ->label('Status')
                                     ->options([
-                                        '1' => '✅ Benar',
-                                        '0' => '❌ Salah',
+                                        '1' => 'Benar',
+                                        '0' => 'Salah',
                                     ])
-                                    ->required()
+                                    ->selectablePlaceholder(false)
                                     ->native(false)
-                                    ->dehydrateStateUsing(
-                                        fn ($state) => in_array(strtolower((string)$state), ['1','true','on','yes','y'], true)
-                                    )
                                     ->columnSpan(2),
                             ]),
                         ])
                         ->itemLabel(fn (array $state): ?string =>
-                            isset($state['blank_index'])
-                                ? 'Blank #' . ((int)$state['blank_index'] + 1)
-                                : null
+                            isset($state['blank_index']) ? 'Isian #' . ((int)$state['blank_index'] + 1) : 'Soal'
                         ),
                 ]),
         ]);
     }
 
-    /** ----------------------------------------------------------------
-     * INFOLIST (VIEW PAGE)
-     * -----------------------------------------------------------------*/
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            // ====== RINGKASAN UMUM ======
             InfoSection::make('Ringkasan Attempt')
                 ->columns(4)
                 ->schema([
-                    TextEntry::make('user.name')->label('Peserta'),
-                    TextEntry::make('user.srn')->label('SRN/NIM'),
+                    TextEntry::make('user.name')->label('Peserta')->weight('bold'),
+                    TextEntry::make('user.srn')->label('SRN/NIM')->copyable(),
                     TextEntry::make('user.prody.name')->label('Prodi'),
-                    TextEntry::make('user.nomor_grup_bl')->label('No. Grup BL')
-                        ->placeholder('—'),
+                    TextEntry::make('user.nomor_grup_bl')->label('Grup BL'),
 
-                    TextEntry::make('session.number')->label('Pertemuan'),
-                    TextEntry::make('session.title')->label('Judul Sesi'),
-                    TextEntry::make('quiz.title')->label('Judul Quiz'),
+                    TextEntry::make('session.title')
+                        ->label('Sesi')
+                        ->prefix(fn($record)=>'Pert. '.$record->session->number.' - '),
+                    
+                    TextEntry::make('score')
+                        ->label('Skor Akhir')
+                        ->size(TextEntry\TextEntrySize::Large)
+                        ->weight('black')
+                        ->color(fn ($state) => $state >= 60 ? 'success' : 'danger')
+                        ->formatStateUsing(fn ($state) => $state . '%'),
 
-                    TextEntry::make('started_at')->label('Mulai')
-                        ->dateTime('d M Y H:i')
-                        ->placeholder('—'),
-                    TextEntry::make('submitted_at')->label('Submit')
-                        ->dateTime('d M Y H:i')
-                        ->placeholder('—'),
-                    TextEntry::make('updated_at')->label('Diubah')
-                        ->dateTime('d M Y H:i'),
-
-                    TextEntry::make('score')->label('Skor (%)')
-                        ->formatStateUsing(fn (mixed $state) => $state === null ? '—' : $state),
-
-                    // Ringkasan jawaban
-                    TextEntry::make('metrics.total_questions')
-                        ->label('Total Soal')
-                        ->state(fn (TextEntry $c) => $c->getRecord()?->quiz?->questions?->count() ?? 0),
-
-                    TextEntry::make('metrics.total_answers')
-                        ->label('Total Jawaban')
-                        ->state(fn (TextEntry $c) => $c->getRecord()?->answers?->count() ?? 0),
-
-                    TextEntry::make('metrics.correct_answers')
-                        ->label('Benar')
-                        ->state(fn (TextEntry $c) => (int) ($c->getRecord()?->answers?->where('is_correct', true)->count() ?? 0)),
-
-                    TextEntry::make('metrics.wrong_answers')
-                        ->label('Salah')
-                        ->state(function (TextEntry $c) {
-                            $r = $c->getRecord();
-                            $total   = (int) ($r?->answers?->count() ?? 0);
-                            $correct = (int) ($r?->answers?->where('is_correct', true)->count() ?? 0);
-                            $unknown = (int) ($r?->answers?->whereStrict('is_correct', null)->count() ?? 0);
-                            return max(0, $total - $correct - $unknown);
-                        }),
-
-                    TextEntry::make('metrics.unanswered')
-                        ->label('Kosong')
-                        ->state(function (TextEntry $c) {
-                            $ans = $c->getRecord()?->answers ?? collect();
-                            $emptyText = (int) $ans->filter(fn ($a) => ($a->answer === null || $a->answer === ''))->count();
-                            $unknown   = (int) $ans->whereStrict('is_correct', null)->count();
-                            return max($emptyText, $unknown);
+                    TextEntry::make('submitted_at')->label('Waktu Submit')->dateTime('d M Y, H:i'),
+                    
+                    TextEntry::make('stats')
+                        ->label('Statistik')
+                        ->state(function ($record) {
+                            $total = $record->answers->count();
+                            $correct = $record->answers->where('is_correct', true)->count();
+                            return "{$correct} Benar / {$total} Total";
                         }),
                 ]),
 
-            // ====== ID SENSITIF — hanya Admin/superuser ======
-            InfoSection::make('ID & Metadata Teknis')
-                ->columns(5)
-                ->visible(fn (): bool => auth()->user()?->hasAnyRole(['Admin','superuser']) ?? false)
-                ->schema([
-                    TextEntry::make('id')->label('ID Attempt')
-                        ->formatStateUsing(fn (mixed $state) => $state ? "#{$state}" : '—')
-                        ->copyable(),
-
-                    TextEntry::make('user_id')->label('ID User')->copyable(),
-                    TextEntry::make('session_id')->label('ID Session')->copyable(),
-                    TextEntry::make('quiz_id')->label('ID Quiz')->copyable(),
-                    TextEntry::make('connect_code_id')->label('ID Connect Code')->copyable(),
-                ]),
-
-            // ====== Detail jawaban (Blade kustom) ======
             ViewEntry::make('answers_view')
                 ->view('filament.attempts.answers-view')
                 ->columnSpanFull(),
         ]);
     }
 
-    /** ----------------------------------------------------------------
-     * TABLE (INDEX)
-     * -----------------------------------------------------------------*/
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Peserta')
+                    ->description(fn($record) => $record->user?->srn)
                     ->sortable()
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('user.prody.name')
                     ->label('Prodi')
                     ->sortable()
-                    ->searchable()
-                    ->limit(14)
+                    ->limit(20)
                     ->badge()
-                    ->tooltip(fn ($state) => $state),
-
-                Tables\Columns\TextColumn::make('session.number')
-                    ->label('Pert.')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('quiz_type')
-                    ->label('Tipe')
-                    ->state(function ($record) {
-                        $firstQuestion = $record->quiz?->questions?->first();
-                        return $firstQuestion?->type ?? 'unknown';
-                    })
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => match ($state) {
-                        'fib_paragraph'   => 'FIB',
-                        'multiple_choice' => 'MC',
-                        default           => (string) $state,
-                    })
-                    ->color(fn ($state) => match ($state) {
-                        'fib_paragraph'   => 'warning',
-                        'multiple_choice' => 'success',
-                        default           => 'gray',
-                    })
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('session.title')
-                    ->label('Judul')
-                    ->limit(14)
-                    ->badge()
-                    ->tooltip(fn ($state) => $state)
-                    ->toggleable(),
+                    ->label('Sesi')
+                    ->limit(20)
+                    ->tooltip(fn($state)=>$state),
 
                 Tables\Columns\TextColumn::make('score')
                     ->label('Skor')
                     ->badge()
-                    ->sortable()
                     ->color(fn ($state) => match (true) {
                         $state === null => 'gray',
-                        $state === 0    => 'danger',
-                        $state >= 80    => 'success',
-                        $state >= 60    => 'warning',
-                        default         => 'danger',
+                        $state < 60     => 'danger',
+                        $state < 80     => 'warning',
+                        default         => 'success',
                     })
-                    ->formatStateUsing(fn ($state) => $state === null ? '–' : $state),
+                    ->formatStateUsing(fn ($state) => $state !== null ? $state.'%' : '—')
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('connectCode.code_hint')
                     ->label('Kode')
-                    ->searchable()
-                    ->sortable()
-                    ->placeholder('—')
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('started_at')
-                    ->label('Dimulai')
-                    ->dateTime('d/m/y H:i')
-                    ->sortable(),
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—'),
 
                 Tables\Columns\TextColumn::make('submitted_at')
-                    ->label('Dikumpul')
-                    ->dateTime('d/m/y H:i')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Diubah')
-                    ->dateTime('d M Y H:i')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Submit')
+                    ->dateTime('d M H:i')
+                    ->sortable()
+                    ->placeholder('Belum'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
                     ->options(function () {
                         $user = auth()->user();
-
-                        // Tutor: hanya prodi binaan
-                        if ($user?->hasAnyRole(['tutor', 'Tutor'])) {
-                            // Pastikan assignedProdyIds() ada; kalau tidak, fallback kosong
+                        if ($user?->hasRole('tutor')) {
                             $ids = method_exists($user, 'assignedProdyIds') ? (array) $user->assignedProdyIds() : [];
-                            return \App\Models\Prody::query()
-                                ->whereIn('id', $ids ?: [-1])
-                                ->orderBy('name')
-                                ->pluck('name', 'id')
-                                ->toArray();
+                            return \App\Models\Prody::whereIn('id', $ids)->pluck('name','id');
                         }
-
-                        // Admin/superuser: semua prodi
-                        if ($user?->hasAnyRole(['Admin', 'superuser'])) {
-                            return \App\Models\Prody::query()
-                                ->orderBy('name')
-                                ->pluck('name', 'id')
-                                ->toArray();
-                        }
-
-                        // Role lain: kosongkan
-                        return [];
+                        return \App\Models\Prody::pluck('name','id');
                     })
                     ->query(function (Builder $query, array $data) {
                         if (!empty($data['value'])) {
-                            $query->whereHas('user', function (Builder $uq) use ($data) {
-                                $uq->where('prody_id', $data['value']);
-                            });
+                            $query->whereHas('user', fn($q) => $q->where('prody_id', $data['value']));
                         }
-                    })
-                    ->searchable()
-                    ->preload(),
+                    }),
 
-                Tables\Filters\SelectFilter::make('session')
-                    ->label('Pertemuan')
-                    ->relationship('session', 'number')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => 'Pert. ' . $record->number)
-                    ->searchable()
-                    ->preload()
-                    ->multiple(),
-
-                Tables\Filters\TernaryFilter::make('submitted')
-                    ->label('Sudah Submit?')
-                    ->boolean()
+                Tables\Filters\TernaryFilter::make('submitted_at')
+                    ->label('Status Submit')
+                    ->placeholder('Semua')
+                    ->trueLabel('Sudah Submit')
+                    ->falseLabel('Belum/Sedang Mengerjakan')
                     ->queries(
-                        true: fn (Builder $q) => $q->whereNotNull('submitted_at'),
-                        false: fn (Builder $q) => $q->whereNull('submitted_at'),
-                        blank: fn (Builder $q) => $q
+                        true: fn ($q) => $q->whereNotNull('submitted_at'),
+                        false: fn ($q) => $q->whereNull('submitted_at'),
                     ),
             ])
             ->actions([
@@ -470,34 +335,39 @@ class BasicListeningAttemptResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn () =>
-                            auth()->user()?->hasAnyRole(['Admin', 'superuser']) ?? false
+                        ->visible(fn () => 
+                            auth()->user()?->hasAnyRole(['Admin', 'superuser']) 
                         )
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->action(function (Collection $records) {
+                            // Opsional: Tambahkan logika pembersihan terkait jika perlu
+                            // Misalnya menghapus file log atau data terkait lainnya secara manual
+                            // Tapi karena kita pakai cascade delete di DB, $records->each->delete() sudah cukup.
+                            
+                            $records->each->delete();
+                            
+                            // Notifikasi sukses
+                            \Filament\Notifications\Notification::make()
+                                ->title('Data berhasil dihapus')
+                                ->success()
+                                ->send();
+                        }),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
 
-    /** ----------------------------------------------------------------
-     * RELATIONS
-     * -----------------------------------------------------------------*/
     public static function getRelations(): array
     {
-        return [
-            // Tambahkan RelationManagers bila diperlukan
-        ];
+        return [];
     }
 
-    /** ----------------------------------------------------------------
-     * PAGES
-     * -----------------------------------------------------------------*/
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListBasicListeningAttempts::route('/'),
-            'view'  => Pages\ViewBasicListeningAttempt::route('/{record}'),
             'edit'  => Pages\EditBasicListeningAttempt::route('/{record}/edit'),
+            'view'  => Pages\ViewBasicListeningAttempt::route('/{record}'),
         ];
     }
 }

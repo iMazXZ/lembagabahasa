@@ -10,31 +10,39 @@ class CreateBasicListeningConnectCode extends CreateRecord
 {
     protected static string $resource = BasicListeningConnectCodeResource::class;
 
-    protected function makeCodeHint(string $code): string
-    {
-        $code = trim($code);
-        $len  = mb_strlen($code);
-        if ($len <= 4) {
-            return mb_substr($code, 0, 1) . '••' . mb_substr($code, -1);
-        }
-        return mb_substr($code, 0, 2) . '•••' . mb_substr($code, -2);
-    }
-
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $plain = data_get($data, 'plain_code'); // sekarang tersedia
+        // 1. Set Pembuat (Wajib)
+        $data['created_by'] = auth()->id();
 
-        if (!$plain) {
-            throw ValidationException::withMessages([
-                'plain_code' => 'Kolom "Plain Code" wajib diisi.',
-            ]);
+        // 2. Validasi Khusus Tutor (Security Layer)
+        if (auth()->user()?->hasRole('tutor')) {
+            // Tutor wajib mengaktifkan pembatasan prodi
+            $data['restrict_to_prody'] = true;
+
+            // Cek apakah prody yang dipilih valid milik tutor tersebut
+            $allowed = auth()->user()->assignedProdyIds(); // Pastikan method ini ada di User Model
+            if (!in_array($data['prody_id'], $allowed)) {
+                throw ValidationException::withMessages([
+                    'prody_id' => 'Anda tidak memiliki izin untuk membuat kode bagi Program Studi ini.',
+                ]);
+            }
         }
 
-        $plain = trim($plain);
-        $data['code_hash'] = hash('sha256', $plain);
-        $data['code_hint'] = $this->makeCodeHint($plain);
+        // 3. Proses Hashing Kode
+        // Kita ambil data menggunakan data_get untuk keamanan akses array
+        $plain = data_get($data, 'plain_code');
 
-        // parse rules JSON jika perlu
+        if ($plain) {
+            $plain = trim($plain);
+            $data['code_hash'] = hash('sha256', $plain);
+            
+            // Panggil fungsi helper static dari Resource agar kode rapi (DRY)
+            // Jika di Resource belum ada public static, Anda bisa pakai $this->makeCodeHint($plain)
+            $data['code_hint'] = BasicListeningConnectCodeResource::makeCodeHint($plain); 
+        }
+
+        // 4. Parsing Rules (Legacy support)
         if (!empty($data['rules']) && is_string($data['rules'])) {
             $decoded = json_decode($data['rules'], true);
             if (json_last_error() === JSON_ERROR_NONE) {
@@ -42,7 +50,9 @@ class CreateBasicListeningConnectCode extends CreateRecord
             }
         }
 
-        unset($data['plain_code']); // jangan simpan plaintext
+        // Hapus plain_code agar tidak error SQL "Column not found"
+        unset($data['plain_code']); 
+
         return $data;
     }
 }

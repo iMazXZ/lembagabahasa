@@ -7,7 +7,6 @@ use App\Models\BasicListeningAttempt;
 use App\Models\BasicListeningCodeUsage;
 use App\Models\BasicListeningConnectCode;
 use App\Models\BasicListeningSession;
-use App\Models\BasicListeningQuestion;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 class BasicListeningConnectController extends Controller
@@ -22,10 +21,8 @@ class BasicListeningConnectController extends Controller
     }
 
     /**
-     * Verifikasi Connect Code & arahkan ke quiz yang tepat.
-     * Guardrail yang ditambahkan:
-     * - Validasi prodi jika connect code dibatasi (restrict_to_prody = true).
-     * - Cegah lintas-attempt aktif dalam 1 session untuk quiz berbeda.
+     * Verifikasi Connect Code & arahkan ke quiz.
+     * REVISI: Menghapus percabangan FIB/MC. Semua diarahkan ke bl.quiz.show.
      */
     public function verify(Request $request, BasicListeningSession $session)
     {
@@ -41,10 +38,9 @@ class BasicListeningConnectController extends Controller
 
         $plain = trim((string) $request->input('code'));
         $hash  = hash('sha256', $plain);
-
         $now = now();
 
-        // === Ambil SEMUA kode untuk sesi ini (termasuk yang sudah kedaluwarsa/nonaktif) ===
+        // === Ambil SEMUA kode untuk sesi ini ===
         $codes = BasicListeningConnectCode::query()
             ->where('session_id', $session->id)
             ->get();
@@ -53,7 +49,6 @@ class BasicListeningConnectController extends Controller
         $connect = $codes->first(fn ($c) => hash_equals($c->code_hash, $hash));
 
         if (! $connect) {
-            // Tidak ada kode dengan hash ini sama sekali
             return back()
                 ->withErrors(['code' => 'Kode salah atau kedaluwarsa.'])
                 ->withInput();
@@ -65,7 +60,7 @@ class BasicListeningConnectController extends Controller
 
             if (! $user || ! $user->prody_id) {
                 return back()
-                    ->withErrors(['code' => 'Kode ini khusus untuk mahasiswa prodi tertentu. Silakan login dan pastikan data prodi Anda sudah diisi.'])
+                    ->withErrors(['code' => 'Kode ini khusus untuk mahasiswa prodi tertentu. Pastikan biodata Anda lengkap.'])
                     ->withInput();
             }
 
@@ -76,23 +71,22 @@ class BasicListeningConnectController extends Controller
                     ->withInput();
             }
         }
-        // ================================================
 
-        // Tentukan quiz yang akan dibuka (dipakai juga untuk cek attempt lama)
+        // Tentukan quiz yang akan dibuka
         $quiz = $connect->quiz
             ?? $session->quizzes()->active()->latest('id')->first();
 
-        // Flag status "kode masih bisa dipakai untuk attempt baru"
+        // Flag status "kode masih bisa dipakai"
         $isWithinWindow =
             (is_null($connect->starts_at) || $connect->starts_at <= $now) &&
             (is_null($connect->ends_at)   || $connect->ends_at   >= $now);
 
         $isUsable = $connect->is_active && $isWithinWindow;
 
-        // === Kalau kode SUDAH TIDAK USABLE (expired/nonaktif) ===
+        // === Kalau kode SUDAH TIDAK USABLE ===
         if (! $isUsable) {
             if ($quiz) {
-                // Cek apakah user sudah pernah menyelesaikan kuis ini
+                // Cek history
                 $completed = BasicListeningAttempt::where('user_id', $request->user()->id)
                     ->where('session_id', $session->id)
                     ->where('quiz_id', $quiz->id)
@@ -101,25 +95,19 @@ class BasicListeningConnectController extends Controller
                     ->first();
 
                 if ($completed) {
-                    // Pakai connect code lama hanya untuk melihat hasil
                     return redirect()
                         ->route('bl.history.show', $completed->id)
                         ->with('warning', 'Kodenya sudah kedaluwarsa, menampilkan hasil attempt yang sudah Anda selesaikan.');
                 }
             }
-
-            // Tidak ada attempt yang sudah selesai → tetap error
-            return back()
-                ->withErrors(['code' => 'Kode salah atau kedaluwarsa.'])
-                ->withInput();
+            return back()->withErrors(['code' => 'Kode salah atau kedaluwarsa.'])->withInput();
         }
 
-        // Pada titik ini, kode MASIH AKTIF dan boleh dipakai buat attempt baru
         if (! $quiz || ! $quiz->is_active) {
             return back()->withErrors(['code' => 'Quiz belum tersedia.'])->withInput();
         }
 
-        // Batas pemakaian (hanya dihitung kalau kode masih usable)
+        // Batas pemakaian
         if (! is_null($connect->max_uses)) {
             $uses = BasicListeningCodeUsage::where('connect_code_id', $connect->id)->count();
             if ($uses >= (int) $connect->max_uses) {
@@ -127,12 +115,7 @@ class BasicListeningConnectController extends Controller
             }
         }
 
-        // Deteksi tipe: FIB atau MC
-        $isFib = BasicListeningQuestion::where('quiz_id', $quiz->id)
-            ->where('type', 'fib_paragraph')
-            ->exists();
-
-        // Cek attempt aktif untuk quiz yang sama
+        // Cek attempt aktif (resume)
         $existingAttempt = BasicListeningAttempt::where('user_id', $request->user()->id)
             ->where('session_id', $session->id)
             ->where('quiz_id', $quiz->id)
@@ -140,10 +123,10 @@ class BasicListeningConnectController extends Controller
             ->first();
 
         if ($existingAttempt) {
-            return $this->redirectToCorrectQuizType($existingAttempt, $isFib, $quiz->id);
+            return redirect()->route('bl.quiz.show', $existingAttempt);
         }
 
-        // Cek attempt aktif untuk quiz lain dalam session yang sama
+        // Cek attempt aktif di quiz lain dalam sesi sama
         $otherActiveAttempt = BasicListeningAttempt::where('user_id', $request->user()->id)
             ->where('session_id', $session->id)
             ->where('quiz_id', '!=', $quiz->id)
@@ -152,11 +135,11 @@ class BasicListeningConnectController extends Controller
 
         if ($otherActiveAttempt) {
             return back()
-                ->withErrors(['code' => 'Anda masih memiliki attempt aktif untuk quiz lain dalam sesi ini. Silakan selesaikan attempt tersebut terlebih dahulu.'])
+                ->withErrors(['code' => 'Anda masih memiliki attempt aktif untuk quiz lain di sesi ini.'])
                 ->withInput();
         }
 
-        // Catat penggunaan code (audit) — hanya jika kode masih usable
+        // Catat penggunaan code
         BasicListeningCodeUsage::create([
             'connect_code_id' => $connect->id,
             'user_id'         => $request->user()->id,
@@ -165,30 +148,13 @@ class BasicListeningConnectController extends Controller
             'ua'              => substr((string) $request->userAgent(), 0, 255),
         ]);
 
-        // Buat (atau ambil) attempt lalu redirect sesuai tipe quiz
+        // Buat attempt baru (Satu logika untuk SEMUA tipe soal)
         try {
-            if ($isFib) {
-                // Alur FIB: gunakan durasi dari session (fallback 10 menit, min 60 detik)
-                $durationSeconds = max(60, (int) ($session->duration_minutes ?? 10) * 60);
+            // Hitung durasi (opsional, untuk kolom expires_at jika perlu)
+            // Di controller quiz baru, timer dihitung dinamis via session->duration_minutes,
+            // tapi kita simpan expires_at sebagai cadangan data di DB.
+            $durationSeconds = max(60, (int) ($session->duration_minutes ?? 10) * 60);
 
-                $attempt = BasicListeningAttempt::firstOrCreate(
-                    [
-                        'user_id'    => $request->user()->id,
-                        'session_id' => $session->id,
-                        'quiz_id'    => $quiz->id,
-                    ],
-                    [
-                        'connect_code_id' => $connect->id,
-                        'started_at'      => now(),
-                        'expires_at'      => now()->addSeconds($durationSeconds),
-                        'submitted_at'    => null,
-                    ]
-                );
-
-                return redirect()->route('bl.quiz', $quiz->id); // route FIB
-            }
-
-            // Alur MC
             $attempt = BasicListeningAttempt::firstOrCreate(
                 [
                     'user_id'    => $request->user()->id,
@@ -198,37 +164,28 @@ class BasicListeningConnectController extends Controller
                 [
                     'connect_code_id' => $connect->id,
                     'started_at'      => now(),
+                    'expires_at'      => now()->addSeconds($durationSeconds),
                     'submitted_at'    => null,
                 ]
             );
 
-            return redirect()->route('bl.quiz.show', $attempt); // route MC
+            // Redirect ke satu-satunya controller kuis yang valid sekarang
+            return redirect()->route('bl.quiz.show', $attempt);
+
         } catch (UniqueConstraintViolationException $e) {
-            // Fallback: kalau race condition, ambil attempt yang sudah ada
+            // Fallback race condition
             $existingAttempt = BasicListeningAttempt::where('user_id', $request->user()->id)
                 ->where('session_id', $session->id)
                 ->where('quiz_id', $quiz->id)
                 ->first();
 
             if ($existingAttempt) {
-                return $this->redirectToCorrectQuizType($existingAttempt, $isFib, $quiz->id);
+                return redirect()->route('bl.quiz.show', $existingAttempt);
             }
 
             return back()
                 ->withErrors(['code' => 'Terjadi kesalahan sistem. Silakan coba lagi.'])
                 ->withInput();
         }
-    }
-
-    /**
-     * Redirect ke route yang sesuai tipe quiz.
-     */
-    private function redirectToCorrectQuizType(BasicListeningAttempt $attempt, bool $isFib, int $quizId)
-    {
-        if ($isFib) {
-            return redirect()->route('bl.quiz', $quizId);      // FIB
-        }
-
-        return redirect()->route('bl.quiz.show', $attempt);    // MC
     }
 }

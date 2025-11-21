@@ -16,14 +16,11 @@ use App\Http\Controllers\CertificateController;
 // Verifikasi
 use App\Http\Controllers\VerificationController;
 
-// Basic Listening (lama: MC / multi-soal)
+// Basic Listening (Unified Controller)
 use App\Http\Controllers\BasicListeningController;
 use App\Http\Controllers\BasicListeningConnectController;
 use App\Http\Controllers\BasicListeningQuizController;
 use App\Http\Controllers\BasicListeningHistoryController;
-
-// Basic Listening (baru: FIB 1 paragraf)
-use App\Http\Controllers\BasicListeningQuizFibController;
 use App\Http\Controllers\BasicListeningProfileController;
 use App\Http\Controllers\BasicListeningScheduleController;
 use App\Http\Controllers\BlSurveyController;
@@ -182,29 +179,35 @@ Route::middleware(['auth', 'bl.profile'])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Basic Listening – Quiz Lama (MC / multi-soal) – Protected + biodata lengkap
+| Basic Listening – Quiz (All Types: MC, TF, FIB)
+| Protected + biodata lengkap
 |--------------------------------------------------------------------------
 */
 
 Route::middleware(['auth', 'bl.profile'])->group(function () {
+    // Tampilkan soal (handle dynamic view FIB/MC)
     Route::get('/basic-listening/quiz/{attempt}', [BasicListeningQuizController::class, 'show'])
         ->whereNumber('attempt')
         ->name('bl.quiz.show');
 
+    // Simpan jawaban (handle single answer & array answers)
     Route::post('/basic-listening/quiz/{attempt}/answer', [BasicListeningQuizController::class, 'answer'])
         ->whereNumber('attempt')
         ->name('bl.quiz.answer');
 
+    // Submit akhir
     Route::post('/basic-listening/quiz/{attempt}/submit', [BasicListeningQuizController::class, 'submit'])
         ->whereNumber('attempt')
         ->name('bl.quiz.submit');
 
+    // Force submit (timeout)
+    Route::post('/bl-quiz/{attempt}/force-submit', [BasicListeningQuizController::class, 'forceSubmit'])
+        ->name('bl.quiz.force-submit');
+        
+    // Continue attempt (redirector)
     Route::get('/basic-listening/quiz/{attempt}/continue', [BasicListeningController::class, 'continue'])
         ->whereNumber('attempt')
         ->name('bl.quiz.continue');
-
-    Route::post('/bl-quiz/{attempt}/force-submit', [BasicListeningQuizController::class, 'forceSubmit'])
-        ->name('bl.quiz.force-submit');
 });
 
 /*
@@ -220,31 +223,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/basic-listening/history/{attempt}', [BasicListeningHistoryController::class, 'show'])
         ->whereNumber('attempt')
         ->name('bl.history.show');
-});
-
-/*
-|--------------------------------------------------------------------------
-| Basic Listening – Quiz Baru (FIB 1 paragraf + timer)
-| Protected + biodata lengkap
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['auth', 'bl.profile'])->group(function () {
-    Route::post('/bl/quiz/{quiz}/start', [BasicListeningQuizFibController::class, 'start'])
-        ->whereNumber('quiz')
-        ->name('bl.start');
-
-    Route::get('/bl/quiz/{quiz}', [BasicListeningQuizFibController::class, 'show'])
-        ->whereNumber('quiz')
-        ->name('bl.quiz');
-
-    Route::post('/bl/quiz/{attempt}/fib-answer', [BasicListeningQuizFibController::class, 'answer'])
-        ->whereNumber('attempt')
-        ->name('bl.quiz.fib.answer');
-
-    Route::post('/bl/quiz/{quiz}/submit', [BasicListeningQuizFibController::class, 'submit'])
-        ->whereNumber('quiz')
-        ->name('bl.submit');
 });
 
 /*
