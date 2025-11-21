@@ -28,6 +28,7 @@ use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
 use Illuminate\Support\Facades\DB;
+use Filament\Tables\Filters\Filter;
 
 class BasicListeningAttemptResource extends Resource
 {
@@ -213,15 +214,24 @@ class BasicListeningAttemptResource extends Resource
             InfoSection::make('Ringkasan Attempt')
                 ->columns(4)
                 ->schema([
-                    TextEntry::make('user.name')->label('Peserta')->weight('bold'),
-                    TextEntry::make('user.srn')->label('SRN/NIM')->copyable(),
-                    TextEntry::make('user.prody.name')->label('Prodi'),
-                    TextEntry::make('user.nomor_grup_bl')->label('Grup BL'),
+                    TextEntry::make('user.name')
+                        ->label('Peserta')
+                        ->weight('bold'),
+
+                    TextEntry::make('user.srn')
+                        ->label('SRN/NIM')
+                        ->copyable(),
+
+                    TextEntry::make('user.prody.name')
+                        ->label('Prodi'),
+
+                    TextEntry::make('user.nomor_grup_bl')
+                        ->label('Grup BL'),
 
                     TextEntry::make('session.title')
                         ->label('Sesi')
-                        ->prefix(fn($record)=>'Pert. '.$record->session->number.' - '),
-                    
+                        ->prefix(fn ($record) => 'Pert. ' . $record->session->number . ' - '),
+
                     TextEntry::make('score')
                         ->label('Skor Akhir')
                         ->size(TextEntry\TextEntrySize::Large)
@@ -229,15 +239,52 @@ class BasicListeningAttemptResource extends Resource
                         ->color(fn ($state) => $state >= 60 ? 'success' : 'danger')
                         ->formatStateUsing(fn ($state) => $state . '%'),
 
-                    TextEntry::make('submitted_at')->label('Waktu Submit')->dateTime('d M Y, H:i'),
-                    
+                    TextEntry::make('submitted_at')
+                        ->label('Waktu Submit')
+                        ->dateTime('d M Y, H:i'),
+
                     TextEntry::make('stats')
-                        ->label('Statistik')
+                        ->label('Statistik Jawaban')
                         ->state(function ($record) {
-                            $total = $record->answers->count();
+                            $total   = $record->answers->count();
                             $correct = $record->answers->where('is_correct', true)->count();
                             return "{$correct} Benar / {$total} Total";
                         }),
+
+                    // ==========================
+                    // BLOK ID TEKNIS
+                    // ==========================
+                    TextEntry::make('id')
+                        ->label('ID Attempt')
+                        ->copyable()
+                        ->columnSpan(1),
+
+                    TextEntry::make('user_id')
+                        ->label('ID User')
+                        ->copyable()
+                        ->columnSpan(1),
+
+                    TextEntry::make('user.prody_id')
+                        ->label('ID Prodi')
+                        ->copyable()
+                        ->columnSpan(1)
+                        ->placeholder('-'),
+
+                    TextEntry::make('session_id')
+                        ->label('ID Session')
+                        ->copyable()
+                        ->columnSpan(1),
+
+                    TextEntry::make('quiz_id')
+                        ->label('ID Quiz')
+                        ->copyable()
+                        ->columnSpan(1),
+
+                    TextEntry::make('connect_code_id')
+                        ->label('ID Connect Code')
+                        ->copyable()
+                        ->columnSpan(1)
+                        ->placeholder('-'),
                 ]),
 
             ViewEntry::make('answers_view')
@@ -277,7 +324,7 @@ class BasicListeningAttemptResource extends Resource
                         $state < 80     => 'warning',
                         default         => 'success',
                     })
-                    ->formatStateUsing(fn ($state) => $state !== null ? $state.'%' : '—')
+                    ->formatStateUsing(fn ($state) => $state !== null ? $state.'' : '—')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('connectCode.code_hint')
@@ -307,7 +354,29 @@ class BasicListeningAttemptResource extends Resource
                         if (!empty($data['value'])) {
                             $query->whereHas('user', fn($q) => $q->where('prody_id', $data['value']));
                         }
+                    })
+                    ->searchable()
+                    ->preload(),
+
+                Filter::make('score_zero_or_null')
+                    ->label('Skor 0% atau Belum Dinilai')
+                    ->toggle()
+                    ->query(function (Builder $query) {
+                        // Mencari record yang skornya 0 ATAU skornya NULL (belum dihitung/submit penuh)
+                        return $query->where(function (Builder $q) {
+                            $q->where('score', 0)
+                            ->orWhereNull('score');
+                        });
                     }),
+
+                // --- FILTER BARU: PERTEMUAN ---
+                Tables\Filters\SelectFilter::make('session')
+                    ->label('Pertemuan')
+                    ->relationship('session', 'number') // Relasi ke session
+                    ->getOptionLabelFromRecordUsing(fn ($record) => 'Pert. ' . $record->number) // Format label
+                    ->searchable()
+                    ->preload()
+                    ->multiple(), // Bisa pilih lebih dari satu (misal Pert 1 & 2)
 
                 Tables\Filters\TernaryFilter::make('submitted_at')
                     ->label('Status Submit')

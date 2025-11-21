@@ -232,7 +232,7 @@
                 </a>
             @else <span></span> @endif
 
-            {{-- TOMBOL SELESAI (Cerdas: Cek dulu via JS) --}}
+            {{-- TOMBOL SELESAI --}}
             <button type="button" onclick="validateAndFinish()" class="btn-nav btn-submit">
                 Selesai & Kumpulkan <i class="fa-solid fa-check ml-1"></i>
             </button>
@@ -276,66 +276,64 @@
 @push('scripts')
 <script>
   // --- KONFIGURASI ---
-  const attemptId = {{ $attempt->id }};
+  const attemptId  = {{ $attempt->id }};
   const questionId = {{ $question->id }};
-  const saveUrl = "{{ route('bl.quiz.answer', $attempt) }}";
-  const csrfToken = "{{ csrf_token() }}";
+  const saveUrl    = "{{ route('bl.quiz.answer', $attempt) }}";
+  const csrfToken  = "{{ csrf_token() }}";
   
-  const statusEl = document.getElementById('saveStatus');
+  const statusEl   = document.getElementById('saveStatus');
   let saveTimeout;
 
-  // --- 1. FUNGSI SIMPAN KE SERVER (AJAX) ---
+  // --- 1. SIMPAN JAWABAN FIB KE SERVER (AJAX) ---
   function saveToServer() {
+      if (!document.getElementById('answerForm')) return;
+
       // Tampilkan status "Menyimpan..."
-      if(statusEl) {
+      if (statusEl) {
           statusEl.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1"></i> Menyimpan ke server...';
           statusEl.classList.add('show');
       }
 
-      // Ambil data dari form
-      const form = document.getElementById('answerForm');
+      const form    = document.getElementById('answerForm');
       const formData = new FormData(form);
 
-      // Tambahkan header agar controller tahu ini AJAX
       fetch(saveUrl, {
           method: 'POST',
           headers: {
               'X-Requested-With': 'XMLHttpRequest',
               'X-CSRF-TOKEN': csrfToken,
-              'Accept': 'application/json'
+              'Accept': 'application/json',
           },
           body: formData
       })
       .then(response => {
-          if(response.ok) {
-              // Jika sukses
-              if(statusEl) {
+          if (response.ok) {
+              if (statusEl) {
                   statusEl.innerHTML = '<i class="fa-solid fa-check-circle mr-1"></i> Tersimpan di Server';
-                  // Hilangkan notif setelah 2 detik
                   setTimeout(() => statusEl.classList.remove('show'), 2000);
               }
-              // Hapus local storage karena server sudah punya data terbaru
-              // localStorage.removeItem(`BL_QUIZ_A${attemptId}_Q${questionId}`);
           } else {
-              // Jika gagal (misal session habis)
-              if(statusEl) statusEl.innerHTML = '<i class="fa-solid fa-exclamation-circle text-red-400 mr-1"></i> Gagal menyimpan!';
+              if (statusEl) {
+                  statusEl.innerHTML = '<i class="fa-solid fa-exclamation-circle text-red-400 mr-1"></i> Gagal menyimpan!';
+              }
           }
       })
       .catch(error => {
           console.error('Save Error:', error);
-          if(statusEl) statusEl.innerHTML = '<i class="fa-solid fa-wifi text-red-400 mr-1"></i> Koneksi Error';
+          if (statusEl) {
+              statusEl.innerHTML = '<i class="fa-solid fa-wifi text-red-400 mr-1"></i> Koneksi Error';
+          }
       });
   }
 
-  // --- 2. LOGIC INPUT (Debounce) ---
-  // Fungsi ini memastikan saveToServer cuma dipanggil kalau user BERHENTI ngetik selama 1 detik
+  // --- 2. DEBOUNCE KETIKA KETIK DI FIB ---
   function debouncedSave() {
       clearTimeout(saveTimeout);
-      if(statusEl) {
+      if (statusEl) {
           statusEl.innerHTML = '<i class="fas fa-pen mr-1"></i> Mengetik...';
           statusEl.classList.add('show');
       }
-      saveTimeout = setTimeout(saveToServer, 1000); // Tunggu 1 detik
+      saveTimeout = setTimeout(saveToServer, 1000);
   }
 
   function triggerResize(input) {
@@ -343,64 +341,85 @@
       input.style.width = (w + 3) + 'ch';
   }
 
-  // --- 3. INIT SCRIPT ---
+  // --- 3. INIT FIB AUTOSAVE ---
   document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('.fib-input').forEach(input => {
+          // Set lebar awal
           triggerResize(input);
           
-          // Event saat mengetik
+          // Saat mengetik -> debounce save
           input.addEventListener('input', function() {
              triggerResize(this);
-             debouncedSave(); // <--- Panggil fungsi debounce
+             debouncedSave();
           });
 
-          // Event saat pindah kolom (blur) -> Langsung simpan
+          // Saat pindah fokus -> langsung save
           input.addEventListener('blur', function() {
              saveToServer();
           });
       });
   });
 
-  // --- 4. TIMER & MODAL ---
+  // --- 4. TIMER ---
   const total = {{ (int) ($remainingSeconds ?? 0) }};
   if (total > 0) {
     let secondsLeft = total;
     const timerText = document.getElementById('timerText');
+
     const tick = () => {
-        const m = Math.floor(secondsLeft/60), s = secondsLeft%60;
-        if(timerText) timerText.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        const m = Math.floor(secondsLeft / 60);
+        const s = secondsLeft % 60;
+
+        if (timerText) {
+            timerText.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
         
-        if(secondsLeft < 60) document.getElementById('timerBadge')?.classList.add('bg-red-100', 'text-red-600');
+        if (secondsLeft < 60) {
+            document.getElementById('timerBadge')?.classList.add('bg-red-100', 'text-red-600');
+        }
 
         if (secondsLeft <= 0) {
-            // Submit paksa via form biasa (bukan ajax) agar redirect
+            // Timer habis -> submit form (non-AJAX) biar controller bisa force finalize
             document.getElementById('answerForm')?.submit(); 
             return;
         }
         secondsLeft--;
     };
+
     setInterval(tick, 1000);
     tick();
   }
 
+  // --- 5. FINISH & FORCE SUBMIT ---
   function validateAndFinish() {
-      // (Logika validasi modal tetap sama seperti sebelumnya)
-      // ... Copy paste logic validateAndFinish() Anda sebelumnya di sini ...
-      // Biar aman saya tulis ulang yg simple:
+      // Di versi ini kita langsung paksa submit (controller yang cek masih ada kosong/tidak)
       forceSubmit();
   }
 
   function forceSubmit() {
       const form = document.getElementById('answerForm');
+      if (!form) return;
+
       const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'finish_attempt';
+      input.type  = 'hidden';
+      input.name  = 'finish_attempt';
       input.value = '1';
       form.appendChild(input);
       form.submit();
   }
 
-  function showSubmitConfirm() { document.getElementById('submitConfirmModal').classList.remove('hidden'); document.getElementById('submitConfirmModal').classList.add('flex'); }
-  function hideSubmitConfirm() { document.getElementById('submitConfirmModal').classList.add('hidden'); document.getElementById('submitConfirmModal').classList.remove('flex'); }
+  function showSubmitConfirm() {
+      const modal = document.getElementById('submitConfirmModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+  }
+
+  function hideSubmitConfirm() {
+      const modal = document.getElementById('submitConfirmModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+  }
 </script>
 @endpush

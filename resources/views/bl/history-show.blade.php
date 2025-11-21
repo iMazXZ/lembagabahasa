@@ -8,9 +8,10 @@
     $isSubmitted = !is_null($attempt->submitted_at);
     
     // Default Stats
-    $totalUnits   = 0;
-    $correctUnits = 0;
-    $accuracy     = 0;
+    $totalUnits    = 0;
+    $correctUnits  = 0;
+    $incorrectUnits = 0;
+    $accuracy      = 0;
 
     if ($isSubmitted) {
         foreach ($questions as $q) {
@@ -18,15 +19,17 @@
 
             if ($type === 'fib_paragraph') {
                 // Logic FIB
-                $keys         = (array)($q->fib_answer_key ?? []);
+                $keys      = (array) ($q->fib_answer_key ?? []);
                 // Hitung unit berdasarkan jumlah kunci jawaban
-                $unitCount    = count($keys);
+                $unitCount = count($keys);
+
                 if ($unitCount <= 0) {
                     // Fallback jika kunci kosong, hitung dari placeholder/input user
                     $unitCount = $answers->where('question_id', $q->id)->count();
                 }
-                $unitCount    = max(1, (int)$unitCount);
-                $totalUnits  += $unitCount;
+
+                $unitCount   = max(1, (int) $unitCount);
+                $totalUnits += $unitCount;
 
                 $ansCorrect   = $answers->where('question_id', $q->id)->where('is_correct', true)->count();
                 $correctUnits += min($unitCount, $ansCorrect);
@@ -34,9 +37,12 @@
                 // Logic PG / True False
                 $totalUnits += 1;
                 $ans = $answers->firstWhere('question_id', $q->id);
-                if ($ans && $ans->is_correct) $correctUnits += 1;
+                if ($ans && $ans->is_correct) {
+                    $correctUnits += 1;
+                }
             }
         }
+
         $incorrectUnits = max(0, $totalUnits - $correctUnits);
         $accuracy       = $totalUnits > 0 ? round(($correctUnits / $totalUnits) * 100, 0) : 0;
     }
@@ -95,7 +101,7 @@
                 <div class="col-span-2 md:col-span-1 flex flex-col items-center justify-center">
                     <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Nilai Akhir</span>
                     <div class="text-4xl font-black {{ $accuracy >= 70 ? 'text-emerald-600' : ($accuracy >= 50 ? 'text-amber-500' : 'text-rose-500') }}">
-                        {{ (int)$attempt->score }}
+                        {{ (int) $attempt->score }}
                     </div>
                 </div>
 
@@ -140,7 +146,7 @@
                         @php
                             $ans       = $answers->firstWhere('question_id', $q->id);
                             $chosen    = $ans->answer ?? null;
-                            $isCorrect = (bool)($ans->is_correct ?? false);
+                            $isCorrect = (bool) ($ans->is_correct ?? false);
                             
                             // Kunci jawaban (correct) dari tabel questions
                             $correctKey = $q->correct ?? null; 
@@ -192,24 +198,24 @@
                                     @if(empty($text)) @continue @endif
                                     
                                     @php
-                                        $isUserChoice = ($key === $chosen);
+                                        $isUserChoice      = ($key === $chosen);
                                         $isActuallyCorrect = ($key === $correctKey);
                                         
                                         $rowClass = "border-slate-200 bg-white hover:bg-slate-50";
-                                        $icon = null;
+                                        $icon     = null;
 
                                         if ($isUserChoice) {
                                             if ($isCorrect) {
                                                 $rowClass = "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500 z-10";
-                                                $icon = '<i class="fa-solid fa-circle-check text-emerald-600"></i>';
+                                                $icon     = '<i class="fa-solid fa-circle-check text-emerald-600"></i>';
                                             } else {
                                                 $rowClass = "border-rose-500 bg-rose-50 ring-1 ring-rose-500 z-10";
-                                                $icon = '<i class="fa-solid fa-circle-xmark text-rose-600"></i>';
+                                                $icon     = '<i class="fa-solid fa-circle-xmark text-rose-600"></i>';
                                             }
-                                        } elseif ($isActuallyCorrect && !$isCorrect) {
+                                        } elseif ($isActuallyCorrect && ! $isCorrect) {
                                             // Highlight jawaban benar jika user salah
                                             $rowClass = "border-emerald-300 bg-emerald-50/50 border-dashed";
-                                            $icon = '<i class="fa-solid fa-check text-emerald-400 opacity-50"></i>';
+                                            $icon     = '<i class="fa-solid fa-check text-emerald-400 opacity-50"></i>';
                                         }
                                     @endphp
 
@@ -249,27 +255,27 @@
 
                             // Render Logic
                             $rendered = preg_replace_callback(
-                              '/\[\[(\d+)\]\]|\[blank\]/',
-                              function($m) use (&$seqCounter, $ansRows) {
-                                // Gunakan Sequential Index (0, 1, 2...)
-                                $idx = $seqCounter++;
-                                
-                                $row   = $ansRows->get((string)$idx);
-                                $val   = trim((string)($row->answer ?? ''));
-                                $ok    = (bool)($row->is_correct ?? false);
-                                
-                                // Tampilkan jawaban user atau placeholder ...
-                                $label = $val !== '' ? e($val) : '<span class="opacity-50">...</span>';
-                                
-                                // Styling Badge
-                                $baseCls = "inline-flex items-center px-2 py-0.5 rounded mx-0.5 text-sm font-bold border-b-2 shadow-sm align-middle transition-all ";
-                                $cls     = $ok 
-                                    ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
-                                    : "bg-rose-100 text-rose-800 border-rose-300 decoration-wavy decoration-rose-400";
-                                
-                                return '<span class="'.$baseCls.$cls.'">'.$label.'</span>';
-                              },
-                              e($paragraph)
+                                '/\[\[(\d+)\]\]|\[blank\]/',
+                                function ($m) use (&$seqCounter, $ansRows) {
+                                    // Gunakan Sequential Index (0, 1, 2...)
+                                    $idx = $seqCounter++;
+                                    
+                                    $row = $ansRows->get((string) $idx);
+                                    $val = trim((string) ($row->answer ?? ''));
+                                    $ok  = (bool) ($row->is_correct ?? false);
+                                    
+                                    // Tampilkan jawaban user atau placeholder ...
+                                    $label = $val !== '' ? e($val) : '<span class="opacity-50">...</span>';
+                                    
+                                    // Styling Badge
+                                    $baseCls = "inline-flex items-center px-2 py-0.5 rounded mx-0.5 text-sm font-bold border-b-2 shadow-sm align-middle transition-all ";
+                                    $cls     = $ok 
+                                        ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
+                                        : "bg-rose-100 text-rose-800 border-rose-300 decoration-wavy decoration-rose-400";
+                                    
+                                    return '<span class="' . $baseCls . $cls . '">' . $label . '</span>';
+                                },
+                                e($paragraph)
                             );
                             
                             $allCorrect = $ansRows->isNotEmpty() && $ansRows->where('is_correct', false)->isEmpty();
@@ -311,9 +317,13 @@
                         const prefix = 'BL_QUIZ_A{{ (int) $attempt->id }}';
                         for (let i = localStorage.length - 1; i >= 0; i--) {
                             const k = localStorage.key(i);
-                            if (k && k.startsWith(prefix)) { localStorage.removeItem(k); }
+                            if (k && k.startsWith(prefix)) {
+                                localStorage.removeItem(k);
+                            }
                         }
-                    } catch(e) { console.log('LS cleanup error', e); }
+                    } catch(e) {
+                        console.log('LS cleanup error', e);
+                    }
                 })();
             </script>
 
@@ -350,7 +360,7 @@
 </div>
 
 {{-- KONFETI EFEK --}}
-@if($isSubmitted && (int)$attempt->score >= 30)
+@if($isSubmitted && (int) $attempt->score >= 30)
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
