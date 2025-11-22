@@ -52,7 +52,7 @@ class BasicListeningAttemptResource extends Resource
             ->with([
                 'user.prody',
                 'session',
-                'quiz.questions', 
+                'quiz.questions',
                 'connectCode',
                 'answers',
             ]);
@@ -67,8 +67,8 @@ class BasicListeningAttemptResource extends Resource
             $prodyIds = [];
             if (method_exists($user, 'assignedProdyIds')) {
                 $prodyIds = $user->assignedProdyIds();
-            } 
-            
+            }
+
             if (empty($prodyIds)) {
                 return $query->whereRaw('1=0');
             }
@@ -104,7 +104,7 @@ class BasicListeningAttemptResource extends Resource
                     Grid::make(12)->schema([
                         TextInput::make('score')
                             ->label('Skor Akhir')
-                            ->helperText('Skor dihitung ulang otomatis saat disimpan.')
+                            ->helperText('Skor dihitung ulang otomatis saat disimpan atau saat regrade.')
                             ->numeric()
                             ->suffix('%')
                             ->columnSpan(3),
@@ -114,7 +114,7 @@ class BasicListeningAttemptResource extends Resource
                             ->seconds(false)
                             ->native(false)
                             ->columnSpan(4),
-                            
+
                         DateTimePicker::make('created_at')
                             ->label('Waktu Mulai')
                             ->disabled()
@@ -136,14 +136,12 @@ class BasicListeningAttemptResource extends Resource
                         ->schema([
                             Hidden::make('id'),
                             Hidden::make('question_id'),
-                            
-                            // PERBAIKAN PENTING:
-                            // Simpan index murni (0, 1, 2) di Hidden Field agar logika $get('blank_index') akurat
+
+                            // Simpan index murni (0, 1, 2...) agar sinkron dengan controller & regrade
                             Hidden::make('blank_index')
                                 ->default(0),
 
                             Grid::make(12)->schema([
-                                // Tampilkan Label menggunakan Placeholder (Visual Saja)
                                 Placeholder::make('blank_label')
                                     ->label('#')
                                     ->content(fn (Get $get) => 'Isian #'.((int)$get('blank_index') + 1))
@@ -154,41 +152,46 @@ class BasicListeningAttemptResource extends Resource
                                     ->label('Jawaban Siswa')
                                     ->columnSpan(5),
 
-                                // Kunci Jawaban (Logic Cerdas)
+                                // 🔍 Kunci Jawaban — sekarang 100% sinkron dengan finalize() & regrade (array_values, 0-based)
                                 Placeholder::make('correct_key')
                                     ->label('Kunci Jawaban')
                                     ->content(function (Get $get) {
                                         $qId = $get('question_id');
-                                        // Ambil index murni dari hidden field (0, 1, 2...)
                                         $idx = (int) $get('blank_index');
-                                        
-                                        if (!$qId) return '—';
 
-                                        if (!isset(static::$questionCache[$qId])) {
+                                        if (! $qId) {
+                                            return '—';
+                                        }
+
+                                        if (! isset(static::$questionCache[$qId])) {
                                             static::$questionCache[$qId] = BasicListeningQuestion::find($qId);
                                         }
+
                                         $q = static::$questionCache[$qId];
 
-                                        if (!$q) return '?';
+                                        if (! $q) {
+                                            return '?';
+                                        }
 
                                         if ($q->type === 'fib_paragraph') {
                                             $keys = $q->fib_answer_key ?? [];
-                                            
-                                            // Deteksi apakah kunci dimulai dari 1 (1-based)
-                                            $hasKey1 = array_key_exists(1, $keys) || array_key_exists('1', $keys);
-                                            $hasKey0 = array_key_exists(0, $keys) || array_key_exists('0', $keys);
-                                            $isOneBased = $hasKey1 && !$hasKey0;
 
-                                            // Jika 1-based, kita geser index DB (+1)
-                                            $lookupIndex = $isOneBased ? ($idx + 1) : $idx;
-                                            
-                                            $key = $keys[$lookupIndex] ?? null;
-                                            
-                                            if (is_array($key)) return implode(' / ', $key);
-                                            if (is_string($key) || is_numeric($key)) return $key;
+                                            // Sama seperti finalize(): pakai array_values → 0,1,2,...
+                                            $normalizedKeys = array_values($keys);
+
+                                            $key = $normalizedKeys[$idx] ?? null;
+
+                                            if (is_array($key)) {
+                                                return implode(' / ', $key);
+                                            }
+
+                                            if (is_string($key) || is_numeric($key)) {
+                                                return $key;
+                                            }
+
                                             return '—';
-                                        } 
-                                        
+                                        }
+
                                         return $q->correct ?? '—';
                                     })
                                     ->extraAttributes(['class' => 'text-emerald-600 font-mono font-bold'])
@@ -303,7 +306,7 @@ class BasicListeningAttemptResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Peserta')
-                    ->description(fn($record) => $record->user?->srn)
+                    ->description(fn ($record) => $record->user?->srn)
                     ->sortable()
                     ->searchable(),
 
@@ -317,7 +320,7 @@ class BasicListeningAttemptResource extends Resource
                 Tables\Columns\TextColumn::make('session.title')
                     ->label('Sesi')
                     ->limit(20)
-                    ->tooltip(fn($state)=>$state),
+                    ->tooltip(fn ($state) => $state),
 
                 Tables\Columns\TextColumn::make('score')
                     ->label('Skor')
@@ -328,7 +331,7 @@ class BasicListeningAttemptResource extends Resource
                         $state < 80     => 'warning',
                         default         => 'success',
                     })
-                    ->formatStateUsing(fn ($state) => $state !== null ? $state.'' : '—')
+                    ->formatStateUsing(fn ($state) => $state !== null ? $state . '' : '—')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('connectCode.code_hint')
@@ -350,13 +353,13 @@ class BasicListeningAttemptResource extends Resource
                         $user = auth()->user();
                         if ($user?->hasRole('tutor')) {
                             $ids = method_exists($user, 'assignedProdyIds') ? (array) $user->assignedProdyIds() : [];
-                            return \App\Models\Prody::whereIn('id', $ids)->pluck('name','id');
+                            return \App\Models\Prody::whereIn('id', $ids)->pluck('name', 'id');
                         }
-                        return \App\Models\Prody::pluck('name','id');
+                        return \App\Models\Prody::pluck('name', 'id');
                     })
                     ->query(function (Builder $query, array $data) {
-                        if (!empty($data['value'])) {
-                            $query->whereHas('user', fn($q) => $q->where('prody_id', $data['value']));
+                        if (! empty($data['value'])) {
+                            $query->whereHas('user', fn ($q) => $q->where('prody_id', $data['value']));
                         }
                     })
                     ->searchable()
@@ -366,21 +369,19 @@ class BasicListeningAttemptResource extends Resource
                     ->label('Skor 0% atau Belum Dinilai')
                     ->toggle()
                     ->query(function (Builder $query) {
-                        // Mencari record yang skornya 0 ATAU skornya NULL (belum dihitung/submit penuh)
                         return $query->where(function (Builder $q) {
                             $q->where('score', 0)
-                            ->orWhereNull('score');
+                              ->orWhereNull('score');
                         });
                     }),
 
-                // --- FILTER BARU: PERTEMUAN ---
                 Tables\Filters\SelectFilter::make('session')
                     ->label('Pertemuan')
-                    ->relationship('session', 'number') // Relasi ke session
-                    ->getOptionLabelFromRecordUsing(fn ($record) => 'Pert. ' . $record->number) // Format label
+                    ->relationship('session', 'number')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => 'Pert. ' . $record->number)
                     ->searchable()
                     ->preload()
-                    ->multiple(), // Bisa pilih lebih dari satu (misal Pert 1 & 2)
+                    ->multiple(),
 
                 Tables\Filters\TernaryFilter::make('submitted_at')
                     ->label('Status Submit')
@@ -394,16 +395,14 @@ class BasicListeningAttemptResource extends Resource
             ])
             ->actions([
                 \Filament\Tables\Actions\ActionGroup::make([
-                    
                     Tables\Actions\ViewAction::make(),
 
                     Tables\Actions\EditAction::make()
-                        ->visible(fn () => auth()->user()?->hasAnyRole(['Admin','tutor']))
-                        ->authorize(fn () => auth()->user()?->hasAnyRole(['Admin','tutor'])),
-                    
+                        ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor']))
+                        ->authorize(fn () => auth()->user()?->hasAnyRole(['Admin', 'tutor'])),
                 ])
                 ->label('Aksi')
-                ->icon('heroicon-m-cog-6-tooth')
+                ->icon('heroicon-m-cog-6-tooth'),
             ])
             ->headerActions([
                 Actions\Action::make('regradeByFilter')
@@ -453,24 +452,26 @@ class BasicListeningAttemptResource extends Resource
                     ->action(function (array $data): void {
                         $params = [];
 
-                        // Ambil nilai dari form jika diisi
-                        if (!empty($data['attempt_id'])) {
+                        if (! empty($data['attempt_id'])) {
                             $params['--attempt'] = $data['attempt_id'];
                         }
-                        if (!empty($data['user_id'])) {
+                        if (! empty($data['user_id'])) {
                             $params['--user'] = $data['user_id'];
                         }
-                        if (!empty($data['connect_id'])) {
+                        if (! empty($data['connect_id'])) {
                             $params['--connect'] = $data['connect_id'];
                         }
-                        if (!empty($data['session_id'])) {
+                        if (! empty($data['session_id'])) {
                             $params['--session'] = $data['session_id'];
                         }
-                        if (!empty($data['prody_id'])) {
+                        if (! empty($data['prody_id'])) {
                             $params['--prody'] = $data['prody_id'];
                         }
 
-                        if (empty($data['only_weird']) &&
+                        $onlyWeird = ! empty($data['only_weird']);
+
+                        // Kalau only_weird dimatikan dan semua filter kosong → cegah regrade full massal
+                        if (! $onlyWeird &&
                             empty($data['attempt_id']) &&
                             empty($data['user_id']) &&
                             empty($data['connect_id']) &&
@@ -486,6 +487,9 @@ class BasicListeningAttemptResource extends Resource
                             return;
                         }
 
+                        // ⬅️ Ini yang sebelumnya hilang: selalu kirim flag only-weird ke command
+                        $params['--only-weird'] = $onlyWeird ? 1 : 0;
+
                         Artisan::call('bl:regrade-attempts', $params);
 
                         Notification::make()
@@ -498,18 +502,13 @@ class BasicListeningAttemptResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn () => 
-                            auth()->user()?->hasAnyRole(['Admin', 'superuser']) 
+                        ->visible(fn () =>
+                            auth()->user()?->hasAnyRole(['Admin', 'superuser'])
                         )
                         ->requiresConfirmation()
                         ->action(function (Collection $records) {
-                            // Opsional: Tambahkan logika pembersihan terkait jika perlu
-                            // Misalnya menghapus file log atau data terkait lainnya secara manual
-                            // Tapi karena kita pakai cascade delete di DB, $records->each->delete() sudah cukup.
-                            
                             $records->each->delete();
-                            
-                            // Notifikasi sukses
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Data berhasil dihapus')
                                 ->success()
