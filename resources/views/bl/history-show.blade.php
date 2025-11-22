@@ -8,10 +8,10 @@
     $isSubmitted = !is_null($attempt->submitted_at);
     
     // Default Stats
-    $totalUnits    = 0;
-    $correctUnits  = 0;
+    $totalUnits     = 0;
+    $correctUnits   = 0;
     $incorrectUnits = 0;
-    $accuracy      = 0;
+    $accuracy       = 0;
 
     if ($isSubmitted) {
         foreach ($questions as $q) {
@@ -246,38 +246,36 @@
                     {{-- TYPE: FILL IN THE BLANK --}}
                     @else
                         @php
-                            $ansRows   = $answers->where('question_id', $q->id)->keyBy('blank_index');
+                            // Semua jawaban untuk question ini
+                            $ansRows   = $answers->where('question_id', $q->id);
                             $paragraph = $q->paragraph_text ?? '';
                             
                             // Counter untuk Sequential Index (0, 1, 2...)
-                            // Logic ini harus sama persis dengan Controller
+                            // Logic ini harus sama persis dengan Controller & Command Regrade
                             $seqCounter = 0;
 
-                            // Render Logic
                             $rendered = preg_replace_callback(
                                 '/\[\[(\d+)\]\]|\[blank\]/',
                                 function ($m) use (&$seqCounter, $ansRows) {
-                                    // Gunakan Sequential Index (0, 1, 2...)
                                     $idx = $seqCounter++;
-                                    
-                                    $row = $ansRows->get((string) $idx);
+
+                                    // Ambil jawaban berdasarkan blank_index sequential
+                                    $row = $ansRows->firstWhere('blank_index', $idx);
                                     $val = trim((string) ($row->answer ?? ''));
                                     $ok  = (bool) ($row->is_correct ?? false);
-                                    
-                                    // Tampilkan jawaban user atau placeholder ...
+
                                     $label = $val !== '' ? e($val) : '<span class="opacity-50">...</span>';
-                                    
-                                    // Styling Badge
+
                                     $baseCls = "inline-flex items-center px-2 py-0.5 rounded mx-0.5 text-sm font-bold border-b-2 shadow-sm align-middle transition-all ";
                                     $cls     = $ok 
                                         ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
                                         : "bg-rose-100 text-rose-800 border-rose-300 decoration-wavy decoration-rose-400";
-                                    
+
                                     return '<span class="' . $baseCls . $cls . '">' . $label . '</span>';
                                 },
                                 e($paragraph)
                             );
-                            
+
                             $allCorrect = $ansRows->isNotEmpty() && $ansRows->where('is_correct', false)->isEmpty();
                         @endphp
 

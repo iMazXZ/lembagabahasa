@@ -39,38 +39,38 @@ class RegradeBasicListeningAttempts extends Command
         $query = BasicListeningAttempt::with([
             'quiz.questions',
             'answers',
-            'user', // supaya whereHas user jalan
+            'user',
         ]);
 
-        // Filter ATTEMPT SPESIFIK (paling tajam)
-        if (!empty($attemptId)) {
+        // Filter ATTEMPT SPESIFIK
+        if (! empty($attemptId)) {
             $query->where('id', $attemptId);
         }
 
         // Filter USER
-        if (!empty($userId)) {
+        if (! empty($userId)) {
             $query->where('user_id', $userId);
         }
 
         // Filter CONNECT CODE
-        if (!empty($connectId)) {
+        if (! empty($connectId)) {
             $query->where('connect_code_id', $connectId);
         }
 
         // Filter PRODI (user.prody_id)
-        if (!empty($prodyId)) {
+        if (! empty($prodyId)) {
             $query->whereHas('user', function ($q) use ($prodyId) {
                 $q->where('prody_id', $prodyId);
             });
         }
 
         // Filter SESSION
-        if (!empty($sessionId)) {
+        if (! empty($sessionId)) {
             $query->where('session_id', $sessionId);
         }
 
         // Hanya yang "aneh" (skor null/0/belum submit)
-        // Kalau mau regrade SEMUA (termasuk yang sudah normal), panggil dengan --only-weird=0
+        // Kalau mau regrade SEMUA, panggil dengan --only-weird=0
         if ($onlyWeird) {
             $query->where(function ($q) {
                 $q->whereNull('score')
@@ -141,13 +141,14 @@ class RegradeBasicListeningAttempts extends Command
                 }
                 $totalMaxScore++;
             } else {
-                // --- PENILAIAN FIB ---
+                // --- PENILAIAN FIB (sinkron dengan controller) ---
                 $userAnswers = $allAnswers->get($q->id);
 
                 $keys    = $q->fib_answer_key ?? [];
                 $weights = $q->fib_weights ?? [];
                 $scoring = $q->fib_scoring ?? [];
 
+                // Normalisasi kunci & bobot jadi array 0-based
                 $normalizedKeys    = array_values($keys);
                 $normalizedWeights = array_values($weights);
 
@@ -158,7 +159,8 @@ class RegradeBasicListeningAttempts extends Command
                     $w = (float) ($normalizedWeights[$seqIndex] ?? 1);
                     $qMaxWeight += $w;
 
-                    $uAns = $userAnswers?->where('blank_index', (string) $seqIndex)->first();
+                    // ⚠️ Perbaikan: pakai firstWhere dengan integer index
+                    $uAns = $userAnswers?->firstWhere('blank_index', $seqIndex);
                     $uVal = $uAns ? $uAns->answer : '';
 
                     $isCorrect = $this->checkFibAnswer($uVal, $correctKey, $scoring);
@@ -174,6 +176,7 @@ class RegradeBasicListeningAttempts extends Command
                 }
 
                 if ($qMaxWeight > 0) {
+                    // Maksimal 1 poin per paragraf
                     $totalScore += ($qScore / $qMaxWeight);
                 }
                 $totalMaxScore++;
@@ -198,9 +201,9 @@ class RegradeBasicListeningAttempts extends Command
      */
     private function checkFibAnswer($userVal, $key, $scoring): bool
     {
-        $caseSensitive  = filter_var($scoring['case_sensitive'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $allowTrim      = filter_var($scoring['allow_trim'] ?? true, FILTER_VALIDATE_BOOLEAN);
-        $stripPunct     = filter_var($scoring['strip_punctuation'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        $caseSensitive = filter_var($scoring['case_sensitive'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $allowTrim     = filter_var($scoring['allow_trim'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        $stripPunct    = filter_var($scoring['strip_punctuation'] ?? true, FILTER_VALIDATE_BOOLEAN);
 
         // Normalisasi User Input
         $u = (string) $userVal;
@@ -218,6 +221,7 @@ class RegradeBasicListeningAttempts extends Command
         $keys = is_array($key) ? $key : [$key];
 
         foreach ($keys as $k) {
+            // Dukungan regex: ['regex' => '...']
             if (is_array($k) && isset($k['regex'])) {
                 if (@preg_match('/' . $k['regex'] . '/ui', $userVal)) {
                     return true;

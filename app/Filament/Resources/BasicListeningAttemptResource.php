@@ -470,10 +470,22 @@ class BasicListeningAttemptResource extends Resource
                             $params['--prody'] = $data['prody_id'];
                         }
 
-                        // only-weird: default true, tapi bisa dimatikan
-                        $params['--only-weird'] = !empty($data['only_weird']) ? 1 : 0;
+                        if (empty($data['only_weird']) &&
+                            empty($data['attempt_id']) &&
+                            empty($data['user_id']) &&
+                            empty($data['connect_id']) &&
+                            empty($data['session_id']) &&
+                            empty($data['prody_id'])) {
 
-                        // Jalankan command Artisan
+                            Notification::make()
+                                ->title('Regrade dibatalkan')
+                                ->body('Jika "Hanya attempt aneh" dimatikan, minimal isi salah satu filter.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
                         Artisan::call('bl:regrade-attempts', $params);
 
                         Notification::make()
