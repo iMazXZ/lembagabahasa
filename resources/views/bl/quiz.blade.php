@@ -90,7 +90,14 @@
   use Illuminate\Support\Facades\Storage;
   use Illuminate\Support\Str;
 
-  $answeredIds = $answeredIds ?? [];
+  // Ambil ulang dari DB: daftar question_id yang sudah terjawab untuk attempt ini
+  $answeredIds = $attempt->answers()
+      ->whereNotNull('answer')
+      ->where('answer', '!=', '')
+      ->distinct('question_id')
+      ->pluck('question_id')
+      ->all();
+
   $progressPercentage = round((($currentIndex + 1) / max(1, $questions->count())) * 100, 2);
   $isLastQuestion = $currentIndex >= $questions->count() - 1;
   
@@ -148,7 +155,7 @@
             $classes = 'qbox ' . ($isAnswered ? 'answered' : 'unanswered') . ' ' . ($i === $currentIndex ? 'current' : '');
             @endphp
             <a href="{{ route('bl.quiz.show', [$attempt, 'q' => $i]) }}"
-            class="{{ $classes }} qbox-link">{{ $i + 1 }}</a>
+               class="{{ $classes }} qbox-link">{{ $i + 1 }}</a>
         @endforeach
         </div>
     </div>
@@ -361,38 +368,44 @@
       });
 
       // --- 3b. AUTOSAVE MC VIA AJAX ---
-      document.querySelectorAll('.answer-option').forEach(btn => {
-          btn.addEventListener('click', function (e) {
-              e.preventDefault(); // hentikan submit normal, kita simpan dulu via AJAX
+    document.querySelectorAll('.answer-option').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault(); // hentikan submit normal, kita simpan dulu via AJAX
 
-              const form = document.getElementById('answerForm');
-              if (!form) {
-                  this.closest('form')?.submit();
-                  return;
-              }
+            const form = document.getElementById('answerForm');
+            if (!form) {
+                this.closest('form')?.submit();
+                return;
+            }
 
-              const fd = new FormData(form);
-              fd.set('answer', this.value); // paksa jawaban sesuai tombol yang diklik
+            const fd = new FormData(form);
+            fd.set('answer', this.value); // paksa jawaban sesuai tombol yang diklik
 
-              fetch(saveUrl, {
-                  method: "POST",
-                  headers: {
-                      "X-CSRF-TOKEN": csrfToken,
-                      "X-Requested-With": "XMLHttpRequest",
-                      "Accept": "application/json",
-                  },
-                  body: fd
-              })
-              .then(() => {
-                  // Setelah tersimpan ke server -> baru submit form biasa
-                  form.submit();
-              })
-              .catch(() => {
-                  // Kalau koneksi error, tetap submit form supaya controller bisa handle
-                  form.submit();
-              });
-          });
-      });
+            fetch(saveUrl, {
+                method: "POST",
+                headers: {
+                    "X-CSRF-TOKEN": csrfToken,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
+                },
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Kalau server kirim redirect (MC / TF), pindah ke URL itu
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else {
+                    // fallback: reload
+                    window.location.reload();
+                }
+            })
+            .catch(() => {
+                // Kalau koneksi error, fallback ke submit biasa
+                form.submit();
+            });
+        });
+    });
   });
 
   // --- 4. TIMER ---

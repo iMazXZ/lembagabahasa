@@ -147,9 +147,6 @@
                             $ans       = $answers->firstWhere('question_id', $q->id);
                             $chosen    = $ans->answer ?? null;
                             $isCorrect = (bool) ($ans->is_correct ?? false);
-                            
-                            // Kunci jawaban (correct) dari tabel questions
-                            $correctKey = $q->correct ?? null; 
                         @endphp
 
                         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-blue-300 transition-colors">
@@ -198,24 +195,22 @@
                                     @if(empty($text)) @continue @endif
                                     
                                     @php
-                                        $isUserChoice      = ($key === $chosen);
-                                        $isActuallyCorrect = ($key === $correctKey);
+                                        $isUserChoice = ($key === $chosen);
                                         
+                                        // default row style (tidak men-spill kunci)
                                         $rowClass = "border-slate-200 bg-white hover:bg-slate-50";
                                         $icon     = null;
 
                                         if ($isUserChoice) {
                                             if ($isCorrect) {
+                                                // Jawaban Anda & benar → hijau
                                                 $rowClass = "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500 z-10";
                                                 $icon     = '<i class="fa-solid fa-circle-check text-emerald-600"></i>';
                                             } else {
+                                                // Jawaban Anda & salah → merah
                                                 $rowClass = "border-rose-500 bg-rose-50 ring-1 ring-rose-500 z-10";
                                                 $icon     = '<i class="fa-solid fa-circle-xmark text-rose-600"></i>';
                                             }
-                                        } elseif ($isActuallyCorrect && ! $isCorrect) {
-                                            // Highlight jawaban benar jika user salah
-                                            $rowClass = "border-emerald-300 bg-emerald-50/50 border-dashed";
-                                            $icon     = '<i class="fa-solid fa-check text-emerald-400 opacity-50"></i>';
                                         }
                                     @endphp
 

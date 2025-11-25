@@ -21,6 +21,11 @@ class BasicListeningQuizController extends Controller
             abort(403, 'Anda tidak memiliki akses ke attempt ini.');
         }
 
+        // 🆕 Pastikan attempt punya quiz (hindari $attempt->quiz null)
+        if (! $attempt->quiz) {
+            abort(404, 'Quiz tidak ditemukan untuk attempt ini.');
+        }
+
         $session = $attempt->session;
 
         // 🚫 Cek Status
@@ -30,7 +35,7 @@ class BasicListeningQuizController extends Controller
                 ->with('warning', 'Kuis sudah dikumpulkan.');
         }
 
-        if (! $session->isOpen()) {
+        if (! $session || ! $session->isOpen()) {
             return redirect()
                 ->route('bl.history')
                 ->with('error', 'Waktu sesi sudah habis.');
@@ -54,7 +59,14 @@ class BasicListeningQuizController extends Controller
         }
 
         // 📚 Load Data Soal
-        $questions = $attempt->quiz->questions()->get();
+        $questions = $attempt->quiz
+            ->questions()
+            ->get();
+
+        if ($questions->isEmpty()) {
+            abort(404, 'Belum ada soal pada quiz ini.');
+        }
+
         $currentIndex = max(0, (int) $request->query('q', 0));
         $currentIndex = min($currentIndex, max(0, $questions->count() - 1));
 
@@ -70,7 +82,7 @@ class BasicListeningQuizController extends Controller
 
         $unansweredCount = $questions->count() - count($answeredIds);
 
-        // --- LOGIKA FIB ---
+        // --- LOGIKA FIB (TIDAK DIUBAH) ---
         $processedParagraph = null;
         if ($question->type === 'fib_paragraph') {
             $savedAnswers = $attempt->answers()
@@ -109,20 +121,17 @@ class BasicListeningQuizController extends Controller
      */
     public function answer(BasicListeningAttempt $attempt, Request $request)
     {
-        // 0. Deteksi request AJAX / non-AJAX
         $isAjax = $request->wantsJson() || $request->ajax();
 
         // 0a. Jika attempt SUDAH disubmit, jangan izinkan perubahan lagi
         if ($attempt->submitted_at) {
             if ($isAjax) {
-                // Untuk autosave, cukup kasih status supaya JS bisa redirect kalau mau
                 return response()->json([
                     'status'   => 'already_submitted',
                     'redirect' => route('bl.history.show', $attempt),
-                ], 409); // 409 Conflict
+                ], 409);
             }
 
-            // Untuk submit biasa, langsung arahkan ke halaman hasil
             return redirect()
                 ->route('bl.history.show', $attempt)
                 ->with('warning', 'Kuis sudah dikumpulkan. Jawaban tidak bisa diubah lagi.');
@@ -135,23 +144,21 @@ class BasicListeningQuizController extends Controller
                 : abort(403);
         }
 
-        // 2. Cek Timeout (dengan toleransi 10 detik)
-        $session     = $attempt->session;
-        $durationMin = (int) ($session->duration_minutes ?? 0);
-
-        // Kalau duration di session kosong, fallback ke duration di quiz (kalau ada)
-        if ($durationMin === 0 && $attempt->quiz?->duration_minutes) {
-            $durationMin = (int) $attempt->quiz->duration_minutes;
+        if (! $attempt->quiz) {
+            return $isAjax
+                ? response()->json(['error' => 'Quiz tidak ditemukan'], 404)
+                : abort(404, 'Quiz tidak ditemukan untuk attempt ini.');
         }
+
+        // 2. Cek timeout
+        $session     = $attempt->session;
+        $durationMin = $this->getDurationMinutes($session, $attempt->quiz);
 
         if ($durationMin > 0 && $attempt->started_at) {
             $deadline = $attempt->started_at->clone()->addMinutes($durationMin);
 
-            // Tambah toleransi 10 detik
             if (now()->greaterThan($deadline->addSeconds(10))) {
-                // Untuk AJAX, balikin status expired
                 if ($isAjax) {
-                    // Pastikan attempt sudah difinalize oleh server
                     $this->finalize($attempt);
 
                     return response()->json([
@@ -160,7 +167,6 @@ class BasicListeningQuizController extends Controller
                     ], 408);
                 }
 
-                // Non-AJAX: langsung finalize & redirect
                 return $this->finalize($attempt);
             }
         }
@@ -169,62 +175,80 @@ class BasicListeningQuizController extends Controller
         $data = $request->validate([
             'question_id' => ['required', 'integer'],
             'q'           => ['nullable', 'integer'],
-            'answer'      => ['nullable'],
-            'answers'     => ['nullable', 'array'],
+            'answer'      => ['nullable'],        // MC / TF
+            'answers'     => ['nullable', 'array'], // FIB
         ]);
 
         $question = BasicListeningQuestion::findOrFail($data['question_id']);
 
+        if ($question->quiz_id !== $attempt->quiz_id) {
+            return $isAjax
+                ? response()->json(['error' => 'Soal tidak cocok dengan quiz attempt ini'], 422)
+                : abort(422, 'Soal tidak cocok dengan quiz attempt ini.');
+        }
+
         // 4. Simpan Jawaban
         if ($question->type === 'fib_paragraph') {
-            // === FIB (Fill in the Blank) ===
+            // === FIB ===
             $userAnswers = $request->input('answers', []);
 
             foreach ($userAnswers as $index => $val) {
                 $val = (string) $val;
 
-                // PENTING: Simpan updateOrCreate meskipun nilai kosong
-                // Agar record tetap ada di database (untuk Admin Panel & history)
                 BasicListeningAnswer::updateOrCreate(
                     [
                         'attempt_id'  => $attempt->id,
                         'question_id' => $question->id,
-                        'blank_index' => $index, // 0,1,2,... (sinkron dengan controller & Blade)
+                        'blank_index' => $index,
                     ],
                     [
                         'answer'     => $val,
-                        'is_correct' => false,   // Reset status, akan dinilai di finalize() / regrade
+                        'is_correct' => false,
                     ]
                 );
             }
+
+            if ($isAjax) {
+                return response()->json(['status' => 'saved']);
+            }
         } else {
-            // === Multiple Choice / True False ===
+            // === MC / True False ===
             $ans = BasicListeningAnswer::firstOrNew([
                 'attempt_id'  => $attempt->id,
                 'question_id' => $question->id,
             ]);
 
-            $ans->blank_index = 0;
-            $ans->answer      = $data['answer'] ?? null;
-            $ans->is_correct  = false; // Reset status, akan dinilai di finalize() / regrade
-            $ans->save();
+            // ⬇️ HANYA update kalau memang ada field 'answer' di request
+            if (array_key_exists('answer', $data)) {
+                $ans->blank_index = 0;
+                $ans->answer      = $data['answer']; // boleh null kalau user clear jawaban
+                $ans->is_correct  = false;
+                $ans->save();
+            }
         }
 
-        // 5. Respon
-        // Jika AJAX (autosave), cukup balas JSON sukses
-        if ($isAjax) {
-            return response()->json(['status' => 'saved']);
-        }
-
-        // Jika tombol "Selesai & Kumpulkan" ditekan
+        // 5. Kalau tombol Selesai & Kumpulkan
         if ($request->has('finish_attempt')) {
             return $this->finalize($attempt);
         }
 
-        // Redirect Normal ke soal berikutnya
+        // 6. Hitung next index
         $currentIndex = max(0, (int) ($data['q'] ?? 0));
         $total        = $attempt->quiz->questions()->count();
         $nextIndex    = min($currentIndex + 1, max(0, $total - 1));
+
+        // 7. Respon
+        if ($isAjax && $question->type !== 'fib_paragraph') {
+            $nextUrl = route('bl.quiz.show', [
+                'attempt' => $attempt->id,
+                'q'       => $nextIndex,
+            ]);
+
+            return response()->json([
+                'status'   => 'saved',
+                'redirect' => $nextUrl,
+            ]);
+        }
 
         return redirect()->route('bl.quiz.show', [
             'attempt' => $attempt->id,
@@ -238,6 +262,11 @@ class BasicListeningQuizController extends Controller
     public function submit(BasicListeningAttempt $attempt, Request $request)
     {
         $this->authorizeAttempt($attempt, $request);
+
+        // 🆕 Guard quiz null
+        if (! $attempt->quiz) {
+            abort(404, 'Quiz tidak ditemukan untuk attempt ini.');
+        }
 
         $questionsCount = $attempt->quiz->questions()->count();
 
@@ -284,6 +313,14 @@ class BasicListeningQuizController extends Controller
             ]);
         }
 
+        // 🆕 Guard quiz null
+        if (! $attempt->quiz) {
+            return response()->json([
+                'expired'  => true,
+                'redirect' => route('bl.history'),
+            ]);
+        }
+
         $session  = $attempt->session;
         $duration = $this->getDurationMinutes($session, $attempt->quiz);
 
@@ -309,6 +346,13 @@ class BasicListeningQuizController extends Controller
      */
     protected function finalize(BasicListeningAttempt $attempt)
     {
+        // 🆕 Kalau quiz null, jangan 500
+        if (! $attempt->quiz) {
+            return redirect()
+                ->route('bl.history')
+                ->with('error', 'Quiz tidak ditemukan untuk attempt ini.');
+        }
+
         // Kalau sudah pernah di-finalize, jangan dinilai ulang dari sini
         if ($attempt->submitted_at) {
             return redirect()->route('bl.history.show', $attempt->id);
@@ -337,6 +381,7 @@ class BasicListeningQuizController extends Controller
                 $totalMaxScore++;
             } else {
                 // --- PENILAIAN FIB ---
+                // (BLOK INI TIDAK DIUBAH)
                 $userAnswers = $allAnswers->get($q->id);
 
                 $keys    = $q->fib_answer_key ?? [];
@@ -414,6 +459,7 @@ class BasicListeningQuizController extends Controller
 
     /**
      * Helper: Render HTML Input FIB (Sequential Index 0..N)
+     * (TIDAK DIUBAH)
      */
     private function processParagraph($paragraph, array $existingAnswers = [])
     {
@@ -444,6 +490,7 @@ class BasicListeningQuizController extends Controller
 
     /**
      * Helper: Cek Jawaban FIB
+     * (TIDAK DIUBAH)
      */
     private function checkFibAnswer($userVal, $key, $scoring)
     {
