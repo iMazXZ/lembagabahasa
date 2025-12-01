@@ -14,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class BasicListeningConnectCodeResource extends Resource
 {
@@ -114,6 +115,46 @@ class BasicListeningConnectCodeResource extends Resource
                             ->dehydrated(), // Pastikan nilai terkirim meski disabled
                     ])
                     ->columns(2),
+
+                Forms\Components\Section::make('Pengguna Kode Ini')
+                    ->description('Daftar user yang pernah memakai kode ini (berdasarkan attempt).')
+                    ->hidden(fn (string $operation) => $operation === 'create')
+                    ->schema([
+                        Forms\Components\Placeholder::make('attempt_users')
+                            ->label('Daftar Mahasiswa')
+                            ->content(function ($record) {
+                                if (! $record) {
+                                    return '-';
+                                }
+
+                                $users = $record->attempts()
+                                    ->with('user.prody')
+                                    ->latest('updated_at')
+                                    ->get()
+                                    ->pluck('user')
+                                    ->filter()
+                                    ->unique('id')
+                                    ->values();
+
+                                if ($users->isEmpty()) {
+                                    return 'Belum ada yang menggunakan kode ini.';
+                                }
+
+                                $items = $users->map(function ($u, $idx) {
+                                    $name = e($u->name ?? '—');
+                                    $srn  = e($u->srn ?? '-');
+                                    $prody = e($u->prody?->name ?? 'Prodi tidak diketahui');
+
+                                    return '<div class="flex items-start gap-2"><span class="text-gray-500 text-xs w-6">'
+                                        . ($idx + 1) . '.</span><span class="text-sm text-gray-900">'
+                                        . $name . ' (' . $srn . ')<br><span class="text-xs text-gray-600">'
+                                        . $prody . '</span></span></div>';
+                                })->implode('');
+
+                                return new HtmlString('<div class="grid gap-1 md:grid-cols-2">' . $items . '</div>');
+                            })
+                            ->extraAttributes(['class' => 'text-sm leading-6']),
+                    ]),
             ]);
     }
 
@@ -167,7 +208,6 @@ class BasicListeningConnectCodeResource extends Resource
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
                     ->relationship('prody', 'name'), 
-                    // Relationship filter lebih efisien daripada options query manual jika tidak butuh filtering role yang kompleks di sisi filter list
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

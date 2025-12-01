@@ -26,6 +26,13 @@
       @php
         $pendingSurat    = \App\Models\EptSubmission::where('status', 'pending')->count();
         $pendingTerjemah = \App\Models\Penerjemahan::where('status', 'Menunggu')->count();
+        $approvedTerjemah = \App\Models\Penerjemahan::where('status', 'Disetujui')->count();
+        $terjemahColor = $pendingTerjemah > 0
+            ? 'danger'
+            : ($approvedTerjemah > 0 ? 'primary' : 'success');
+        $terjemahBadge = $pendingTerjemah > 0
+            ? $pendingTerjemah
+            : ($approvedTerjemah > 0 ? $approvedTerjemah : null);
       @endphp
 
       <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
@@ -45,9 +52,9 @@
           tag="a"
           href="{{ route('filament.admin.resources.penerjemahan.index') }}"
           size="lg"
-          :color="$pendingTerjemah > 0 ? 'danger' : 'success'"
+          :color="$terjemahColor"
           icon="heroicon-o-language"
-          :badge="$pendingTerjemah ?: null"
+          :badge="$terjemahBadge"
           class="w-full justify-start"
         >
           Penerjemahan Abstrak

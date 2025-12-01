@@ -4,7 +4,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\BasicListeningAttemptResource\Pages;
 use App\Models\BasicListeningAttempt;
+use App\Models\BasicListeningQuiz;
 use App\Models\BasicListeningQuestion;
+use App\Models\User;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
@@ -15,6 +17,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\DateTimePicker;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section as InfoSection;
@@ -27,7 +30,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Get;
-use Illuminate\Support\Facades\DB;
+use Filament\Forms\Set;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Actions;
 use Filament\Forms;
@@ -81,138 +84,7 @@ class BasicListeningAttemptResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form->schema([
-            Section::make('Informasi Attempt')
-                ->columns(12)
-                ->schema([
-                    Placeholder::make('user_name')
-                        ->label('Peserta')
-                        ->content(fn ($record) => $record?->user?->name . ' (' . ($record?->user?->srn ?? '-') . ')')
-                        ->columnSpan(5)
-                        ->extraAttributes(['class' => 'text-gray-900 font-bold']),
-
-                    Placeholder::make('prody_name')
-                        ->label('Prodi')
-                        ->content(fn ($record) => $record?->user?->prody?->name ?? '-')
-                        ->columnSpan(3),
-
-                    Placeholder::make('quiz_title')
-                        ->label('Paket Soal')
-                        ->content(fn ($record) => $record?->quiz?->title ?? '-')
-                        ->columnSpan(4),
-
-                    Grid::make(12)->schema([
-                        TextInput::make('score')
-                            ->label('Skor Akhir')
-                            ->helperText('Skor dihitung ulang otomatis saat disimpan atau saat regrade.')
-                            ->numeric()
-                            ->suffix('%')
-                            ->columnSpan(3),
-
-                        DateTimePicker::make('submitted_at')
-                            ->label('Waktu Submit')
-                            ->seconds(false)
-                            ->native(false)
-                            ->columnSpan(4),
-
-                        DateTimePicker::make('created_at')
-                            ->label('Waktu Mulai')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->columnSpan(4),
-                    ])->columnSpan(12),
-                ]),
-
-            Section::make('Koreksi Jawaban')
-                ->description('Koreksi manual jawaban siswa.')
-                ->collapsible()
-                ->schema([
-                    Repeater::make('answers')
-                        ->relationship('answers')
-                        ->reorderable(false)
-                        ->addable(false)
-                        ->deletable(false)
-                        ->grid(1)
-                        ->schema([
-                            Hidden::make('id'),
-                            Hidden::make('question_id'),
-
-                            // Simpan index murni (0, 1, 2...) agar sinkron dengan controller & regrade
-                            Hidden::make('blank_index')
-                                ->default(0),
-
-                            Grid::make(12)->schema([
-                                Placeholder::make('blank_label')
-                                    ->label('#')
-                                    ->content(fn (Get $get) => 'Isian #'.((int)$get('blank_index') + 1))
-                                    ->extraAttributes(['class' => 'text-gray-500 font-mono text-sm'])
-                                    ->columnSpan(2),
-
-                                TextInput::make('answer')
-                                    ->label('Jawaban Siswa')
-                                    ->columnSpan(5),
-
-                                // 🔍 Kunci Jawaban — sekarang 100% sinkron dengan finalize() & regrade (array_values, 0-based)
-                                Placeholder::make('correct_key')
-                                    ->label('Kunci Jawaban')
-                                    ->content(function (Get $get) {
-                                        $qId = $get('question_id');
-                                        $idx = (int) $get('blank_index');
-
-                                        if (! $qId) {
-                                            return '—';
-                                        }
-
-                                        if (! isset(static::$questionCache[$qId])) {
-                                            static::$questionCache[$qId] = BasicListeningQuestion::find($qId);
-                                        }
-
-                                        $q = static::$questionCache[$qId];
-
-                                        if (! $q) {
-                                            return '?';
-                                        }
-
-                                        if ($q->type === 'fib_paragraph') {
-                                            $keys = $q->fib_answer_key ?? [];
-
-                                            // Sama seperti finalize(): pakai array_values → 0,1,2,...
-                                            $normalizedKeys = array_values($keys);
-
-                                            $key = $normalizedKeys[$idx] ?? null;
-
-                                            if (is_array($key)) {
-                                                return implode(' / ', $key);
-                                            }
-
-                                            if (is_string($key) || is_numeric($key)) {
-                                                return $key;
-                                            }
-
-                                            return '—';
-                                        }
-
-                                        return $q->correct ?? '—';
-                                    })
-                                    ->extraAttributes(['class' => 'text-emerald-600 font-mono font-bold'])
-                                    ->columnSpan(3),
-
-                                Select::make('is_correct')
-                                    ->label('Status')
-                                    ->options([
-                                        '1' => 'Benar',
-                                        '0' => 'Salah',
-                                    ])
-                                    ->selectablePlaceholder(false)
-                                    ->native(false)
-                                    ->columnSpan(2),
-                            ]),
-                        ])
-                        ->itemLabel(fn (array $state): ?string =>
-                            isset($state['blank_index']) ? 'Isian #' . ((int)$state['blank_index'] + 1) : 'Soal'
-                        ),
-                ]),
-        ]);
+        return $form->schema(static::getFormSchema());
     }
 
     public static function infolist(Infolist $infolist): Infolist
@@ -227,6 +99,10 @@ class BasicListeningAttemptResource extends Resource
 
                     TextEntry::make('user.srn')
                         ->label('SRN/NIM')
+                        ->copyable(),
+
+                    TextEntry::make('user.email')
+                        ->label('Email')
                         ->copyable(),
 
                     TextEntry::make('user.prody.name')
@@ -524,10 +400,312 @@ class BasicListeningAttemptResource extends Resource
         return [];
     }
 
+    protected static function getFormSchema(): array
+    {
+        return [
+            Section::make('Informasi Attempt')
+                ->columns(12)
+                ->schema([
+                    Select::make('user_id')
+                        ->label('Peserta')
+                        ->relationship('user', 'name', fn (Builder $query) => $query->orderBy('name'))
+                        ->getOptionLabelFromRecordUsing(fn (User $record) => $record->name . ' (' . ($record->srn ?? '-') . ')')
+                        ->searchable(['name', 'srn'])
+                        ->required(fn (string $operation) => $operation === 'create')
+                        ->hidden(fn (string $operation) => $operation === 'edit')
+                        ->columnSpan(5),
+
+                    Placeholder::make('user_name')
+                        ->label('Peserta')
+                        ->content(fn ($record) => $record?->user?->name . ' (' . ($record?->user?->srn ?? '-') . ')')
+                        ->columnSpan(5)
+                        ->extraAttributes(['class' => 'text-gray-900 font-bold'])
+                        ->hidden(fn (string $operation) => $operation === 'create'),
+
+                    Placeholder::make('prody_name')
+                        ->label('Prodi')
+                        ->content(fn ($record) => $record?->user?->prody?->name ?? '-')
+                        ->columnSpan(3)
+                        ->hidden(fn (string $operation) => $operation === 'create'),
+
+                    Select::make('quiz_id')
+                        ->label('Paket Soal')
+                        ->relationship('quiz', 'title', fn (Builder $query) => $query->with('session')->orderBy('session_id'))
+                        ->getOptionLabelFromRecordUsing(fn (BasicListeningQuiz $record) => 'Pert. ' . ($record->session?->number ?? '?') . ' - ' . $record->title)
+                        ->required(fn (string $operation) => $operation === 'create')
+                        ->searchable(['title'])
+                        ->preload()
+                        ->live()
+                        ->afterStateUpdated(fn ($state, Set $set) => static::syncQuizSelection($state, $set))
+                        ->hidden(fn (string $operation) => $operation === 'edit')
+                        ->columnSpan(4),
+
+                    Placeholder::make('quiz_title')
+                        ->label('Paket Soal')
+                        ->content(fn ($record) => $record?->quiz?->title ?? '-')
+                        ->columnSpan(4)
+                        ->hidden(fn (string $operation) => $operation === 'create'),
+
+                    Hidden::make('session_id'),
+
+                    Placeholder::make('session_preview')
+                        ->label('Sesi')
+                        ->content(fn (Get $get) => static::getSessionLabelFromQuiz($get('quiz_id')))
+                        ->columnSpan(3)
+                        ->hidden(fn (string $operation) => $operation === 'edit'),
+
+                    Grid::make(12)->schema([
+                        TextInput::make('score')
+                            ->label('Skor Akhir')
+                            ->helperText('Skor dihitung ulang otomatis saat disimpan atau saat regrade.')
+                            ->numeric()
+                            ->suffix('%')
+                            ->columnSpan(3),
+
+                        DateTimePicker::make('submitted_at')
+                            ->label('Waktu Submit')
+                            ->helperText(fn (string $operation) => $operation === 'create' ? 'Default sekarang, boleh diubah jika butuh.' : null)
+                            ->seconds(false)
+                            ->native(false)
+                            ->default(now())
+                            ->columnSpan(4),
+
+                        DateTimePicker::make('created_at')
+                            ->label('Waktu Mulai')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->columnSpan(4)
+                            ->hidden(fn (string $operation) => $operation === 'create'),
+                    ])->columnSpan(12),
+                ]),
+
+            Section::make('Koreksi Jawaban')
+                ->description(fn (string $operation) => $operation === 'create'
+                    ? 'Pilih paket soal untuk menampilkan kunci & isian jawaban.'
+                    : 'Koreksi manual jawaban siswa.')
+                ->collapsible()
+                ->schema([
+                    static::answersRepeater(),
+                ]),
+        ];
+    }
+
+    /**
+     * Komponen repeater jawaban — dipakai di create & edit.
+     */
+    protected static function answersRepeater(): Repeater
+    {
+        return Repeater::make('answers')
+            ->relationship('answers')
+            ->reorderable(false)
+            ->addable(false)
+            ->deletable(false)
+            ->grid(1)
+            ->default([])
+            ->hidden(fn (Get $get, string $operation) => $operation === 'create' && ! $get('quiz_id'))
+            ->schema([
+                Hidden::make('id'),
+                Hidden::make('question_id'),
+
+                // Simpan index murni (0, 1, 2...) agar sinkron dengan controller & regrade
+                Hidden::make('blank_index')
+                    ->default(0),
+
+                Grid::make(12)->schema([
+                    Placeholder::make('blank_label')
+                        ->label('#')
+                        ->content(fn (Get $get) => 'Isian #'.((int)$get('blank_index') + 1))
+                        ->extraAttributes(['class' => 'text-gray-500 font-mono text-sm'])
+                        ->columnSpan(2),
+
+                    Placeholder::make('question_preview')
+                        ->label('Soal')
+                        ->content(fn (Get $get) => static::questionPreview($get('question_id')))
+                        ->columnSpan(4),
+
+                    TextInput::make('answer')
+                        ->label('Jawaban Siswa')
+                        ->columnSpan(4),
+
+                    // 🔍 Kunci Jawaban — sinkron dengan finalize() & regrade (array_values, 0-based)
+                    Placeholder::make('correct_key')
+                        ->label('Kunci Jawaban')
+                        ->content(fn (Get $get) => static::correctKeyDisplay($get('question_id'), (int) $get('blank_index')))
+                        ->extraAttributes(['class' => 'text-emerald-600 font-mono font-bold'])
+                        ->columnSpan(2),
+
+                    Select::make('is_correct')
+                        ->label('Status')
+                        ->options([
+                            '1' => 'Benar',
+                            '0' => 'Salah',
+                        ])
+                        ->selectablePlaceholder(false)
+                        ->native(false)
+                        ->columnSpan(2),
+                ]),
+            ])
+            ->itemLabel(fn (array $state): ?string => static::formatAnswerLabel($state));
+    }
+
+    protected static function formatAnswerLabel(array $state): ?string
+    {
+        $label = isset($state['blank_index']) ? 'Isian #' . ((int) $state['blank_index'] + 1) : 'Soal';
+
+        $q = isset($state['question_id']) ? static::getQuestionFromCache((int) $state['question_id']) : null;
+
+        if ($q && $q->order) {
+            return 'Q' . $q->order . ' - ' . $label;
+        }
+
+        return $label;
+    }
+
+    protected static function questionPreview(?int $questionId): string
+    {
+        if (! $questionId) {
+            return '—';
+        }
+
+        $q = static::getQuestionFromCache($questionId);
+
+        if (! $q) {
+            return '?';
+        }
+
+        $text = $q->question ?? '';
+        $plain = trim(Str::of($text)->stripTags()->squish()->toString());
+
+        if ($q->type === 'fib_paragraph') {
+            return 'Paragraf (FIB) — ' . Str::limit($plain, 60);
+        }
+
+        return Str::limit($plain, 60);
+    }
+
+    protected static function correctKeyDisplay(?int $questionId, int $blankIndex): string
+    {
+        if (! $questionId) {
+            return '—';
+        }
+
+        $q = static::getQuestionFromCache($questionId);
+
+        if (! $q) {
+            return '?';
+        }
+
+        if ($q->type === 'fib_paragraph') {
+            $keys = $q->fib_answer_key ?? [];
+
+            // Sama seperti finalize(): pakai array_values → 0,1,2,...
+            $normalizedKeys = array_values($keys);
+
+            $key = $normalizedKeys[$blankIndex] ?? null;
+
+            if (is_array($key)) {
+                return implode(' / ', $key);
+            }
+
+            if (is_string($key) || is_numeric($key)) {
+                return (string) $key;
+            }
+
+            return '—';
+        }
+
+        return $q->correct ?? '—';
+    }
+
+    protected static function getSessionLabelFromQuiz($quizId): string
+    {
+        if (! $quizId) {
+            return '-';
+        }
+
+        $quiz = BasicListeningQuiz::with('session')->find($quizId);
+
+        if (! $quiz) {
+            return '-';
+        }
+
+        return 'Pert. ' . ($quiz->session?->number ?? '?') . ' - ' . ($quiz->session?->title ?? '');
+    }
+
+    protected static function syncQuizSelection($quizId, Set $set): void
+    {
+        if (! $quizId) {
+            $set('session_id', null);
+            $set('answers', []);
+
+            return;
+        }
+
+        $quiz = BasicListeningQuiz::with(['questions' => fn ($q) => $q->orderBy('order')])->find($quizId);
+
+        $set('session_id', $quiz?->session_id);
+
+        if (! $quiz) {
+            $set('answers', []);
+            return;
+        }
+
+        foreach ($quiz->questions as $question) {
+            static::$questionCache[$question->id] = $question;
+        }
+
+        $set('answers', static::buildAnswerDefaults($quiz->questions));
+    }
+
+    /**
+     * Build default state untuk repeater jawaban saat create.
+     */
+    protected static function buildAnswerDefaults(iterable $questions): array
+    {
+        $items = [];
+
+        foreach ($questions as $q) {
+            if ($q->type === 'fib_paragraph') {
+                $keys = array_values($q->fib_answer_key ?? []);
+                $placeholders = $q->fib_placeholders ?? [];
+
+                $blankCount = max(count($keys), count($placeholders), 1);
+
+                for ($i = 0; $i < $blankCount; $i++) {
+                    $items[] = [
+                        'question_id' => $q->id,
+                        'blank_index' => $i,
+                        'answer'      => '',
+                        'is_correct'  => null,
+                    ];
+                }
+            } else {
+                $items[] = [
+                    'question_id' => $q->id,
+                    'blank_index' => 0,
+                    'answer'      => '',
+                    'is_correct'  => null,
+                ];
+            }
+        }
+
+        return $items;
+    }
+
+    protected static function getQuestionFromCache(int $questionId): ?BasicListeningQuestion
+    {
+        if (! isset(static::$questionCache[$questionId])) {
+            static::$questionCache[$questionId] = BasicListeningQuestion::find($questionId);
+        }
+
+        return static::$questionCache[$questionId] ?? null;
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListBasicListeningAttempts::route('/'),
+            'create' => Pages\CreateBasicListeningAttempt::route('/create'),
             'edit'  => Pages\EditBasicListeningAttempt::route('/{record}/edit'),
             'view'  => Pages\ViewBasicListeningAttempt::route('/{record}'),
         ];

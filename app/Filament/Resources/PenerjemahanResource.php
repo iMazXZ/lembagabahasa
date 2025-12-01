@@ -346,7 +346,7 @@ class PenerjemahanResource extends Resource
                     Tables\Actions\Action::make('approve_pembayaran')
                         ->label('Approve')
                         ->icon('heroicon-o-check')
-                        ->color('success')
+                        ->color('primary')
                         ->requiresConfirmation()
                         ->modalHeading('Setujui Pembayaran')
                         ->modalDescription('Yakin menyetujui pembayaran ini?')

@@ -11,6 +11,7 @@ use App\Filament\Widgets\PengumumanWidget;
 use Filament\Widgets\AccountWidget;
 use App\Filament\Widgets\QuickLinks;
 use App\Filament\Widgets\StudentBasicListeningWidget;
+use App\Filament\Widgets\AdminQueuesWidget;
 
 class DashboardKustom extends Page
 {
@@ -39,12 +40,18 @@ class DashboardKustom extends Page
 
     protected function getHeaderWidgets(): array
     {
-        return [
+        $widgets = [
             AccountWidget::class,
             PengumumanWidget::class,
             QuickLinks::class,
             StatsWidget::class,
             StudentBasicListeningWidget::class,
         ];
+
+        if (auth()->user()?->hasRole('Admin')) {
+            $widgets[] = AdminQueuesWidget::class;
+        }
+
+        return $widgets;
     }
 }
