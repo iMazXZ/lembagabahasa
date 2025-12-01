@@ -19,6 +19,9 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use App\Support\ImageTransformer;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Exports\PenerjemahanTriwulanExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Carbon;
 
 class PenerjemahanResource extends Resource
 {
@@ -325,6 +328,59 @@ class PenerjemahanResource extends Resource
                             ->when($data['created_until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
                     }),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('export_excel')
+                    ->label('Export Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga']))
+                    ->form([
+                        Forms\Components\DatePicker::make('start_date')
+                            ->label('Dari tanggal')
+                            ->required(),
+                        Forms\Components\DatePicker::make('end_date')
+                            ->label('Sampai tanggal')
+                            ->required(),
+                        Forms\Components\TextInput::make('period_label')
+                            ->label('Label Triwulan')
+                            ->placeholder('TRIWULAN 1 GANJIL 2025-2026')
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('title_line')
+                            ->label('Judul Rekap')
+                            ->default('REKAPITULASI PENERJEMAHAN ABSTRAK')
+                            ->maxLength(150),
+                        Forms\Components\TextInput::make('keterangan')
+                            ->label('Keterangan Kolom')
+                            ->default('Abstrak')
+                            ->maxLength(50),
+                    ])
+                    ->action(function (array $data) {
+                        $start = Carbon::parse($data['start_date'])->startOfDay();
+                        $end   = Carbon::parse($data['end_date'])->endOfDay();
+
+                        if ($start->gt($end)) {
+                            Notification::make()->title('Rentang tanggal tidak valid')->danger()->send();
+                            return;
+                        }
+
+                        $title   = $data['title_line'] ?: 'REKAPITULASI PENERJEMAHAN ABSTRAK';
+                        $period  = $data['period_label'] ?: self::formatPeriodLabel($start, $end);
+                        $ket     = $data['keterangan'] ?: 'Abstrak';
+
+                        $rows = Penerjemahan::query()
+                            ->with('users')
+                            ->whereBetween('submission_date', [$start, $end])
+                            ->orderBy('submission_date')
+                            ->get()
+                            ->sortBy(fn ($row) => $row->users?->name ?? '', SORT_NATURAL | SORT_FLAG_CASE)
+                            ->values();
+
+                        return Excel::download(
+                            new PenerjemahanTriwulanExport($rows, $title, $period, $ket),
+                            'Rekap_Penerjemahan.xlsx'
+                        );
+                    }),
+            ])
             ->actions([
                 // ===== Unduh PDF (Admin/Staf/Kepala/Penerjemah melihat; pendaftar tidak di sini) =====
                 Tables\Actions\Action::make('download_pdf')
@@ -516,6 +572,13 @@ class PenerjemahanResource extends Resource
     public static function getNavigationBadgeColor(): ?string
     {
         return 'danger';
+    }
+
+    private static function formatPeriodLabel(Carbon $start, Carbon $end): string
+    {
+        $startStr = $start->translatedFormat('j F Y');
+        $endStr   = $end->translatedFormat('j F Y');
+        return "{$startStr} s/d {$endStr}";
     }
 
     public static function getRelations(): array

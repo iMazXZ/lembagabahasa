@@ -61,6 +61,7 @@ class TutorMahasiswa extends Page implements HasTable
             // === QUERY UTAMA (OPTIMIZED) ===
             // Kita load semua relasi di awal biar tidak N+1 Query
             ->query($this->baseQuery($user))
+            ->defaultSort('srn', 'asc')
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
@@ -226,7 +227,18 @@ class TutorMahasiswa extends Page implements HasTable
                                 ->label('Mahasiswa')
                                 ->content($record->srn . ' — ' . $record->name),
                             TextInput::make('attendance')->label('Attendance')->numeric()->maxValue(100)->default($record->basicListeningGrade?->attendance),
-                            TextInput::make('final_test')->label('Final Test')->numeric()->maxValue(100)->default($record->basicListeningGrade?->final_test),
+                            TextInput::make('final_test')
+                                ->label('Final Test')
+                                ->numeric()
+                                ->maxValue(100)
+                                ->default($record->basicListeningGrade?->final_test ?? $this->getFinalTestFromAttempt($record))
+                                ->placeholder($this->getFinalTestFromAttempt($record))
+                                ->helperText(function () use ($record) {
+                                    $attempt = $this->getFinalTestFromAttempt($record);
+                                    return is_numeric($attempt)
+                                        ? "Nilai Asli Final Exam: {$attempt}"
+                                        : 'Belum mengerjakan Final Exam di Web';
+                                }),
                         ])
                         ->action(function (User $record, array $data) {
                             $grade = BasicListeningGrade::firstOrCreate(['user_id' => $record->id, 'user_year' => $record->year]);
@@ -329,13 +341,16 @@ class TutorMahasiswa extends Page implements HasTable
                     ->label('Insert Final')
                     ->icon('heroicon-o-pencil-square')
                     ->form(function (Collection $records) {
-                        $records->load('basicListeningGrade');
+                        $records->load([
+                            'basicListeningGrade',
+                            'basicListeningAttempts' => fn ($q) => $q->where('session_id', 6)->whereNotNull('submitted_at'),
+                        ]);
                         $data = $records->map(fn($u) => [
                             'user_id' => $u->id,
                             'name' => $u->name,
                             'srn' => $u->srn,
                             'attendance' => $u->basicListeningGrade?->attendance,
-                            'final_test' => $u->basicListeningGrade?->final_test,
+                            'final_test' => $u->basicListeningGrade?->final_test ?? $this->getFinalTestFromAttempt($u),
                         ])->toArray();
 
                         return [
@@ -623,5 +638,16 @@ class TutorMahasiswa extends Page implements HasTable
                 ->color('gray')
                 ->icon('heroicon-o-arrow-left'),
         ];
+    }
+
+    private function getFinalTestFromAttempt(User $record): ?float
+    {
+        // Ambil skor attempt terbaru untuk session 6 (Final Exam)
+        $attempt = $record->basicListeningAttempts
+            ->where('session_id', 6)
+            ->sortByDesc('submitted_at')
+            ->first();
+
+        return is_numeric($attempt?->score) ? (float) $attempt->score : null;
     }
 }

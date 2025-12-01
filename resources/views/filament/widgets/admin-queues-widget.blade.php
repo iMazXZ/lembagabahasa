@@ -7,18 +7,17 @@
       $surPending   = $surat['pending_count'] ?? 0;
 
       $terNumClass   = $terPending > 0 ? 'text-danger-600' : 'text-success-600';
-      $terBadgeClass = $terPending > 0 ? 'bg-danger-50 text-danger-700' : 'bg-success-50 text-success-700';
+      $terBadgeClass = $terPending > 0 ? 'bg-danger-50 text-danger-700' : 'bg-primary-50 text-primary-700';
       $terLabel      = $terPending > 0 ? 'Perlu review' : 'Terkendali';
 
       $surNumClass   = $surPending > 0 ? 'text-danger-600' : 'text-success-600';
-      $surBadgeClass = $surPending > 0 ? 'bg-danger-50 text-danger-700' : 'bg-success-50 text-success-700';
+      $surBadgeClass = $surPending > 0 ? 'bg-danger-50 text-danger-700' : 'bg-primary-50 text-primary-700';
       $surLabel      = $surPending > 0 ? 'Urgent' : 'Tidak ada antrean';
     @endphp
 
     <div class="flex items-center justify-between mb-4">
       <div>
         <p class="text-sm text-gray-500">Dashboard Admin</p>
-        <h3 class="text-lg font-semibold text-gray-900">Antrean Prioritas</h3>
       </div>
       <div class="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
         <x-filament::icon icon="heroicon-o-shield-check" class="h-4 w-4" />
