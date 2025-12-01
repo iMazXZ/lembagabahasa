@@ -1,5 +1,20 @@
 <x-filament-widgets::widget>
   <x-filament::section>
+    @php
+      $terPending   = $terjemahan['pending_count'] ?? 0;
+      $terApproved  = $terjemahan['approved_count'] ?? 0;
+      $terProcess   = $terjemahan['process_count'] ?? 0;
+      $surPending   = $surat['pending_count'] ?? 0;
+
+      $terNumClass   = $terPending > 0 ? 'text-danger-600' : 'text-success-600';
+      $terBadgeClass = $terPending > 0 ? 'bg-danger-50 text-danger-700' : 'bg-success-50 text-success-700';
+      $terLabel      = $terPending > 0 ? 'Perlu review' : 'Terkendali';
+
+      $surNumClass   = $surPending > 0 ? 'text-danger-600' : 'text-success-600';
+      $surBadgeClass = $surPending > 0 ? 'bg-danger-50 text-danger-700' : 'bg-success-50 text-success-700';
+      $surLabel      = $surPending > 0 ? 'Urgent' : 'Tidak ada antrean';
+    @endphp
+
     <div class="flex items-center justify-between mb-4">
       <div>
         <p class="text-sm text-gray-500">Dashboard Admin</p>
@@ -16,10 +31,10 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">Penerjemahan</p>
-            <p class="text-2xl font-semibold text-primary-700">{{ $terjemahan['pending_count'] }} menunggu</p>
-            <p class="text-xs text-gray-500">Disetujui: {{ $terjemahan['approved_count'] }} · Diproses: {{ $terjemahan['process_count'] }}</p>
+            <p class="text-2xl font-semibold {{ $terNumClass }}">{{ $terPending }} menunggu</p>
+            <p class="text-xs text-gray-500">Disetujui: {{ $terApproved }} · Diproses: {{ $terProcess }}</p>
           </div>
-          <div class="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-800">Layanan</div>
+          <div class="rounded-full px-3 py-1 text-xs font-semibold {{ $terBadgeClass }}">{{ $terLabel }}</div>
         </div>
 
         <div class="mt-4 space-y-3">
@@ -43,10 +58,10 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">Surat Rekomendasi</p>
-            <p class="text-2xl font-semibold text-danger-600">{{ $surat['pending_count'] }} menunggu</p>
-            <p class="text-xs text-gray-500">Prioritas review</p>
+            <p class="text-2xl font-semibold {{ $surNumClass }}">{{ $surPending }} menunggu</p>
+            <p class="text-xs text-gray-500">{{ $surPending > 0 ? 'Prioritas review' : 'Tidak ada antrean' }}</p>
           </div>
-          <div class="rounded-full bg-danger-50 px-3 py-1 text-xs font-semibold text-danger-700">Urgent</div>
+          <div class="rounded-full px-3 py-1 text-xs font-semibold {{ $surBadgeClass }}">{{ $surLabel }}</div>
         </div>
 
         <div class="mt-4 space-y-3">

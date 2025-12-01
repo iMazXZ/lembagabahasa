@@ -12,6 +12,7 @@ use Filament\Widgets\AccountWidget;
 use App\Filament\Widgets\QuickLinks;
 use App\Filament\Widgets\StudentBasicListeningWidget;
 use App\Filament\Widgets\AdminQueuesWidget;
+use App\Filament\Widgets\BlSummaryWidget;
 
 class DashboardKustom extends Page
 {
@@ -50,6 +51,7 @@ class DashboardKustom extends Page
 
         if (auth()->user()?->hasRole('Admin')) {
             $widgets[] = AdminQueuesWidget::class;
+            $widgets[] = BlSummaryWidget::class;
         }
 
         return $widgets;
