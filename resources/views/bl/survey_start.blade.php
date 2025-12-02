@@ -5,44 +5,46 @@
 @push('styles')
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css">
   <style>
-    /* ==== Hero Gradient dengan Animasi ==== */
-    .hero-gradient {
-      background: linear-gradient(-45deg, #4f46e5, #6366f1, #7c3aed, #8b5cf6);
-      background-size: 400% 400%;
-      animation: gradientFlow 15s ease infinite;
-      position: relative;
-      overflow: hidden;
+    /* Hide global navbar & footer for this flow */
+    body > nav,
+    body > footer{
+      display: none !important;
     }
-    @keyframes gradientFlow {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+    .intro-block{
+      text-align: center;
     }
 
-    /* ==== Floating Particles ==== */
-    .hero-gradient::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: 
-        radial-gradient(circle at 20% 30%, rgba(255,255,255,.15), transparent 50%),
-        radial-gradient(circle at 80% 70%, rgba(255,255,255,.12), transparent 50%);
-      animation: pulse 8s ease-in-out infinite;
+    /* ==== Minimal Layout ==== */
+    body {
+      background: radial-gradient(circle at 10% 20%, #eef2ff 0%, transparent 25%),
+                  radial-gradient(circle at 90% 10%, #e0f2fe 0%, transparent 22%),
+                  #f8fafc;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: .6; }
+    .page-wrap{
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 16px 48px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 28px;
     }
 
-    /* ==== Glassmorphism Card ==== */
+    /* ==== Compact Card ==== */
     .glass-card {
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.08),
-        0 0 0 1px rgba(255,255,255,0.5) inset;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 18px 40px rgba(79, 70, 229, 0.08);
+      border-radius: 18px;
+      transition: transform .2s ease, box-shadow .2s ease;
+      width: min(520px, 100%);
+      padding: 32px 28px;
+    }
+    .glass-card:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 22px 48px rgba(79, 70, 229, 0.12);
     }
 
     /* ==== Form Elements Styling ==== */
@@ -223,6 +225,30 @@
       transform: translateY(-2px);
     }
 
+    /* ==== Confirm Dialog ==== */
+    .confirm-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+    }
+    .confirm-card{
+      background: #fff;
+      border-radius: 16px;
+      width: min(480px, 92vw);
+      padding: 20px 22px;
+      box-shadow: 0 18px 48px rgba(15,23,42,0.25);
+    }
+    .confirm-actions{
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
     /* ==== Info Badge ==== */
     .info-badge {
       display: inline-flex;
@@ -284,26 +310,15 @@
 @endpush
 
 @section('content')
-  {{-- Hero Section --}}
-  <div class="hero-gradient text-white">
-    <div class="max-w-7xl mx-auto px-4 py-8 md:py-12 relative z-10">
-      <div class="max-w-3xl">
-        <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5 mb-4 border border-white/30">
-          <i class="fa-solid fa-clipboard-list text-sm"></i>
-          <span class="text-xs font-semibold">Langkah 1 dari 3</span>
-        </div>
-        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight mb-3">
-          Pilih Tutor & Supervisor
-        </h1>
-        <p class="text-lg text-blue-100 font-medium">
-          Tentukan pembimbing Anda sebelum memulai rangkaian kuesioner Basic Listening.
-        </p>
-      </div>
+  <div class="page-wrap">
+    <div class="mb-6 intro-block">
+      <p class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
+        <i class="fa-solid fa-clipboard-list text-sm"></i>
+        Langkah 1 dari 3
+      </p>
+      <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-3">Pilih Tutor & Supervisor</h1>
+      <p class="text-sm md:text-base text-slate-600 mt-2 max-w-2xl">Tentukan pembimbing Anda sebelum memulai kuesioner Basic Listening. Pilih maksimal 2 tutor dan 1 supervisor.</p>
     </div>
-  </div>
-
-  {{-- Main Content --}}
-  <div class="max-w-3xl mx-auto px-4 py-8">
     
     {{-- Flash Messages --}}
     @foreach (['success','info','warning','error'] as $f)
@@ -352,20 +367,17 @@
         
         {{-- Header --}}
         <div class="mb-8">
-          <div class="flex items-start gap-4 mb-4">
-            <div class="icon-wrapper flex-shrink-0">
-              <i class="fa-solid fa-users"></i>
-            </div>
-            <div class="flex-1">
-              <h2 class="text-2xl font-bold text-gray-900 mb-2">
-                Konfirmasi Pembimbing
-              </h2>
-              <p class="text-sm text-gray-600 leading-relaxed">
-                Silakan pilih <strong class="text-indigo-600">maksimal 2 Tutor</strong> dan 
-                <strong class="text-indigo-600">1 Supervisor</strong> yang akan membimbing Anda.
-              </p>
-            </div>
+        <div class="flex flex-col items-center text-center gap-3 mb-4">
+          <div class="icon-wrapper flex-shrink-0">
+            <i class="fa-solid fa-users"></i>
           </div>
+          <div class="flex-1">
+            <h2 class="text-xl font-bold text-gray-900 mb-1">
+              Konfirmasi Pembimbing
+            </h2>
+            <p class="text-sm text-gray-600 leading-relaxed">Pilih tutor & supervisor Anda.</p>
+          </div>
+        </div>
 
           {{-- Warning if no data --}}
           @if(!$hasTutors || !$hasSupervisors)
@@ -410,7 +422,7 @@
               </select>
               <div class="helper-text">
                 <i class="fa-solid fa-lightbulb"></i>
-                Pilih minimal 1 dan maksimal 2 tutor yang akan membimbing Anda
+                Pilih Nama Tutor Basic Listening
               </div>
             @else
               <div class="bg-gray-50 border-2 border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-500">
@@ -450,7 +462,7 @@
             
             <div class="helper-text">
               <i class="fa-solid fa-lightbulb"></i>
-              Pilih 1 supervisor yang akan mengawasi dan membimbing Anda
+              *Tanyakan ke Tutor
             </div>
             
             @error('supervisor_id')
@@ -463,12 +475,8 @@
 
           {{-- Action Buttons --}}
           <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-            <a href="{{ url()->previous() ?: route('bl.history') }}" class="btn btn-secondary">
-              <i class="fa-solid fa-arrow-left"></i>
-              <span class="relative z-10">Batal</span>
-            </a>
             <button type="submit" class="btn btn-primary">
-              <span class="relative z-10">Lanjut ke Kuesioner</span>
+              <span class="relative z-10">Mulai</span>
               <i class="fa-solid fa-arrow-right relative z-10"></i>
             </button>
           </div>
@@ -476,11 +484,36 @@
 
       </div>
     </div>
-
-    {{-- Info Footer --}}
-    <div class="mt-6 text-center text-sm text-gray-500 fade-in fade-delay-2">
-      <i class="fa-solid fa-shield-halved mr-1"></i>
-      Data yang Anda masukkan akan disimpan dengan aman dan hanya digunakan untuk keperluan evaluasi
+    
+    {{-- Confirm Dialog --}}
+    <div class="confirm-backdrop hidden" id="confirmModal">
+      <div class="confirm-card">
+        <div class="flex flex-col items-center text-center gap-3">
+          <div class="icon-wrapper" style="background: linear-gradient(135deg,#eef2ff,#e0e7ff); color:#4f46e5;">
+            <i class="fa-solid fa-user-check"></i>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Konfirmasi Pembimbing</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Sudah yakin dengan pilihan Anda?
+            </p>
+            <div class="mt-3 space-y-1 text-sm text-slate-700">
+              <div><span class="font-semibold text-slate-900">Tutor:</span> <span id="confirmTutor">-</span></div>
+              <div><span class="font-semibold text-slate-900">Supervisor:</span> <span id="confirmSupervisor">-</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" class="btn btn-secondary" id="confirmCancel">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span class="relative z-10">Periksa Lagi</span>
+          </button>
+          <button type="button" class="btn btn-primary" id="confirmProceed">
+            <span class="relative z-10">Ya, Lanjut</span>
+            <i class="fa-solid fa-arrow-right relative z-10"></i>
+          </button>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -490,9 +523,19 @@
   <script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      const confirmModal = document.getElementById('confirmModal');
+      const confirmTutor = document.getElementById('confirmTutor');
+      const confirmSupervisor = document.getElementById('confirmSupervisor');
+      const confirmCancel = document.getElementById('confirmCancel');
+      const confirmProceed = document.getElementById('confirmProceed');
+      const form = document.querySelector('form[action*="/bl/survey/start"]');
+      const supervisorSelect = document.getElementById('supervisor_id');
+      let pendingSubmit = false;
+
       const el = document.getElementById('tutorSelect');
+      let ts;
       if (el) {
-        const ts = new TomSelect(el, {
+        ts = new TomSelect(el, {
           maxItems: 2,
           plugins: ['remove_button'],
           create: false,
@@ -504,18 +547,45 @@
             }
           }
         });
-        
-        const form = document.querySelector('form[action*="/bl/survey/start"]');
-        form?.addEventListener('submit', (e) => {
-          const val = ts.getValue();
-          const count = Array.isArray(val) ? val.length : (val ? 1 : 0);
-          if (count < 1) {
-            e.preventDefault();
-            alert('⚠️ Pilih minimal 1 tutor sebelum melanjutkan.');
-            ts.focus();
-          }
-        });
       }
+
+      const openConfirm = () => {
+        const tutorValues = ts ? ts.getValue() : [];
+        const tutorNames = (Array.isArray(tutorValues) ? tutorValues : [tutorValues])
+          .filter(Boolean)
+          .map(v => ts?.options?.[v]?.text || `Tutor #${v}`);
+        const supervisorName = supervisorSelect?.options[supervisorSelect.selectedIndex]?.text || 'Tidak ada';
+
+        confirmTutor.textContent = tutorNames.length ? tutorNames.join(', ') : 'Tidak ada';
+        confirmSupervisor.textContent = supervisorName;
+        confirmModal?.classList.remove('hidden');
+      };
+
+      form?.addEventListener('submit', (e) => {
+        if (pendingSubmit) return;
+        const val = ts ? ts.getValue() : [];
+        const count = Array.isArray(val) ? val.length : (val ? 1 : 0);
+        if (count < 1) {
+          e.preventDefault();
+          alert('⚠️ Pilih minimal 1 tutor sebelum melanjutkan.');
+          ts?.focus();
+          return;
+        }
+        e.preventDefault();
+        openConfirm();
+      });
+
+      confirmCancel?.addEventListener('click', () => {
+        confirmModal?.classList.add('hidden');
+      });
+      confirmModal?.addEventListener('click', (e) => {
+        if (e.target === confirmModal) confirmModal.classList.add('hidden');
+      });
+      confirmProceed?.addEventListener('click', () => {
+        pendingSubmit = true;
+        confirmModal?.classList.add('hidden');
+        form?.submit();
+      });
     });
   </script>
 @endpush

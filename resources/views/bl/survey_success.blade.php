@@ -9,20 +9,16 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f7f8fb;
+    }
 
     /* ==== Animated Gradient Background ==== */
     .hero-success {
-      background: linear-gradient(-45deg, #059669, #10b981, #0ea5e9, #3b82f6, #8b5cf6);
-      background-size: 400% 400%;
-      animation: gradientShift 15s ease infinite;
+      background: linear-gradient(150deg, #eef2ff 0%, #e0f2fe 50%, #ecfdf3 100%);
       position: relative;
       overflow: hidden;
-    }
-    @keyframes gradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
     }
 
     /* ==== Floating Shapes ==== */
@@ -33,9 +29,9 @@
       backdrop-filter: blur(20px);
       animation: float 20s ease-in-out infinite;
     }
-    .shape-1 { width: 300px; height: 300px; top: -100px; left: -50px; animation-delay: 0s; }
-    .shape-2 { width: 400px; height: 400px; top: 50%; right: -100px; animation-delay: 5s; }
-    .shape-3 { width: 200px; height: 200px; bottom: -50px; left: 40%; animation-delay: 10s; }
+    .shape-1 { width: 180px; height: 180px; top: -60px; left: -30px; animation-delay: 0s; opacity: 0.15; }
+    .shape-2 { width: 220px; height: 220px; top: 55%; right: -60px; animation-delay: 5s; opacity: 0.12; }
+    .shape-3 { width: 140px; height: 140px; bottom: -30px; left: 42%; animation-delay: 10s; opacity: 0.12; }
     @keyframes float {
       0%, 100% { transform: translate(0, 0) rotate(0deg); }
       25% { transform: translate(50px, -50px) rotate(90deg); }
@@ -55,15 +51,14 @@
 
     /* ==== Cards with Glassmorphism ==== */
     .glass-card {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255,255,255,0.5) inset;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 14px 34px rgba(15, 23, 42, 0.12);
+      transition: all 0.2s ease;
     }
     .glass-card:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255,255,255,0.7) inset;
+      transform: translateY(-2px);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
     }
 
     /* ==== Chips dengan animasi ==== */
@@ -209,6 +204,12 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+
+    .content-wrap{
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+    }
   </style>
 </head>
 <body class="antialiased">
@@ -233,98 +234,58 @@
     <div class="floating-shape shape-2"></div>
     <div class="floating-shape shape-3"></div>
 
-    <div class="relative z-10 w-full max-w-6xl mx-auto px-4 py-12">
+    <div class="relative z-10 w-full px-4 py-12 content-wrap">
       
       {{-- Success Icon --}}
-      <div class="text-center mb-8">
-        <div class="success-icon inline-flex items-center justify-center w-32 h-32 bg-white rounded-full shadow-2xl mb-6">
-          <i class="fa-solid fa-trophy text-6xl text-yellow-500"></i>
+      <div class="text-center mb-10">
+        <div class="success-icon inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 bg-white rounded-full shadow-xl mb-4">
+          <i class="fa-solid fa-trophy text-4xl md:text-5xl text-yellow-500"></i>
         </div>
-        <h1 class="text-5xl md:text-7xl font-extrabold text-white glow-text mb-4">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mb-3">
           Selamat! 🎉
         </h1>
-        <p class="text-xl md:text-2xl text-white/90 font-medium">
-          Semua kuesioner wajib telah berhasil diselesaikan
+        <p class="text-base md:text-lg text-slate-700 font-medium max-w-2xl mx-auto">
+          Semua kuesioner wajib telah berhasil diselesaikan. Berikut langkah selanjutnya untuk akses sertifikat atau kembali ke Basic Listening.
         </p>
       </div>
 
       {{-- Main Cards Container --}}
-      <div class="grid grid-cols-1 gap-6 mb-8">
+      <div class="grid grid-cols-1 gap-6 mb-10">
 
         {{-- Certificate Card --}}
-        <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-2">
-          <div class="flex items-center gap-3 mb-6">
-            <i class="fa-solid fa-certificate text-3xl text-yellow-500"></i>
-            <h2 class="text-2xl font-bold text-gray-900">Sertifikat Kamu</h2>
-          </div>
-
+        <div class="glass-card rounded-2xl p-6 fade-in fade-in-delay-2">
           @if($canDownloadCertificate)
             @if($downloadUrl)
-              <div class="mb-6">
-                <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-4 mb-4">
-                  <div class="flex items-start gap-3">
-                    <i class="fa-solid fa-circle-check text-2xl text-green-600"></i>
-                    <div>
-                      <p class="font-bold text-green-900 mb-1">Selamat! 🎊</p>
-                      <p class="text-sm text-green-700">
-                        Kamu telah memenuhi syarat untuk mengunduh sertifikat Basic Listening.
-                      </p>
-                    </div>
-                  </div>
+              <div class="mb-4 text-center">
+                <div class="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
+                  <p class="font-semibold text-green-900">Sertifikat siap diunduh.</p>
                 </div>
 
-                {{-- Certificate Preview Image --}}
-                <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 mb-4 border-2 border-indigo-100">
-                  <div class="text-center">
-                    <i class="fa-solid fa-award text-6xl text-indigo-600 mb-3"></i>
-                    <p class="text-sm font-semibold text-gray-700">Sertifikat Basic Listening</p>
-                    <p class="text-xs text-gray-500 mt-1">Siap untuk diunduh</p>
-                  </div>
-                </div>
-
-                <div class="space-y-3">
+                <div class="space-y-2">
                   <a href="{{ $downloadUrl }}"
-                     class="btn-primary w-full flex items-center justify-center gap-3 rounded-xl px-6 py-4 text-base font-bold text-white shadow-lg relative z-10">
-                    <i class="fa-solid fa-download text-xl"></i>
-                    <span class="relative z-10">Unduh Sertifikat</span>
+                     class="btn-primary w-full flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold text-white shadow">
+                    <i class="fa-solid fa-download text-lg"></i>
+                    <span>Unduh Sertifikat</span>
                   </a>
                   <a href="{{ $previewUrl }}"
-                     class="btn-secondary w-full flex items-center justify-center gap-3 rounded-xl px-6 py-4 text-base font-bold text-indigo-700">
-                    <i class="fa-regular fa-file-pdf text-xl"></i>
-                    Lihat Preview di Browser
+                     class="btn-secondary w-full flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold text-indigo-700">
+                    <i class="fa-regular fa-file-pdf text-lg"></i>
+                    <span>Preview di Browser</span>
                   </a>
                 </div>
 
-                <p class="text-xs text-gray-500 mt-4 text-center">
-                  <i class="fa-solid fa-info-circle"></i>
-                  Jika download tidak otomatis, gunakan tombol preview lalu unduh dari viewer PDF
+                <p class="text-xs text-gray-500 mt-3">
+                  Jika unduhan tidak berjalan, gunakan tombol preview lalu unduh dari viewer PDF.
                 </p>
               </div>
             @else
-              <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
-                <div class="flex items-start gap-3">
-                  <i class="fa-solid fa-triangle-exclamation text-2xl text-amber-600"></i>
-                  <div>
-                    <p class="font-bold text-amber-900 mb-1">Route Belum Tersedia</p>
-                    <p class="text-sm text-amber-700">
-                      Route <code class="bg-amber-100 px-2 py-1 rounded">bl.certificate.download</code> belum dikonfigurasi. 
-                      Hubungi administrator untuk mengaktifkan fitur download.
-                    </p>
-                  </div>
-                </div>
+              <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                Route <code class="bg-amber-100 px-2 py-1 rounded">bl.certificate.download</code> belum tersedia. Hubungi admin.
               </div>
             @endif
           @else
-            <div class="bg-orange-50 border-2 border-orange-200 rounded-2xl p-4">
-              <div class="flex items-start gap-3">
-                <i class="fa-solid fa-lock text-2xl text-orange-600"></i>
-                <div>
-                  <p class="font-bold text-orange-900 mb-1">Sertifikat Belum Tersedia</p>
-                  <p class="text-sm text-orange-700">
-                    Nilai attendance atau final belum lengkap. Pastikan semua persyaratan terpenuhi untuk mendapatkan sertifikat.
-                  </p>
-                </div>
-              </div>
+            <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 text-sm text-orange-800">
+              Sertifikat belum tersedia. Pastikan nilai attendance/final sudah lengkap.
             </div>
           @endif
         </div>
@@ -345,10 +306,10 @@
 
   {{-- Confetti Script --}}
   <script>
-    // ===== Confetti Animation =====
+    // Confetti party (heavy)
     (function(){
       const colors = ['#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6','#14b8a6','#f97316','#ec4899'];
-      const count = 150;
+      const count = 160;
       const minDur = 5;
       const maxDur = 10;
 
@@ -368,37 +329,18 @@
         el.addEventListener('animationend', () => el.remove());
       }
 
-      // Spawn confetti on load
+      // Initial burst
       for(let i = 0; i < count; i++) {
-        setTimeout(() => spawnPiece(), i * 30);
+        setTimeout(() => spawnPiece(), i * 15);
       }
 
-      // Add more confetti periodically
+      // Ongoing bursts
       setInterval(() => {
-        for(let i = 0; i < 20; i++) {
-          setTimeout(() => spawnPiece(), i * 50);
+        for(let i = 0; i < 40; i++) {
+          setTimeout(() => spawnPiece(), i * 25);
         }
-      }, 3000);
+      }, 2500);
     })();
-
-    // ===== Stats Counter Animation =====
-    document.addEventListener('DOMContentLoaded', () => {
-      const statNumbers = document.querySelectorAll('.stat-number');
-      statNumbers.forEach(stat => {
-        const target = parseInt(stat.textContent);
-        let current = 0;
-        const increment = target / 50;
-        const timer = setInterval(() => {
-          current += increment;
-          if (current >= target) {
-            stat.textContent = target;
-            clearInterval(timer);
-          } else {
-            stat.textContent = Math.floor(current);
-          }
-        }, 20);
-      });
-    });
   </script>
 
 </body>

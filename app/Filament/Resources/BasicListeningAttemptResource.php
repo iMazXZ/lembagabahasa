@@ -36,6 +36,7 @@ use Filament\Tables\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Artisan;
+use Carbon\Carbon;
 
 class BasicListeningAttemptResource extends Resource
 {
@@ -196,7 +197,8 @@ class BasicListeningAttemptResource extends Resource
                 Tables\Columns\TextColumn::make('session.title')
                     ->label('Sesi')
                     ->limit(20)
-                    ->tooltip(fn ($state) => $state),
+                    ->tooltip(fn ($state) => $state)
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('score')
                     ->label('Skor')
@@ -214,13 +216,42 @@ class BasicListeningAttemptResource extends Resource
                     ->label('Kode')
                     ->badge()
                     ->color('gray')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('started_at')
+                    ->label('Mulai')
+                    ->dateTime('d M H:i')
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('expires_at')
+                    ->label('Sisa Waktu')
+                    ->state(function ($record) {
+                        if ($record->submitted_at) return 'Selesai';
+                        if (! $record->expires_at) return '—';
+                        $diff = $record->expires_at->diffInSeconds(Carbon::now(), false);
+                        if ($diff <= 0) return 'Habis';
+                        $minutes = floor($diff / 60);
+                        $seconds = $diff % 60;
+                        return sprintf('%02d:%02d', $minutes, $seconds);
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'Selesai' => 'success',
+                        'Habis'   => 'danger',
+                        default   => 'warning',
+                    })
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('submitted_at')
                     ->label('Submit')
                     ->dateTime('d M H:i')
                     ->sortable()
-                    ->placeholder('Belum'),
+                    ->placeholder('Belum')
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('prody_id')

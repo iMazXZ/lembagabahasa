@@ -393,13 +393,25 @@ class BlSurveyController extends Controller
     /** Reset pilihan di session */
     public function resetChoice(Request $request)
     {
+        $userId = (int) auth()->id();
+
+        // Hapus seluruh response & jawaban final (target=null) milik user agar benar-benar mulai ulang.
+        $responses = \App\Models\BasicListeningSurveyResponse::query()
+            ->where('user_id', $userId)
+            ->whereNull('session_id') // final (bukan per-sesi)
+            ->get();
+
+        foreach ($responses as $resp) {
+            $resp->delete(); // booted() akan menghapus answers
+        }
+
         $request->session()->forget([
             'bl_selected_tutor_id',
             'bl_selected_tutor_ids',
             'bl_selected_supervisor_id',
         ]);
 
-        return redirect()->route('bl.survey.start')->with('success', 'Pilihan telah direset.');
+        return redirect()->route('bl.survey.start')->with('success', 'Kuesioner direset. Silakan pilih tutor/supervisor kembali.');
     }
 
     /**
@@ -416,7 +428,8 @@ class BlSurveyController extends Controller
             ->all();
 
         if (empty($categories)) {
-            $categories = ['tutor', 'supervisor', 'institute'];
+            // Fallback urutan default
+            $categories = ['tutor', 'materi', 'supervisor', 'institute'];
         }
 
         foreach ($categories as $cat) {

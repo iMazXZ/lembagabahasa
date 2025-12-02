@@ -3,7 +3,13 @@
 @section('title', 'Part 1: Kuesioner ' . ucfirst($survey->category))
 
 @push('styles')
-<style>
+  <style>
+  /* Hide global navbar & footer for survey flow */
+  body > nav,
+  body > footer{
+    display: none !important;
+  }
+
   /* ==== Hero Gradient Animation ==== */
   .hero-survey {
     background: linear-gradient(-45deg, #4f46e5, #6366f1, #7c3aed, #8b5cf6, #0ea5e9);
@@ -31,22 +37,6 @@
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: .5; }
-  }
-
-  /* ==== Progress Bar ==== */
-  .progress-bar {
-    height: 6px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 9999px;
-    overflow: hidden;
-    position: relative;
-  }
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #34d399, #10b981);
-    border-radius: 9999px;
-    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
   }
 
   /* ==== Alert Boxes ==== */
@@ -145,19 +135,31 @@
   }
 
   /* ==== Likert Scale Radio Buttons ==== */
+  .likert-options{
+    display: grid;
+    grid-template-columns: repeat(5, minmax(48px, 1fr));
+    gap: 0.65rem;
+    justify-items: center;
+  }
+  @media (min-width: 768px){
+    .likert-options{
+      gap: 0.75rem;
+      justify-items: start;
+    }
+  }
   .likert-option {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-    padding: 1rem;
+    padding: 0.9rem 0.75rem;
     border: 2px solid #e5e7eb;
     border-radius: 0.875rem;
     cursor: pointer;
     transition: all 0.3s ease;
     background: white;
-    min-width: 70px;
+    width: 100%;
   }
   .likert-option:hover {
     border-color: #c7d2fe;
@@ -346,7 +348,7 @@
     color: #6b7280;
     font-weight: 500;
   }
-</style>
+  </style>
 @endpush
 
 @section('content')
@@ -367,7 +369,7 @@
       <div class="flex flex-wrap items-center gap-3 text-sm md:text-base">
         <div class="flex items-center gap-2">
           <i class="fa-solid fa-user-check"></i>
-          <span class="text-blue-100">Penilaian untuk</span>
+          <span class="text-blue-100">Kuesioner</span>
           <span class="font-bold">{{ ucfirst($survey->category) }}</span>
         </div>
         
@@ -379,21 +381,6 @@
         @endif
       </div>
 
-      {{-- Progress Bar --}}
-      @php
-        $totalQuestions = $survey->questions->count();
-        $answeredCount = isset($answers) ? (is_array($answers) ? count(array_filter($answers)) : $answers->count()) : 0;
-        $progressPercent = $totalQuestions > 0 ? ($answeredCount / $totalQuestions) * 100 : 0;
-      @endphp
-      <div class="mt-6">
-        <div class="flex items-center justify-between text-xs font-medium mb-2">
-          <span>Progress Pengisian</span>
-          <span>{{ $answeredCount }}/{{ $totalQuestions }} Pertanyaan</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: {{ $progressPercent }}%"></div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -476,7 +463,7 @@
                 <span class="scale-label">Sangat Tidak Setuju</span>
                 <span class="scale-label">Sangat Setuju</span>
               </div>
-              <div class="flex flex-wrap gap-3 justify-center md:justify-start">
+              <div class="likert-options">
                 @for($i=1; $i<=5; $i++)
                   <label class="likert-option">
                     <input
@@ -516,13 +503,9 @@
       {{-- Action Buttons --}}
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t-2 border-gray-100 fade-in">
         <div class="flex items-center gap-3">
-          <a href="{{ route('bl.survey.required') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-arrow-left"></i>
-            <span class="relative z-10">Kembali</span>
-          </a>
           <a href="{{ route('bl.survey.reset-choice') }}" class="btn btn-ghost">
             <i class="fa-solid fa-rotate-left"></i>
-            <span class="relative z-10">Reset Pilihan</span>
+            <span class="relative z-10">Riset Kuesioner</span>
           </a>
         </div>
         

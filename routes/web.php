@@ -282,6 +282,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/bl/survey/reset-choice', [BlSurveyController::class, 'resetChoice'])
         ->name('bl.survey.reset-choice');
+
+    // Export hasil survey (PDF)
+    Route::get('/bl/survey-results/export', [\App\Http\Controllers\BlSurveyResultsExportController::class, '__invoke'])
+        ->name('bl.survey-results.export');
 });
 
 /*

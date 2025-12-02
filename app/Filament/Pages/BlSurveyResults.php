@@ -13,6 +13,7 @@ use Filament\Forms\Form;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -21,6 +22,8 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 
 class BlSurveyResults extends Page implements HasForms, HasTable
 {
@@ -59,6 +62,13 @@ class BlSurveyResults extends Page implements HasForms, HasTable
     {
         $options = $this->categoryOptions();
         $this->category = array_key_first($options) ?? 'tutor';
+        $this->tutorId = null;
+        $this->supervisorId = null;
+        $this->form->fill([
+            'category'    => $this->category,
+            'tutorId'     => $this->tutorId,
+            'supervisorId'=> $this->supervisorId,
+        ]);
     }
 
     /** =========================
@@ -73,8 +83,10 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->options(fn () => $this->categoryOptions())
                     ->default(fn () => array_key_first($this->categoryOptions()))
                     ->live()
-                    ->afterStateUpdated(function () {
+                    ->afterStateUpdated(function ($state, Set $set) {
                         // Reset child filter ketika kategori berubah
+                        $set('tutorId', null);
+                        $set('supervisorId', null);
                         $this->tutorId = null;
                         $this->supervisorId = null;
                         if (method_exists($this, 'resetTable')) {
@@ -93,7 +105,10 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->searchable()
                     ->preload()
                     ->live()
-                    ->afterStateUpdated(fn () => method_exists($this, 'resetTable') ? $this->resetTable() : null)
+                    ->afterStateUpdated(function ($state) {
+                        $this->tutorId = $state ? (int) $state : null;
+                        if (method_exists($this, 'resetTable')) $this->resetTable();
+                    })
                     ->columnSpan(6),
 
                 Forms\Components\Select::make('supervisorId')
@@ -106,7 +121,10 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->searchable()
                     ->preload()
                     ->live()
-                    ->afterStateUpdated(fn () => method_exists($this, 'resetTable') ? $this->resetTable() : null)
+                    ->afterStateUpdated(function ($state) {
+                        $this->supervisorId = $state ? (int) $state : null;
+                        if (method_exists($this, 'resetTable')) $this->resetTable();
+                    })
                     ->columnSpan(6),
             ]),
         ]);
@@ -200,18 +218,10 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             if ($this->tutorId) {
                 $q->where('basic_listening_survey_responses.tutor_id', $this->tutorId);
             }
-            // Pastikan filter lembaga tidak ikut menempel
-            $this->supervisorId = null;
         } elseif ($this->category === 'supervisor') {
             if ($this->supervisorId) {
                 $q->where('basic_listening_survey_responses.supervisor_id', $this->supervisorId);
             }
-            // Pastikan filter tutor tidak ikut menempel
-            $this->tutorId = null;
-        } elseif ($this->category === 'institute') {
-            // Mode institute: biasanya agregasi lembaga per-survey,
-            // tidak memfilter tutor spesifik.
-            $this->tutorId = null;
         }
 
         return $q;
@@ -259,6 +269,52 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         return [];
     }
 
+    /** Tombol header */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('exportPdf')
+                ->label('Export PDF')
+                ->icon('heroicon-o-arrow-down-on-square')
+                ->color('primary')
+                ->modalWidth('lg')
+                ->form([
+                    Select::make('category')
+                        ->label('Kategori')
+                        ->options(fn () => $this->categoryOptions())
+                        ->default(fn () => $this->category)
+                        ->reactive(),
+
+                    Select::make('tutor')
+                        ->label('Tutor (opsional)')
+                        ->options(fn () => User::query()
+                            ->role('tutor')
+                            ->orderBy('name')
+                            ->pluck('name', 'id'))
+                        ->searchable()
+                        ->preload()
+                        ->visible(fn (Get $get) => $get('category') === 'tutor'),
+
+                    Select::make('supervisor')
+                        ->label('Lembaga (opsional)')
+                        ->options(fn () => BasicListeningSupervisor::query()
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->pluck('name', 'id'))
+                        ->searchable()
+                        ->preload()
+                        ->visible(fn (Get $get) => in_array($get('category'), ['supervisor', 'institute'], true)),
+                ])
+                ->action(function (array $data) {
+                    return redirect()->route('bl.survey-results.export', [
+                        'category'   => $data['category'] ?? 'tutor',
+                        'tutor'      => $data['tutor'] ?? null,
+                        'supervisor' => $data['supervisor'] ?? null,
+                    ]);
+                }),
+        ];
+    }
+
     /** Ambil opsi kategori aktif, fallback ke default jika kosong */
     private function categoryOptions(): array
     {
@@ -271,6 +327,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
 
         return $options ?: [
             'tutor'      => 'Tutor',
+            'materi'     => 'Materi',
             'supervisor' => 'Supervisor',
             'institute'  => 'Lembaga',
         ];
