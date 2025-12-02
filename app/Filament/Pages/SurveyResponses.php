@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\BasicListeningSurveyResponse;
+use App\Models\BasicListeningCategory;
 use Filament\Pages\Page;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -36,10 +37,7 @@ class SurveyResponses extends Page implements HasTable
                 TextColumn::make('survey.category')
                     ->label('Kategori')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => match ($state) {
-                        'tutor' => 'Tutor', 'supervisor' => 'Supervisor', 'institute' => 'Lembaga',
-                        default => ucfirst($state),
-                    })
+                    ->formatStateUsing(fn ($state, $record) => $record->survey?->category_label ?? ucfirst((string) $state))
                     ->color(fn ($state) => match ($state) {
                         'tutor' => 'primary', 'supervisor' => 'success', 'institute' => 'info',
                         default => 'gray',
@@ -83,11 +81,7 @@ class SurveyResponses extends Page implements HasTable
                 \Filament\Tables\Filters\SelectFilter::make('category')
                     ->form(fn() => [
                         \Filament\Forms\Components\Select::make('category')
-                            ->options([
-                                'tutor' => 'Tutor',
-                                'supervisor' => 'Supervisor', 
-                                'institute' => 'Lembaga',
-                            ])
+                            ->options(fn () => $this->categoryOptions())
                     ])
                     ->query(function (Builder $query, array $data) {
                         if (!empty($data['category'])) {
@@ -122,5 +116,21 @@ class SurveyResponses extends Page implements HasTable
     public static function canAccess(): bool
     {
         return true;
+    }
+
+    private function categoryOptions(): array
+    {
+        $options = BasicListeningCategory::query()
+            ->where('is_active', true)
+            ->orderBy('position')
+            ->orderBy('id')
+            ->pluck('name', 'slug')
+            ->all();
+
+        return $options ?: [
+            'tutor'      => 'Tutor',
+            'supervisor' => 'Supervisor',
+            'institute'  => 'Lembaga',
+        ];
     }
 }

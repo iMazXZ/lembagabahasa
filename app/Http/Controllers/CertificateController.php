@@ -118,7 +118,8 @@ class CertificateController extends Controller
             ->where('require_for_certificate', true)
             ->where('target', 'final')      // default: survey akhir
             ->where('is_active', true)
-            ->latest('id')
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
             ->first();
 
         // Jika tidak ada kuesioner aktif → tidak membatasi

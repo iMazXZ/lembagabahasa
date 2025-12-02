@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\BasicListeningCategory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\{HasMany, BelongsTo};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,6 +21,7 @@ class BasicListeningSurvey extends Model
         'ends_at',
         'is_active',
         'category',
+        'sort_order',
     ];
 
     protected $casts = [
@@ -28,6 +30,7 @@ class BasicListeningSurvey extends Model
         'starts_at'               => 'datetime',
         'ends_at'                 => 'datetime',
         'category'                => 'string',
+        'sort_order'              => 'integer',
     ];
 
     /** Pertanyaan-pertanyaan pada survey ini */
@@ -49,6 +52,12 @@ class BasicListeningSurvey extends Model
         return $this->belongsTo(BasicListeningSession::class, 'session_id');
     }
 
+    /** Relasi ke master kategori (berdasarkan slug) */
+    public function categoryDefinition(): BelongsTo
+    {
+        return $this->belongsTo(BasicListeningCategory::class, 'category', 'slug');
+    }
+
     public function scopeRequiredFinal($q) {
         return $q->where('require_for_certificate', true)
                 ->where('target', 'final')
@@ -63,5 +72,15 @@ class BasicListeningSurvey extends Model
         if ($this->starts_at && $now->lt($this->starts_at)) return false;
         if ($this->ends_at && $now->gt($this->ends_at)) return false;
         return true;
+    }
+
+    /** Label kategori yang user-friendly */
+    public function getCategoryLabelAttribute(): string
+    {
+        if ($this->relationLoaded('categoryDefinition') && $this->categoryDefinition) {
+            return $this->categoryDefinition->name;
+        }
+
+        return ucfirst((string) $this->category);
     }
 }

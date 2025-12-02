@@ -66,7 +66,7 @@ class BlSurveyController extends Controller
 
     /**
      * GET /bl/survey/required
-     * Arahkan user ke survey wajib berikutnya (tutor → supervisor → institute)
+     * Arahkan user ke survey wajib berikutnya (urut sesuai master kategori aktif)
      */
     public function redirectToRequired(Request $request)
     {
@@ -408,7 +408,16 @@ class BlSurveyController extends Controller
      */
     private function nextPendingSurveyFor(Request $request, int $userId): ?BasicListeningSurvey
     {
-        $categories = ['tutor', 'supervisor', 'institute'];
+        $categories = \App\Models\BasicListeningCategory::query()
+            ->where('is_active', true)
+            ->orderBy('position')
+            ->orderBy('id')
+            ->pluck('slug')
+            ->all();
+
+        if (empty($categories)) {
+            $categories = ['tutor', 'supervisor', 'institute'];
+        }
 
         foreach ($categories as $cat) {
             $survey = BasicListeningSurvey::query()
@@ -416,7 +425,8 @@ class BlSurveyController extends Controller
                 ->where('target', 'final')
                 ->where('category', $cat)
                 ->where('is_active', true)
-                ->latest('id')
+                ->orderBy('sort_order')
+                ->orderByDesc('id')
                 ->first();
 
             if (! $survey || ! $survey->isOpen()) {

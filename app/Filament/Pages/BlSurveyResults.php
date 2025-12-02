@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\BasicListeningSurvey;
 use App\Models\BasicListeningSurveyAnswer;
 use App\Models\BasicListeningSurveyResponse;
+use App\Models\BasicListeningCategory;
 use App\Models\BasicListeningSupervisor;
 use App\Models\User;
 use Filament\Forms;
@@ -50,13 +51,14 @@ class BlSurveyResults extends Page implements HasForms, HasTable
     }
 
     /** ====== State filter ====== */
-    public ?string $category = 'tutor'; // tutor|supervisor|institute
+    public ?string $category = 'tutor'; // default di-set ke kategori aktif pertama
     public ?int $tutorId = null;
     public ?int $supervisorId = null;
 
     public function mount(): void
     {
-        $this->category ??= 'tutor';
+        $options = $this->categoryOptions();
+        $this->category = array_key_first($options) ?? 'tutor';
     }
 
     /** =========================
@@ -68,12 +70,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             Forms\Components\Grid::make(12)->schema([
                 Forms\Components\Select::make('category')
                     ->label('Kategori')
-                    ->options([
-                        'tutor'      => 'Tutor',
-                        'supervisor' => 'Supervisor',
-                        'institute'  => 'Lembaga',
-                    ])
-                    ->default('tutor')
+                    ->options(fn () => $this->categoryOptions())
+                    ->default(fn () => array_key_first($this->categoryOptions()))
                     ->live()
                     ->afterStateUpdated(function () {
                         // Reset child filter ketika kategori berubah
@@ -163,7 +161,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         $survey = BasicListeningSurvey::query()
             ->where('category', $this->category)
             ->where('is_active', true)
-            ->latest('id')
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
             ->first();
 
         if (! $survey) {
@@ -224,7 +223,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         $survey = BasicListeningSurvey::query()
             ->where('category', $this->category)
             ->where('is_active', true)
-            ->latest('id')
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
             ->first();
 
         if (! $survey) {
@@ -257,5 +257,22 @@ class BlSurveyResults extends Page implements HasForms, HasTable
     public function getHeaderWidgets(): array
     {
         return [];
+    }
+
+    /** Ambil opsi kategori aktif, fallback ke default jika kosong */
+    private function categoryOptions(): array
+    {
+        $options = BasicListeningCategory::query()
+            ->where('is_active', true)
+            ->orderBy('position')
+            ->orderBy('id')
+            ->pluck('name', 'slug')
+            ->all();
+
+        return $options ?: [
+            'tutor'      => 'Tutor',
+            'supervisor' => 'Supervisor',
+            'institute'  => 'Lembaga',
+        ];
     }
 }

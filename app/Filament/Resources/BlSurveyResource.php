@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\BlSurveyResource\Pages;
 use App\Filament\Resources\BlSurveyResource\RelationManagers\QuestionsRelationManager;
+use App\Models\BasicListeningCategory;
 use App\Models\BasicListeningSurvey;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -42,12 +43,12 @@ class BlSurveyResource extends Resource
 
                     Forms\Components\Select::make('category')
                         ->label('Kategori')
-                        ->options([
-                            'tutor' => 'Tutor',
-                            'supervisor' => 'Supervisor',
-                            'institute' => 'Lembaga',
-                        ])
-                        ->default('tutor')
+                        ->options(fn () => BasicListeningCategory::query()
+                            ->orderBy('position')
+                            ->orderBy('id')
+                            ->pluck('name', 'slug'))
+                        ->searchable()
+                        ->preload()
                         ->required(),
 
                     Forms\Components\Select::make('target')
@@ -58,6 +59,13 @@ class BlSurveyResource extends Resource
                         ])
                         ->default('final')
                         ->required(),
+
+                    Forms\Components\TextInput::make('sort_order')
+                        ->label('Urutan Kuesioner')
+                        ->numeric()
+                        ->default(0)
+                        ->helperText('Semakin kecil semakin prioritas jika ada kuesioner aktif dengan kategori yang sama.')
+                        ->nullable(),
                 ])
                 ->columns(2),
 
@@ -94,16 +102,11 @@ class BlSurveyResource extends Resource
                 BadgeColumn::make('category')
                     ->label('Kategori')
                     ->colors([
-                        'primary' => 'tutor',
+                        'primary',
                         'success' => 'supervisor',
                         'info' => 'institute',
                     ])
-                    ->formatStateUsing(fn($state) => match($state) {
-                        'tutor' => 'Tutor',
-                        'supervisor' => 'Supervisor',
-                        'institute' => 'Lembaga',
-                        default => Str::ucfirst($state),
-                    }),
+                    ->formatStateUsing(fn($state, $record) => $record->category_label ?? Str::ucfirst($state)),
 
                 TextColumn::make('target')
                     ->label('Target')
@@ -113,6 +116,11 @@ class BlSurveyResource extends Resource
                         'warning' => 'session',
                     ])
                     ->formatStateUsing(fn($state) => $state === 'final' ? 'Final' : 'Per Pertemuan'),
+
+                TextColumn::make('sort_order')
+                    ->label('Urutan')
+                    ->sortable()
+                    ->toggleable(),
 
                 ToggleColumn::make('is_active')
                     ->label('Aktif')
@@ -136,11 +144,10 @@ class BlSurveyResource extends Resource
             ->filters([
                 SelectFilter::make('category')
                     ->label('Kategori')
-                    ->options([
-                        'tutor' => 'Tutor',
-                        'supervisor' => 'Supervisor',
-                        'institute' => 'Lembaga',
-                    ]),
+                    ->options(fn () => BasicListeningCategory::query()
+                        ->orderBy('position')
+                        ->orderBy('id')
+                        ->pluck('name', 'slug')),
 
                 SelectFilter::make('target')
                     ->label('Target')
@@ -176,7 +183,8 @@ class BlSurveyResource extends Resource
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ])
-            ->defaultSort('id', 'desc');
+            ->defaultSort('sort_order')
+            ->defaultPaginationPageOption(25);
     }
 
     public static function getRelations(): array

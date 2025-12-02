@@ -32,7 +32,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Sertifikat Basic Listening</title>
+  <title>Sertifikat Basic Listening - {{ $user->name }}</title>
   <style>
     /* ---------- HALAMAN A4 ---------- */
     @page { size: A4; margin: 0; }
@@ -53,27 +53,42 @@
     }
 
     /* ---------- KANVAS UTAMA (lebih pendek agar pasti 1 halaman) ---------- */
-    .certificate-container{
+    /* .certificate-container{
         width: 210mm;
-        height: 287mm;               /* bleed 10mm dari A4 untuk aman */
+        height: 287mm;
         position: relative;
         background: #fff;
         overflow: hidden;
         box-sizing: border-box;
-    }
+    } */
     .content-wrapper{ padding: 8mm 12mm; }
 
     /* ---------- WATERMARK ---------- */
     .watermark{
-        position:absolute; top:50%; left:50%;
+        position:absolute; top:56%; left:50%;
         transform: translate(-50%, -50%);
-        font-size: 58px;
+        font-size: 65px;
         font-weight: 900;
-        color: rgba(52,152,219,0.06);
+        color: rgba(52,152,219,0.2);
         z-index:1;
         white-space: nowrap;
         pointer-events: none;
         user-select: none;
+    }
+
+    /* ---------- GRADE BACKDROP ---------- */
+    .grade-floating{
+        position:absolute;
+        left:-20mm; bottom:-30mm;
+        font-size:380px;
+        font-weight:900;
+        line-height:1;
+        letter-spacing:-5px;
+        color: rgba(44,62,80,0.08);
+        /* transform: rotate(-7deg); */
+        z-index:2;
+        pointer-events:none;
+        user-select:none;
     }
 
     /* ---------- HEADER ---------- */
@@ -87,14 +102,14 @@
         z-index:3;
     }
     .institution-info{ display: table-cell; width: 60%; vertical-align: top; }
-    .logo{ width: 35px; height: 35px; margin-right: 2mm; float:left; display:block; }
+    .logo{ width: 42px; height: 42px; margin-right: 2mm; float:left; display:block; }
     .institution-text{ overflow:hidden; }
-    .institution-name{ font-size:14px; font-weight:700; }
-    .institution-department{ font-size:9px; color:var(--muted); }
+    .institution-name{ font-size:21px; font-weight:500; letter-spacing: -0.2px; }
+    .institution-department{ font-size:11px; color:var(--muted); }
 
     .verification-header{
         display: table-cell; width: 40%;
-        vertical-align: top; text-align:right;
+        vertical-align: bottom; text-align:right;
         font-size: 7px; color:var(--muted); line-height:1;
         word-break: break-word;
     }
@@ -104,30 +119,31 @@
     .main-content{ text-align:center; position:relative; z-index:3; }
 
     .certificate-title{ margin: 12mm 0 7mm 0; }
-    .title-main{ font-size:28px; font-weight:800; color:var(--brand); letter-spacing:1.6px; margin-bottom:1mm; }
+    .title-main{ font-size:35px; font-weight:800; color:var(--brand); letter-spacing:1.6px; margin-bottom:1mm; margin-top:5mm; }
     .title-sub{ font-size:12px; }
 
     .participant-name-container{ margin: 7mm 0; }
-    .participant-name{ font-size:24px; font-weight:900; color:var(--ink); margin-bottom:3.5mm; }
+    .participant-name{ font-size:24px; font-weight:900; color:var(--ink);}
+    .participant-prody{ font-size:12px; color:var(--muted); margin-bottom:3.5mm; }
     .participant-details{ font-size:10px; color:#6c757d; line-height:1.4; }
     .certificate-number{ font-size:12px; color:#6c757d; line-height:1; }
     .participant-details strong{ color:var(--ink); font-weight:700; }
 
     .title-description{ font-size:10px; color:#6c757d; margin-top:7mm; }
 
-    .scores-section{ margin:5mm auto 0 auto; width:82%; }
+    .scores-section{ margin:10mm auto 0 auto; width:82%; }
     table{ border-collapse:collapse; }
-    .scores-table{ width:100%; font-size:12px; }
+    .scores-table{ width:100%; font-size:14px; }
     .scores-table th, .scores-table td{ padding:3px 5px; border-bottom:1px dashed #dee2e6; }
     .scores-table th{ color:#6c757d; background:#f8f9fa; text-align:left; }
     .scores-table td.num-center{ text-align:center; }
     .scores-table td.num-right{ text-align:right; }
 
     .grade-row td{
-        font-weight:800; font-size:12px; padding-top:4px;
+        font-weight:800; font-size:20px; padding-top:4px;
         border-top:1px solid var(--brand);
     }
-    .grade-value{ font-size:14px; font-weight:900; color: {{ $gradeColor }}; }
+    .grade-value{ font-size:20px; font-weight:900; color: {{ $gradeColor }}; }
 
     /* ---------- FOOTER: SIG-CARD (sesuai referensi kamu) ---------- */
     .footer{
@@ -198,6 +214,9 @@
 <body>
   <div class="certificate-container">
     <div class="watermark">CERTIFICATE</div>
+    <div class="grade-floating" style="color: {{ $gradeColor }}; opacity: 0.14;">
+      {{ strtoupper($finalLetter) }}
+    </div>
 
     <div class="content-wrapper">
       {{-- HEADER --}}
@@ -207,14 +226,14 @@
             <img class="logo" src="{{ $logoSrc }}" alt="Logo Institusi">
           @endif
           <div class="institution-text">
-            <div class="institution-name">Universitas Muhammadiyah Metro</div>
-            <div class="institution-department">Lembaga Bahasa</div>
+            <div class="institution-name">Lembaga Bahasa</div>
+            <div class="institution-department">Universitas Muhammadiyah Metro</div>
           </div>
         </div>
 
         <div class="verification-header">
-          Dokumen ini sah dan terverifikasi elektronik.<br>
-          <strong>Kode Verifikasi:</strong> {{ $verificationCode }}<br>
+          This document is authentic and electronically verified<br>
+          <strong>Code:</strong> {{ $verificationCode }}<br>
           <strong>URL:</strong> {{ $verificationUrl }}
         </div>
       </div>
@@ -223,60 +242,54 @@
       <div class="main-content avoid-break">
         <div class="certificate-title">
           <div class="title-main">Certificate of Completion</div>
-          <div class="certificate-number" style="margin-bottom:4mm;">
-            <strong>Nomor :</strong> {{ $certificateNumber }}
-          </div>
-          <div class="title-sub" style="margin-top:8mm;">Diberikan Kepada</div>
+            <div class="certificate-number" style="margin-bottom:4mm;">
+            <strong>Number:</strong> {{ $certificateNumber }}
+            </div>
+            <div class="title-sub" style="margin-top:8mm;">Awarded to</div>
         </div>
 
         <div class="participant-name-container">
-          <div class="participant-name">{{ $user->name }}</div>
+            <div class="participant-name">{{ strtoupper($user->name) }}</div>
+            <div class="participant-prody">{{ $user->prody->name ?? '—' }} ({{ $user->year ?? '-' }})</div>
+            <div class="participant-details">
+            <strong>SRN:</strong> {{ $user->srn }}
+            &nbsp;|&nbsp; <strong>Issue Date:</strong> {{ $issuedAt->timezone(config('app.timezone','Asia/Jakarta'))->format('d F Y') }}
+            </div>
 
-          <div class="participant-details">
-            <strong>NPM:</strong> {{ $user->srn }}
-            &nbsp;|&nbsp; <strong>Angkatan:</strong> {{ $user->year ?? '-' }}
-            &nbsp;|&nbsp; <strong>Tanggal Terbit:</strong> {{ $issuedAt->timezone(config('app.timezone','Asia/Jakarta'))->format('d F Y') }}
-          </div>
-
-          <div class="title-description">
-            Atas keberhasilannya menyelesaikan <strong>Basic Listening Course</strong> dengan nilai:
-          </div>
+            <div class="title-description">
+            For successfully completing the <strong>Basic Listening Course</strong> with a score of:
+            </div>
         </div>
 
         <div class="scores-section avoid-break">
           <table class="scores-table">
             <thead>
               <tr>
-                <th style="width: 50%;">Komponen Penilaian</th>
-                <th style="width: 25%; text-align:center;">Nilai</th>
-                <th style="width: 25%; text-align:right;">Bobot (%)</th>
+                <th style="width: 50%;">Assessment Components</th>
+                <th style="width: 25%; text-align:center;">Score</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>Attendance</td>
                 <td class="num-center">{{ number_format($attendance, 0) }}</td>
-                <td class="num-right">20%</td>
               </tr>
               <tr>
                 <td>Daily Average</td>
                 <td class="num-center">{{ is_numeric($daily) ? number_format($daily, 2) : '—' }}</td>
-                <td class="num-right">40%</td>
               </tr>
               <tr>
                 <td>Final Test</td>
                 <td class="num-center">{{ number_format($finalTest, 0) }}</td>
-                <td class="num-right">40%</td>
               </tr>
 
               <tr class="grade-row">
                 <td>FINAL SCORE</td>
                 <td class="num-center">{{ number_format($finalNumeric, 2) }}</td>
-                <td class="num-right">100%</td>
               </tr>
               <tr class="grade-row">
                 <td>GRADE</td>
-                <td colspan="2" class="grade-value" style="text-align:center;">
+                <td class="grade-value" style="text-align:center;">
                   {{ $finalLetter }}
                 </td>
               </tr>
