@@ -37,6 +37,7 @@ use App\Http\Controllers\TutorDashboardController;
 use App\Http\Controllers\DashboardPasswordController;
 use App\Http\Controllers\Dashboard\SubmitEptScoreController;
 use App\Http\Controllers\Dashboard\TranslationController;
+use App\Http\Controllers\TutorMahasiswaBulkExportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -223,6 +224,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/basic-listening/history/{attempt}', [BasicListeningHistoryController::class, 'show'])
         ->whereNumber('attempt')
         ->name('bl.history.show');
+
+    Route::get('/bl/tutor-mahasiswa/export', TutorMahasiswaBulkExportController::class)
+        ->middleware('signed')
+        ->name('bl.tutor-mahasiswa.export');
 });
 
 /*

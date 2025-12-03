@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
 use Filament\Tables\Actions\ActionGroup;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TutorMahasiswaTemplateExport;
+use App\Filament\Pages\TutorMahasiswaBulkInput;
 
 class TutorMahasiswa extends Page implements HasTable
 {
@@ -637,6 +638,17 @@ class TutorMahasiswa extends Page implements HasTable
                 ->url(route('filament.admin.pages.2') ?? '#')
                 ->color('gray')
                 ->icon('heroicon-o-arrow-left'),
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('bulk_input_page')
+                ->label('Input Nilai (Halaman)')
+                ->icon('heroicon-o-document-plus')
+                ->color('primary')
+                ->url(TutorMahasiswaBulkInput::getUrl()),
         ];
     }
 

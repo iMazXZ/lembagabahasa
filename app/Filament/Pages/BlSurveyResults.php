@@ -112,12 +112,12 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->columnSpan(6),
 
                 Forms\Components\Select::make('supervisorId')
-                    ->label('Pilih Lembaga')
+                    ->label('Pilih Supervisor')
                     ->options(fn () => BasicListeningSupervisor::query()
                         ->where('is_active', true)
                         ->orderBy('name')
                         ->pluck('name', 'id'))
-                    ->visible(fn (Get $get) => in_array($get('category'), ['supervisor', 'institute'], true))
+                    ->visible(fn (Get $get) => $get('category') === 'supervisor')
                     ->searchable()
                     ->preload()
                     ->live()
@@ -285,6 +285,29 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                         ->default(fn () => $this->category)
                         ->reactive(),
 
+                    Forms\Components\ToggleButtons::make('mode')
+                        ->label('Mode export')
+                        ->options(fn (Get $get) => match ($get('category')) {
+                            'tutor' => [
+                                'per_entity' => 'Per Tutor (1 file, multi halaman)',
+                                'single'     => 'Tutor tertentu saja',
+                                'overall'    => 'Rekap keseluruhan',
+                            ],
+                            'supervisor' => [
+                                'per_entity' => 'Per Supervisor (1 file, multi halaman)',
+                                'single'     => 'Supervisor tertentu saja',
+                                'overall'    => 'Rekap keseluruhan',
+                            ],
+                            default => [
+                                'overall' => 'Rekap keseluruhan',
+                            ],
+                        })
+                        ->default(fn (Get $get) => in_array($get('category'), ['tutor', 'supervisor'], true) ? 'per_entity' : 'overall')
+                        ->live()
+                        ->inline()
+                        ->columnSpanFull()
+                        ->helperText('Pilih “Per …” untuk satu file dengan halaman terpisah per entitas, atau pilih salah satu entitas saja.'),
+
                     Select::make('tutor')
                         ->label('Tutor (opsional)')
                         ->options(fn () => User::query()
@@ -293,23 +316,29 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                             ->pluck('name', 'id'))
                         ->searchable()
                         ->preload()
-                        ->visible(fn (Get $get) => $get('category') === 'tutor'),
+                        ->visible(fn (Get $get) => $get('category') === 'tutor' && $get('mode') === 'single'),
 
                     Select::make('supervisor')
-                        ->label('Lembaga (opsional)')
+                        ->label('Supervisor (opsional)')
                         ->options(fn () => BasicListeningSupervisor::query()
                             ->where('is_active', true)
                             ->orderBy('name')
                             ->pluck('name', 'id'))
                         ->searchable()
                         ->preload()
-                        ->visible(fn (Get $get) => in_array($get('category'), ['supervisor', 'institute'], true)),
+                        ->visible(fn (Get $get) => $get('category') === 'supervisor' && $get('mode') === 'single'),
                 ])
                 ->action(function (array $data) {
+                    $mode = $data['mode'] ?? 'overall';
+                    $category = $data['category'] ?? 'tutor';
+                    $tutor = $mode === 'single' && $category === 'tutor' ? ($data['tutor'] ?? null) : null;
+                    $supervisor = $mode === 'single' && $category === 'supervisor' ? ($data['supervisor'] ?? null) : null;
+
                     return redirect()->route('bl.survey-results.export', [
-                        'category'   => $data['category'] ?? 'tutor',
-                        'tutor'      => $data['tutor'] ?? null,
-                        'supervisor' => $data['supervisor'] ?? null,
+                        'category'   => $category,
+                        'mode'       => $mode,
+                        'tutor'      => $tutor,
+                        'supervisor' => $supervisor,
                     ]);
                 }),
         ];

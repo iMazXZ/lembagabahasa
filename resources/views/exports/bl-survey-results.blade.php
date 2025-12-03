@@ -5,350 +5,290 @@
         'danger'  => '#ef4444',
     ];
 @endphp
-@php
-    $firstMeta = $segments[0]['meta'] ?? [
-        'surveyTitle' => 'Hasil Kuesioner',
-    ];
-@endphp
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Hasil Kuesioner - {{ $firstMeta['surveyTitle'] ?? 'Hasil Kuesioner' }}</title>
+  <title>Hasil Kuesioner Compact</title>
   <style>
+    /* 1. SETUP HALAMAN */
     @page {
       size: A4;
-      margin: 15mm;
+      margin: 10mm 15mm;
     }
-    *{ box-sizing:border-box; margin:0; padding:0; }
-    body{
-      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    
+    /* 2. RESET & FONT */
+    body {
+      font-family: sans-serif;
       font-size: 11px;
-      color: #1a1a1a;
-      margin: 20px;
-      padding: 0;
-      background: #fff;
-      line-height: 1.5;
-    }
-    .card{
-      padding:0;
-      margin-bottom:20px;
-      background:#fff;
-    }
-    .card.header-card{
-      border-bottom:2px solid #e0e0e0;
-      padding:0 0 20px 0;
-      margin-bottom:20px;
-    }
-    .card.content-card{
-      padding:20px;
-      border:1px solid #e0e0e0;
+      color: #111;
+      line-height: 1.3;
     }
     
-    /* Header 2 Kolom */
-    .header-container{
-      display:table;
-      width:100%;
-      table-layout:fixed;
+    table { border-collapse: collapse; width: 100%; }
+    
+    /* UTILITY */
+    .muted { color: #666; font-size: 10px; }
+    .text-right { text-align: right; }
+    
+    /* HEADER */
+    .header-table {
+      margin-bottom: 15px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 10px;
     }
-    .header-left{
-      display:table-cell;
-      width:55%;
-      vertical-align:top;
-      padding-right:25px;
-    }
-    .header-right{
-      display:table-cell;
-      width:45%;
-      vertical-align:middle;
-      padding-left:25px;
-      border-left:2px solid #e0e0e0;
-    }
-    h1{ 
-      margin:0 0 6px 0; 
-      font-size:20px; 
-      color:#1a1a1a; 
-      font-weight:700; 
-      letter-spacing: -0.3px;
-    }
-    .muted{ 
-      color:#666; 
-      font-size:10.5px; 
-      margin-bottom:15px;
-      display:block;
-      line-height:1.4;
-    }
-    .tutor-label{
-      font-size:10.5px;
-      color:#666;
-      margin-bottom:5px;
-      display:block;
-      margin-top:5px;
-    }
-    .tutor-name{
-      font-size:22px;
-      font-weight:700;
-      color:#1a1a1a;
+    .header-table td { vertical-align: bottom; }
+    
+    h1 {
+      font-size: 25px; 
+      font-weight: 800;
+      margin: 0;
+      color: #000;
       letter-spacing: -0.5px;
-      margin:0;
-      line-height:1.2;
     }
-    .meta-item{
-      font-size:11px;
-      line-height:1.8;
-      margin-bottom:2px;
-      color:#333;
-    }
-    .meta-item strong{
-      font-weight:600;
-      color:#1a1a1a;
+    .survey-title { 
+      font-size: 12px; 
+      font-weight: bold; 
+      margin-top: 4px; 
+      color: #333;
+      text-transform: uppercase;
     }
     
-    h2{ 
-      margin:0 0 14px 0; 
-      font-size:13px; 
-      color:#444; 
-      font-weight:600; 
+    /* CONTENT */
+    h2 {
+      font-size: 12px;
+      background-color: #eee;
+      padding: 5px;
+      margin: 0 0 10px 0;
+      font-weight: bold;
+      border-bottom: 1px solid #ccc;
+    }
+
+    /* ROW PERTANYAAN */
+    .question-row {
+      margin-bottom: 12px;
+      border-bottom: 1px dashed #ddd;
+      padding-bottom: 8px;
+    }
+    .question-row:last-child { border: none; }
+
+    /* Layout Pertanyaan */
+    .q-text { 
+      font-size: 13px; 
+      font-weight: bold; 
+      margin-bottom: 4px; 
+      display: block;
     }
     
-    .row{
-      margin-bottom:18px;
-      padding-bottom:14px;
-      border-bottom:1px solid #e5e5e5;
-      position:relative;
+    .q-meta {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 5px;
+      display: block;
     }
-    .row:last-child{
-      border-bottom:none;
-      margin-bottom:0;
-      padding-bottom:0;
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      color: #fff;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: bold;
+      float: right;
     }
-    
-    /* Question Header dengan Badge */
-    .question-header{
-      display:table;
-      width:100%;
-      margin-bottom:6px;
+    .bg-success { background: #10b981; }
+    .bg-warning { background: #f59e0b; color: #000; }
+    .bg-danger  { background: #ef4444; }
+
+    /* CHART: SEDERHANA & STABIL */
+    .chart-table {
+      width: 100%;
+      height: 60px;
+      table-layout: fixed;
     }
-    .question-text{
-      display:table-cell;
-      font-weight:500;
-      color:#1a1a1a;
-      font-size:11px;
-      line-height:1.5;
-      padding-right:10px;
-      vertical-align:top;
-    }
-    .question-badge{
-      display:table-cell;
-      text-align:right;
-      vertical-align:top;
-      white-space:nowrap;
-    }
-    .badge{
-      display:inline-block;
-      padding:3px 10px;
-      border-radius:12px;
-      font-size:9px;
-      font-weight:600;
-      color:#fff;
-      letter-spacing: 0.2px;
-    }
-    .badge-success{ background:#34a853; }
-    .badge-warning{ background:#fbbc04; color:#202124; }
-    .badge-danger{ background:#ea4335; }
-    
-    .stat-line{
-      font-size:10px;
-      color:#666;
-      margin-bottom:10px;
-    }
-    .stat-line span{
-      margin-right:12px;
+    .chart-cell {
+      vertical-align: bottom;
+      text-align: center;
+      padding: 0 2px;
+      height: 60px;
     }
     
-    /* Vertical Bar Chart - READABLE */
-    .vertical-chart{
-      margin-top:8px;
-      clear:both;
+    .bar-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
     }
-    .chart-container{
-      display:table;
-      width:100%;
-      height:85px;
-      border-bottom:2px solid #d0d0d0;
-      table-layout:fixed;
-    }
-    .chart-column{
-      display:table-cell;
-      vertical-align:bottom;
-      text-align:center;
-      width:20%;
-      position:relative;
-      padding:0 4px;
-    }
-    .bar-wrapper{
-      display:block;
-      width:100%;
-      height:85px;
-      position:relative;
-    }
-    .vertical-bar{
-      position:absolute;
-      bottom:0;
-      left:50%;
-      transform:translateX(-50%);
-      width:38px;
-      border-radius:4px 4px 0 0;
-      min-height:4px;
-    }
-    .vertical-bar.score-1,
-    .vertical-bar.score-2{
-      background:#ea4335;
-    }
-    .vertical-bar.score-3{
-      background:#fbbc04;
-    }
-    .vertical-bar.score-4{
-      background:#93c47d;
-    }
-    .vertical-bar.score-5{
-      background:#34a853;
-    }
-    .bar-count{
-      position:absolute;
-      bottom:100%;
-      left:50%;
-      transform:translateX(-50%);
-      font-size:10px;
-      font-weight:700;
-      color:#1a1a1a;
-      white-space:nowrap;
-      margin-bottom:3px;
-    }
-    .bar-label{
-      display:block;
-      margin-top:4px;
-      font-size:9.5px;
-      color:#555;
-      font-weight:600;
-    }
-    .bar-percentage{
-      display:block;
-      font-size:9px;
-      color:#777;
-      margin-top:2px;
+
+    .bar {
+      width: 60%;
+      background: #ccc;
+      margin: 0 auto;
+      min-height: 2px;
+      display: inline-block;
+      border-radius: 2px 2px 0 0;
     }
     
-    .page-break{
-      page-break-after: always;
+    .bar-color-1, .bar-color-2 { background: #ef4444; }
+    .bar-color-3 { background: #f59e0b; }
+    .bar-color-4 { background: #10b981; }
+    .bar-color-5 { background: #047857; }
+
+    .bar-val {
+      display: block;
+      font-size: 9px;
+      font-weight: bold;
+      margin-bottom: 2px;
+      color: #333;
     }
+    
+    .axis-label {
+      border-top: 1px solid #ccc;
+      display: block;
+      font-size: 9px;
+      color: #777;
+      padding-top: 2px;
+    }
+
+    /* SARAN */
+    .suggestions { 
+      margin-top: 15px; 
+      border: 1px solid #eee; 
+      padding: 10px; 
+    }
+    .sug-group {
+      margin-bottom: 10px;
+      border-bottom: 1px dotted #eee;
+      padding-bottom: 8px;
+    }
+    .sug-group:last-child {
+      margin-bottom: 0;
+      border-bottom: none;
+    }
+    .sug-q { 
+      font-weight: bold; 
+      font-size: 10px; 
+      color: #444; 
+      margin-bottom: 4px;
+      background: #f9f9f9;
+      padding: 2px 4px;
+    }
+    .sug-list {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .sug-item { 
+      font-style: italic; 
+      color: #333; 
+      font-size: 10px; 
+      margin-bottom: 3px;
+    }
+
   </style>
 </head>
 <body>
-  @foreach($segments as $segmentIndex => $segment)
+  @foreach($segments as $segment)
     @php
       $meta = $segment['meta'];
       $rows = $segment['rows'];
+      // Ensure suggestions is a collection for grouping
+      $suggestions = collect($segment['suggestions']);
+      $entityName = strtolower($meta['category'] ?? '') === 'supervisor'
+          ? ($meta['supervisor'] ?? '-')
+          : ($meta['tutor'] ?? '-');
     @endphp
 
-    <div class="card header-card">
-      <div class="header-container">
-        <div class="header-left">
-          <h1>Hasil Kuesioner</h1>
-          <span class="muted">{{ $meta['category'] }} • {{ $meta['surveyTitle'] }}</span>
-          <span class="tutor-label">Nama Asisten:</span>
-          <div class="tutor-name">{{ $meta['tutor'] }}</div>
+    <!-- HEADER -->
+    <table class="header-table">
+      <tr>
+        <td width="60%">
+          <div class="muted">{{ $meta['category'] ?? 'Kuesioner' }}</div>
+          <h1>{{ $entityName }}</h1>
+          <div class="survey-title">{{ $meta['surveyTitle'] ?? 'Hasil Kuesioner' }}</div>
+        </td>
+        <td width="40%" class="text-right">
+          <div style="font-size:10px; line-height:1.4;">
+            <strong>{{ $meta['respondents'] }}</strong> Responden<br>
+            Rata-rata: <strong>{{ $meta['avg'] }}</strong><br>
+            <span class="muted">{{ $meta['generatedAt'] }}</span>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- RINGKASAN -->
+    <h2>Ringkasan Performa</h2>
+
+    @forelse($rows as $row)
+      @php
+        $avg = (float) $row->avg_score;
+        $tone = $avg >= 4.5 ? 'success' : ($avg >= 3.5 ? 'warning' : 'danger');
+        $toneLabel = $avg >= 4.5 ? 'Sangat Baik' : ($avg >= 3.5 ? 'Baik' : 'Perlu Perbaikan');
+        
+        $counts = [
+            1 => (int) ($row->c1 ?? 0),
+            2 => (int) ($row->c2 ?? 0),
+            3 => (int) ($row->c3 ?? 0),
+            4 => (int) ($row->c4 ?? 0),
+            5 => (int) ($row->c5 ?? 0),
+        ];
+        $maxCount = max($counts) ?: 1;
+      @endphp
+
+      <div class="question-row">
+        <div style="margin-bottom: 4px;">
+           <span class="badge bg-{{ $tone }}">{{ $toneLabel }}</span>
+           <span class="q-text">{{ $loop->iteration }}. {{ $row->question_text }}</span>
+           <span class="q-meta">Rata-rata: <strong>{{ number_format($avg, 2) }}</strong> dari {{ $row->responses_count }} responden</span>
         </div>
-        <div class="header-right">
-          <div class="meta-item"><strong>Lembaga:</strong> {{ $meta['supervisor'] }}</div>
-          <div class="meta-item"><strong>Rata-rata:</strong> {{ $meta['avg'] }}</div>
-          <div class="meta-item"><strong>Responden:</strong> {{ $meta['respondents'] }}</div>
-          <div class="meta-item"><strong>Dibuat:</strong> {{ $meta['generatedAt'] }}</div>
-        </div>
+
+        <table class="chart-table">
+          <tr>
+            @foreach($counts as $score => $count)
+              @php
+                $heightPercent = $maxCount > 0 ? ($count / $maxCount) * 100 : 0;
+                $heightPx = ($heightPercent / 100) * 35;
+                if($count > 0 && $heightPx < 4) $heightPx = 4; 
+              @endphp
+              <td class="chart-cell">
+                  @if($count > 0)
+                    <span class="bar-val">{{ $count }}</span>
+                    <div class="bar bar-color-{{ $score }}" style="height: {{ $heightPx }}px;"></div>
+                  @else
+                    <div style="height: 35px;"></div>
+                  @endif
+                  <div class="axis-label">{{ $score }}</div>
+              </td>
+            @endforeach
+          </tr>
+        </table>
       </div>
-    </div>
+    @empty
+      <p class="muted" style="text-align:center; padding: 20px;">Belum ada data tersedia.</p>
+    @endforelse
 
-    <div class="card content-card">
-      <h2>Ringkasan Per Pertanyaan</h2>
-      @forelse($rows as $row)
-        @php
-          $avg = (float) $row->avg_score;
-          $tone = $avg >= 4.5 ? 'success' : ($avg >= 3.5 ? 'warning' : 'danger');
-          $counts = [
-              1 => (int) ($row->c1 ?? 0),
-              2 => (int) ($row->c2 ?? 0),
-              3 => (int) ($row->c3 ?? 0),
-              4 => (int) ($row->c4 ?? 0),
-              5 => (int) ($row->c5 ?? 0),
-          ];
-          $totalVotes = array_sum($counts) ?: 1;
-          $maxCount = max($counts) ?: 1;
-        @endphp
-        <div class="row">
-          <div class="question-header">
-            <div class="question-text">{{ $row->question_text }}</div>
-            <div class="question-badge">
-              <span class="badge badge-{{ $tone }}">
-                @if($tone === 'success')
-                  Sangat Baik
-                @elseif($tone === 'warning')
-                  Baik
-                @else
-                  Perlu Perbaikan
-                @endif
-              </span>
-            </div>
-          </div>
-          
-          <div class="stat-line">
-            <span><strong>{{ $row->responses_count }}</strong> responden</span>
-            <span>•</span>
-            <span>Rata-rata: <strong>{{ number_format($avg, 2) }}</strong></span>
-          </div>
-          
-          <div class="vertical-chart">
-            <div class="chart-container">
-              @foreach($counts as $value => $count)
-                @php
-                  $percentage = round(($count / $totalVotes) * 100);
-                  $heightPercent = $maxCount > 0 ? ($count / $maxCount) * 100 : 0;
-                  $heightPx = max(4, ($heightPercent / 100) * 72); // max 72px for A4
-                @endphp
-                <div class="chart-column">
-                  <div class="bar-wrapper">
-                    <div class="vertical-bar score-{{ $value }}" style="height: {{ $heightPx }}px;">
-                      <div class="bar-count">{{ $count }}</div>
-                    </div>
-                  </div>
-                  <span class="bar-label">Skor {{ $value }}</span>
-                  <span class="bar-percentage">{{ $percentage }}%</span>
-                </div>
+    <!-- SARAN -->
+    @if($suggestions->isNotEmpty())
+      <div class="suggestions">
+        <h3 style="margin:0 0 5px 0; font-size:11px; text-transform:uppercase;">Top Saran</h3>
+        
+        @foreach($suggestions->groupBy('question') as $question => $answers)
+          <div class="sug-group">
+            <div class="sug-q">{{ $question }}</div>
+            <ul class="sug-list">
+              @foreach($answers as $s)
+                <li class="sug-item">"{{ Str::limit($s['text'], 200) }}"</li>
               @endforeach
-            </div>
+            </ul>
           </div>
-        </div>
-      @empty
-        <p class="muted">Belum ada data untuk filter ini.</p>
-      @endforelse
-    </div>
-
-    @if(!empty($segment['suggestions']) && count($segment['suggestions']) > 0)
-      <div class="card">
-        <h2>Top 3 Saran (teks terpanjang)</h2>
-        <p class="muted" style="margin:0 0 6px 0;">Diambil hingga 3 saran paling panjang untuk kategori & filter ini.</p>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          @foreach($segment['suggestions'] as $s)
-            <div>
-              <div style="font-weight:700; margin-bottom:4px;">{{ $s['question'] }}</div>
-              <div style="line-height:1.5; color:#1f2937;">“{{ $s['text'] }}”</div>
-            </div>
-          @endforeach
-        </div>
+        @endforeach
       </div>
     @endif
 
     @if(!$loop->last)
-      <div class="page-break"></div>
+      <div style="page-break-after: always;"></div>
     @endif
   @endforeach
 </body>

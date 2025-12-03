@@ -226,26 +226,6 @@ class BasicListeningAttemptResource extends Resource
                     ->placeholder('—')
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('expires_at')
-                    ->label('Sisa Waktu')
-                    ->state(function ($record) {
-                        if ($record->submitted_at) return 'Selesai';
-                        if (! $record->expires_at) return '—';
-                        $diff = $record->expires_at->diffInSeconds(Carbon::now(), false);
-                        if ($diff <= 0) return 'Habis';
-                        $minutes = floor($diff / 60);
-                        $seconds = $diff % 60;
-                        return sprintf('%02d:%02d', $minutes, $seconds);
-                    })
-                    ->color(fn ($state) => match ($state) {
-                        'Selesai' => 'success',
-                        'Habis'   => 'danger',
-                        default   => 'warning',
-                    })
-                    ->sortable()
-                    ->placeholder('—')
-                    ->toggleable(),
-
                 Tables\Columns\TextColumn::make('submitted_at')
                     ->label('Submit')
                     ->dateTime('d M H:i')
