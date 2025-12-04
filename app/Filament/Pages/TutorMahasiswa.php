@@ -151,6 +151,7 @@ class TutorMahasiswa extends Page implements HasTable
                         'danger'  => fn ($state) => in_array($state, ['C-', 'D', 'E'], true),
                     ]),
             ])
+            ->paginationPageOptions([5, 10, 25, 50])
             ->filters([
                 Filter::make('angkatan')
                     ->label('Angkatan (Prefix NPM)')

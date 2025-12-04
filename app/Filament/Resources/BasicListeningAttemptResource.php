@@ -233,6 +233,7 @@ class BasicListeningAttemptResource extends Resource
                     ->placeholder('Belum')
                     ->toggleable(),
             ])
+            ->paginationPageOptions([5, 10, 25, 50])
             ->filters([
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')

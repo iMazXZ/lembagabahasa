@@ -72,6 +72,7 @@ class SurveyResponses extends Page implements HasTable
                     ->dateTime('d M Y, H:i')
                     ->sortable(),
             ])
+            ->paginationPageOptions([5, 10, 25, 50])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('survey')
                     ->relationship('survey', 'title')

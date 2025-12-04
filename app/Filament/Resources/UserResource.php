@@ -199,6 +199,7 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
+            ->paginationPageOptions([5, 10, 25, 50])
             ->filters([
                 // === Role (ambil dari Spatie Roles) ===
                 Tables\Filters\SelectFilter::make('role')

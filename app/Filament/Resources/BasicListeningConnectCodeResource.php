@@ -198,6 +198,7 @@ class BasicListeningConnectCodeResource extends Resource
                     ->toggleable()
                     ->toggledHiddenByDefault(),
             ])
+            ->paginationPageOptions([5, 10, 25, 50])
             ->filters([
                 Tables\Filters\SelectFilter::make('session_id')
                     ->relationship('session', 'title')

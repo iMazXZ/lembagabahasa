@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PostResource\Pages;
 use App\Models\Post;
+use App\Support\ImageTransformer;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -19,6 +20,8 @@ use Filament\Forms\{Get, Set};
 use Illuminate\Support\Str;
 use FilamentTiptapEditor\TiptapEditor;
 use Filament\Forms\Components\Actions\Action;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class PostResource extends Resource
 {
@@ -77,6 +80,23 @@ class PostResource extends Resource
                         ->label('Isi Berita')
                         ->required()
                         ->columnSpanFull()
+                        ->disk('public')
+                        ->directory('posts/body')
+                        ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $set) {
+                            $result = ImageTransformer::toWebpFromUploaded(
+                                uploaded:   $file,
+                                targetDisk: 'public',
+                                targetDir:  'posts/body',
+                                quality:    82,
+                                maxWidth:   1600,
+                                maxHeight:  1600,
+                            );
+
+                            $set('width', $result['width'] ?? null);
+                            $set('height', $result['height'] ?? null);
+
+                            return Storage::disk('public')->url($result['path']);
+                        })
                         ->maxContentWidth('full') // Agar editor lebih luas
                         ->profile('default') // Gunakan profile default agar fitur lengkap
                         ->tools([
@@ -115,10 +135,34 @@ class PostResource extends Resource
                     FileUpload::make('cover_path')
                         ->label('Gambar Sampul')
                         ->image()
+                        ->disk('public')
+                        ->visibility('public')
                         ->directory('posts/covers')
                         ->imageEditor()
                         ->imagePreviewHeight('150') // Preview tidak terlalu besar
-                        ->maxSize(2048) // Limit 2MB
+                        ->maxSize(4096) // Limit 4MB (akan dikompresi)
+                        ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $get) {
+                            $old = $get('cover_path');
+                            if (is_string($old) && $old !== '' && Storage::disk('public')->exists($old)) {
+                                Storage::disk('public')->delete($old);
+                            }
+
+                            $result = ImageTransformer::toWebpFromUploaded(
+                                uploaded:   $file,
+                                targetDisk: 'public',
+                                targetDir:  'posts/covers',
+                                quality:    82,
+                                maxWidth:   1600,
+                                maxHeight:  1600,
+                            );
+
+                            return $result['path'];
+                        })
+                        ->deleteUploadedFileUsing(function (string $file) {
+                            if (Storage::disk('public')->exists($file)) {
+                                Storage::disk('public')->delete($file);
+                            }
+                        })
                         ->columnSpanFull(),
                 ]),
 
@@ -197,6 +241,11 @@ class PostResource extends Resource
             ])
             ->defaultSort('published_at', 'desc')
             ->actions([
+                Tables\Actions\Action::make('view_public')
+                        ->label('Lihat Post')
+                        ->icon('heroicon-m-arrow-top-right-on-square')
+                        ->url(fn (Post $record): string => route('front.post.show', $record))
+                        ->openUrlInNewTab(),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make(),
