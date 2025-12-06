@@ -7,6 +7,8 @@ use App\Models\BasicListeningSurveyAnswer;
 use App\Models\BasicListeningSurveyResponse;
 use App\Models\BasicListeningSupervisor;
 use App\Models\BasicListeningGrade;
+use App\Support\BlCompute;
+use App\Support\BlGrading;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -313,12 +315,30 @@ class BlSurveyController extends Controller
         $user = auth()->user();
         $year = (int) ($user->year ?? 0);
         $canDownloadCertificate = false;
+        $meetsPassing = false;
         if ($year >= 2025) {
             $grade = BasicListeningGrade::query()
                 ->where('user_id', $userId)
                 ->where('user_year', $year)
                 ->first();
-            if ($grade && is_numeric($grade->attendance) && is_numeric($grade->final_test)) {
+            $attendance = is_numeric($grade?->attendance) ? (float) $grade->attendance : null;
+            $finalTest  = is_numeric($grade?->final_test)  ? (float) $grade->final_test  : null;
+            $daily      = BlCompute::dailyAvgForUser($userId, $year);
+            $daily      = is_numeric($daily) ? (float) $daily : null;
+
+            $finalNumeric = $grade?->final_numeric_cached;
+            if ($finalNumeric === null && is_numeric($attendance) && is_numeric($daily) && is_numeric($finalTest)) {
+                $finalNumeric = BlGrading::computeFinalNumeric([
+                    'attendance' => $attendance,
+                    'daily'      => $daily,
+                    'final_test' => $finalTest,
+                ]);
+            }
+
+            $baseEligible   = is_numeric($attendance) && is_numeric($finalTest);
+            $meetsPassing   = is_numeric($finalNumeric) && $finalNumeric >= 55;
+
+            if ($baseEligible && $meetsPassing) {
                 $canDownloadCertificate = true;
             }
         }
@@ -327,7 +347,8 @@ class BlSurveyController extends Controller
             'completedCount',
             'tutor',
             'supervisor',
-            'canDownloadCertificate'
+            'canDownloadCertificate',
+            'meetsPassing'
         ));
     }
 

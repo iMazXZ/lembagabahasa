@@ -109,6 +109,11 @@ class BasicListeningProfileController extends Controller
             'image.max'         => 'Ukuran foto maksimal 8 MB.',
         ]);
 
+        // Normalisasi nama ke uppercase jika diisi
+        if (array_key_exists('name', $data) && $data['name'] !== null) {
+            $data['name'] = mb_strtoupper(trim($data['name']), 'UTF-8');
+        }
+
         // === FOTO PROFIL: kompres pakai ImageTransformer (union UploadedFile / TemporaryUploadedFile) ===
         if ($request->hasFile('image')) {
             $file = $request->file('image');
@@ -138,6 +143,20 @@ class BasicListeningProfileController extends Controller
         $user->forceFill($data)->save();
 
         return redirect($next)->with('success', 'Biodata berhasil diperbarui.');
+    }
+
+    public function deletePhoto(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->image && Storage::disk('public')->exists($user->image)) {
+            Storage::disk('public')->delete($user->image);
+        }
+
+        $user->image = null;
+        $user->save();
+
+        return back()->with('success', 'Foto profil berhasil dihapus.');
     }
 
     public function showDashboardBiodata(Request $request)

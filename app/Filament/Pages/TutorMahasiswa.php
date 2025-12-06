@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
 use Filament\Tables\Actions\ActionGroup;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TutorMahasiswaTemplateExport;
+use App\Exports\TutorMahasiswaDailyExport;
 use App\Filament\Pages\TutorMahasiswaBulkInput;
 
 class TutorMahasiswa extends Page implements HasTable
@@ -86,7 +87,7 @@ class TutorMahasiswa extends Page implements HasTable
                     ->badge()
                     ->alignCenter()
                     ->width('5rem')
-                    ->formatStateUsing(fn ($state) => $state ? "G{$state}" : '—'),
+                    ->formatStateUsing(fn ($state) => $state ? "{$state}" : '—'),
 
                 // Hitung status attempt dari collection (Memory)
                 Tables\Columns\TextColumn::make('attempt_status')
@@ -119,9 +120,15 @@ class TutorMahasiswa extends Page implements HasTable
                     ->state(fn (User $record) => $this->calculateDailyAvgInMemory($record)),
 
                 Tables\Columns\TextColumn::make('final_test_display')
-                    ->label('UAS')
+                    ->label('Final')
                     ->alignCenter()
-                    ->state(fn (User $record) => $record->basicListeningGrade?->final_test ?? '—'),
+                    ->state(function (User $record) {
+                        $gradeFinal = $record->basicListeningGrade?->final_test;
+                        if (is_numeric($gradeFinal)) {
+                            return $gradeFinal;
+                        }
+                        return $this->getFinalTestFromAttempt($record) ?? '—';
+                    }),
 
                 // Hitung Total Score
                 Tables\Columns\TextColumn::make('final_numeric')
@@ -428,8 +435,34 @@ class TutorMahasiswa extends Page implements HasTable
                             ->preload(),
                         Select::make('nomor_grup_bl')
                             ->label('Grup')
-                            ->options(range(1,4))
-                            ->searchable(),
+                            ->options(function () use ($user) {
+                                $query = User::query()->whereNotNull('nomor_grup_bl');
+
+                                // Batasi ke prodi tutor agar pilihannya relevan
+                                if ($user?->hasRole('tutor')) {
+                                    $ids = method_exists($user, 'assignedProdyIds') ? (array) $user->assignedProdyIds() : [];
+                                    if (!empty($ids)) {
+                                        $query->whereIn('prody_id', $ids);
+                                    }
+                                }
+
+                                return $query
+                                    ->distinct()
+                                    ->orderBy('nomor_grup_bl')
+                                    ->pluck('nomor_grup_bl', 'nomor_grup_bl')
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->required(),
+
+                        Select::make('mode')
+                            ->label('Jenis Export')
+                            ->options([
+                                'summary' => 'Rekap (Avg + Grade)',
+                                'daily'   => 'Daily S1–S5',
+                            ])
+                            ->default('summary')
+                            ->required(),
                         
                         // --- FITUR BARU: PILIH URUTAN ---
                         Select::make('sort_direction')
@@ -438,63 +471,84 @@ class TutorMahasiswa extends Page implements HasTable
                                 'asc'  => 'Kecil ke Besar (Ascending)', // 25001 -> 25002
                                 'desc' => 'Besar ke Kecil (Descending)', // 25002 -> 25001
                             ])
-                            ->default('asc') // Default tetap kecil ke besar
-                            ->required(),
+                            ->default('desc') // Default besar ke kecil
+                            ->required()
+                            ->visible(fn ($get) => ($get('mode') ?? 'summary') === 'summary'),
                         // --------------------------------
 
                         Toggle::make('only_complete')
                             ->label('Hanya Nilai Lengkap')
-                            ->default(true),
+                            ->default(true)
+                            ->visible(fn ($get) => ($get('mode') ?? 'summary') === 'summary'),
                     ])
                     ->action(function (array $data) {
                         // 1. Query Dasar
-                        $query = $this->baseQuery(auth()->user()); 
+                        $query = $this->baseQuery(auth()->user(), limitYear: false); 
 
-                        if ($data['prody_id']) {
-                            $query->where('prody_id', $data['prody_id']);
-                        }
-                        if ($data['nomor_grup_bl']) {
-                            $query->where('nomor_grup_bl', $data['nomor_grup_bl']);
+                        $prodyId = $data['prody_id'] ?? null;
+                        $group   = $data['nomor_grup_bl'] ?? null;
+                        $prodyName = null;
+                        if (filled($prodyId)) {
+                            $prodyName = Prody::find($prodyId)?->name;
                         }
 
-                        // Filter Angkatan 25 (Opsional: sesuaikan kebutuhan)
-                        $query->where('srn', 'like', '25%');
-                        
+                        if (filled($prodyId)) {
+                            $query->where('prody_id', $prodyId);
+                        }
+                        if (filled($group)) {
+                            $query->where('nomor_grup_bl', $group);
+                        }
+
                         $users = $query->get();
 
-                        // 2. Filter Kelengkapan (PHP Side)
-                        if ($data['only_complete']) {
-                            $users = $users->filter(function ($u) {
-                                $g = $u->basicListeningGrade;
-                                if (!is_numeric($g?->attendance) || !is_numeric($g?->final_test)) return false; 
-                                
-                                $manuals = $u->basicListeningManualScores->pluck('score', 'meeting');
-                                $attempts = $u->basicListeningAttempts
-                                    ->whereNotNull('submitted_at')
-                                    ->pluck('score', 'session_id');
+                        $mode = $data['mode'] ?? 'summary';
 
-                                foreach(range(1,5) as $m) {
-                                    $score = $manuals[$m] ?? $attempts[$m] ?? null;
-                                    if (!is_numeric($score)) return false;
-                                }
-                                return true;
-                            });
+                        // MODE SUMMARY (nilai + grade)
+                        if ($mode === 'summary') {
+                            // 2. Filter Kelengkapan (PHP Side)
+                            if (!empty($data['only_complete'])) {
+                                $users = $users->filter(function ($u) {
+                                    $g = $u->basicListeningGrade;
+                                    if (!is_numeric($g?->attendance) || !is_numeric($g?->final_test)) return false; 
+                                    
+                                    $manuals = $u->basicListeningManualScores->pluck('score', 'meeting');
+                                    $attempts = $u->basicListeningAttempts
+                                        ->whereNotNull('submitted_at')
+                                        ->pluck('score', 'session_id');
+
+                                    foreach(range(1,5) as $m) {
+                                        $score = $manuals[$m] ?? $attempts[$m] ?? null;
+                                        if (!is_numeric($score)) return false;
+                                    }
+                                    return true;
+                                });
+                            }
+
+                            // 3. SORTING DINAMIS (Sesuai Pilihan User)
+                            $direction = $data['sort_direction'] ?? 'asc';
+
+                            $sortedUsers = $direction === 'desc'
+                                ? $users->sortByDesc(fn ($u) => (int) $u->srn, SORT_REGULAR)->values()
+                                : $users->sortBy(fn ($u) => (int) $u->srn, SORT_REGULAR)->values();
+                            
+                            return Excel::download(
+                                new TutorMahasiswaTemplateExport($sortedUsers, $group, $prodyName), 
+                                'Export_Nilai_BL.xlsx'
+                            );
                         }
 
-                        // 3. SORTING DINAMIS (Sesuai Pilihan User)
-                        $direction = $data['sort_direction'] ?? 'asc';
+                        // MODE DAILY (S1–S5)
+                        $direction = $data['sort_direction'] ?? 'desc';
 
-                        if ($direction === 'desc') {
-                            // Besar ke Kecil
-                            $sortedUsers = $users->sortByDesc('srn', SORT_NATURAL)->values();
-                        } else {
-                            // Kecil ke Besar
-                            $sortedUsers = $users->sortBy('srn', SORT_NATURAL)->values();
-                        }
-                        
                         return Excel::download(
-                            new TutorMahasiswaTemplateExport($sortedUsers, $data['nomor_grup_bl'], null), 
-                            'Export_Nilai_BL.xlsx'
+                            new TutorMahasiswaDailyExport(
+                                $direction === 'desc'
+                                    ? $users->sortByDesc(fn ($u) => (int) $u->srn, SORT_REGULAR)->values()
+                                    : $users->sortBy(fn ($u) => (int) $u->srn, SORT_REGULAR)->values(),
+                                $group,
+                                $prodyName
+                            ),
+                            'Export_Daily_Scores.xlsx'
                         );
                     })
             ])
@@ -523,7 +577,7 @@ class TutorMahasiswa extends Page implements HasTable
     }
 
     // --- QUERY UTAMA ---
-    protected function baseQuery(?User $user): Builder
+    protected function baseQuery(?User $user, bool $limitYear = true): Builder
     {
         $query = User::query()
             ->with([
@@ -542,7 +596,11 @@ class TutorMahasiswa extends Page implements HasTable
         if ($user?->hasRole('tutor')) {
             $ids = method_exists($user, 'assignedProdyIds') ? $user->assignedProdyIds() : [];
             if (empty($ids)) return $query->whereRaw('1=0');
-            return $query->whereIn('prody_id', $ids)->where('srn', 'like', now()->format('y').'%');
+            $query = $query->whereIn('prody_id', $ids);
+            if ($limitYear) {
+                $query = $query->where('srn', 'like', now()->format('y').'%');
+            }
+            return $query;
         }
         return $query->whereRaw('1=0');
     }
@@ -560,16 +618,24 @@ class TutorMahasiswa extends Page implements HasTable
         return empty($scores) ? '—' : number_format(array_sum($scores) / 5, 2);
     }
 
-    private function calculateFinalScoreInMemory(User $record, bool $returnFloat = false): string|float
+    private function calculateFinalScoreInMemory(User $record, bool $returnFloat = false): string|float|null
     {
         $g = $record->basicListeningGrade;
         $att = is_numeric($g?->attendance) ? (float)$g->attendance : null;
         $fin = is_numeric($g?->final_test) ? (float)$g->final_test : null;
         $dly = is_numeric($val = $this->calculateDailyAvgInMemory($record)) ? (float)$val : null;
 
-        $components = array_filter([$att, $dly, $fin], fn($v) => !is_null($v));
-        if (empty($components)) return $returnFloat ? 0.0 : '—';
-        $final = array_sum($components) / 3;
+        // Attendance wajib ada; kalau belum, jangan tampilkan nilai/grade.
+        if ($att === null) {
+            return $returnFloat ? null : '—';
+        }
+
+        // Komponen lain wajib numeric agar grade valid.
+        if ($fin === null || $dly === null) {
+            return $returnFloat ? null : '—';
+        }
+
+        $final = array_sum([$att, $dly, $fin]) / 3;
         return $returnFloat ? $final : number_format($final, 2);
     }
 
@@ -646,7 +712,7 @@ class TutorMahasiswa extends Page implements HasTable
     {
         return [
             Action::make('bulk_input_page')
-                ->label('Input Nilai (Halaman)')
+                ->label('Input Nilai')
                 ->icon('heroicon-o-document-plus')
                 ->color('primary')
                 ->url(TutorMahasiswaBulkInput::getUrl()),

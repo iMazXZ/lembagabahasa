@@ -165,6 +165,13 @@
                                             <span>Upload foto baru</span>
                                         </label>
                                         <p class="text-xs text-slate-500 mt-0.5" id="file-name">JPG, PNG hingga 2MB</p>
+                                        @if($user->image)
+                                            <button type="submit"
+                                                    form="delete-photo-form"
+                                                    class="mt-2 text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1">
+                                                <i class="fa-solid fa-trash"></i> Hapus Foto Profil
+                                            </button>
+                                        @endif
                                     </div>
                                 </div>
                                 @error('image') <p class="mt-1 text-xs text-rose-600 pl-1">{{ $message }}</p> @enderror
@@ -194,7 +201,7 @@
                                 <select name="year" x-model="year"
                                         class="block w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-um-blue focus:ring-um-blue sm:text-sm transition-all duration-200">
                                     <option value="">Pilih Tahun</option>
-                                    @foreach (collect(range(2020, (int)date('Y')+1))->reverse() as $y)
+                                    @foreach (collect(range(2017, (int)date('Y')+1))->reverse() as $y)
                                         <option value="{{ $y }}" @selected((int) old('year', $user->year) === $y)>{{ $y }}</option>
                                     @endforeach
                                 </select>
@@ -247,6 +254,14 @@
                         </button>
                     </div>
                 </form>
+
+                @if($user->image)
+                    {{-- Form terpisah untuk hapus foto (di luar form utama agar tidak bentrok method) --}}
+                    <form id="delete-photo-form" action="{{ route('dashboard.biodata.photo.delete') }}" method="POST" class="hidden">
+                        @csrf
+                        @method('DELETE')
+                    </form>
+                @endif
             </div>
         </div>
     </div>

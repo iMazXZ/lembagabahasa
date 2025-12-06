@@ -308,6 +308,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard/biodata', [BasicListeningProfileController::class, 'showDashboardBiodata'])
         ->name('dashboard.biodata');
+    Route::delete('/dashboard/biodata/photo', [BasicListeningProfileController::class, 'deletePhoto'])
+        ->name('dashboard.biodata.photo.delete');
 
     Route::post('/dashboard/password', [DashboardPasswordController::class, 'update'])
         ->name('dashboard.password.update');

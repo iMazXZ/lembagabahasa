@@ -82,8 +82,9 @@ class StudentBasicListeningWidget extends Widget
             ])->whereNotNull('submitted_at')->exists();
         }
 
-        $baseEligible = is_numeric($attendance) && is_numeric($finalTest);
-        $canDownload  = $baseEligible && (! $surveyRequired || $surveyDone);
+        $baseEligible   = is_numeric($attendance) && is_numeric($finalTest);
+        $meetsPassing   = is_numeric($finalNumeric) && $finalNumeric >= 55;
+        $canDownload    = $baseEligible && $meetsPassing && (! $surveyRequired || $surveyDone);
 
         // Guard routes agar widget tak crash bila route belum ada
         $surveyUrl   = Route::has('bl.survey.required') ? route('bl.survey.required') : null;

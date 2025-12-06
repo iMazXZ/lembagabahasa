@@ -42,6 +42,11 @@ class CertificateController extends Controller
                 throw new \Exception('Nilai belum lengkap untuk diterbitkan sertifikat.');
             }
 
+            // Harus lulus (minimal 55)
+            if ($finalNumeric < 55) {
+                abort(403, 'Nilai akhir belum mencapai 55, sertifikat belum tersedia.');
+            }
+
             $pdfData = $this->preparePdfData($user, $grade, $attendance, $daily, $finalTest, $finalNumeric, $finalLetter);
             return $this->generatePdfResponse($pdfData, $user, $request->boolean('inline'));
         } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
@@ -71,6 +76,10 @@ class CertificateController extends Controller
 
             if ($finalNumeric === null || $finalLetter === null) {
                 abort(404, 'Data nilai belum lengkap untuk sertifikat.');
+            }
+
+            if ($finalNumeric < 55) {
+                abort(403, 'Nilai akhir belum mencapai 55, sertifikat belum tersedia.');
             }
 
             $pdfData = $this->preparePdfData($user, $grade, $attendance, $daily, $finalTest, $finalNumeric, $finalLetter);

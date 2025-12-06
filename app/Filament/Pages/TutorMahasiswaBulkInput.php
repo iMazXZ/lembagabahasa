@@ -169,7 +169,9 @@ class TutorMahasiswaBulkInput extends Page implements HasForms
         return URL::temporarySignedRoute(
             'bl.tutor-mahasiswa.export',
             now()->addMinutes(10),
-            ['ids' => implode(',', $ids)]
+            [
+                'ids' => implode(',', $ids),
+            ]
         );
     }
 

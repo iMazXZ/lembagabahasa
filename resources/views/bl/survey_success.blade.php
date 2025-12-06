@@ -254,7 +254,7 @@
 
         {{-- Certificate Card --}}
         <div class="glass-card rounded-2xl p-6 fade-in fade-in-delay-2">
-          @if($canDownloadCertificate)
+          @if($canDownloadCertificate && ($meetsPassing ?? false))
             @if($downloadUrl)
               <div class="mb-4 text-center">
                 <div class="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
@@ -284,8 +284,17 @@
               </div>
             @endif
           @else
-            <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 text-sm text-orange-800">
-              Sertifikat belum tersedia. Pastikan nilai attendance/final sudah lengkap.
+            <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-center">
+              <p class="font-semibold text-rose-800 mb-1">Sertifikat belum tersedia.</p>
+              @if(!($meetsPassing ?? false))
+                <p class="text-xs text-rose-600">Kembali ke Halaman Awal</p>
+              @else
+                <p class="text-xs text-rose-600">Pastikan nilai attendance/final sudah lengkap.</p>
+              @endif
+              <a href="{{ route('bl.index') }}" class="btn-secondary w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-indigo-700 mt-3">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Kembali ke Dashboard</span>
+              </a>
             </div>
           @endif
         </div>

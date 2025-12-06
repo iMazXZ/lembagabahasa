@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Models\User;
 use App\Support\BlCompute;
+use App\Support\BlGrading;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -11,19 +12,25 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class TutorMahasiswaTemplateExport implements
-    FromCollection, WithHeadings, WithMapping, WithEvents, WithColumnWidths, WithStyles
+    FromCollection, WithHeadings, WithMapping, WithEvents, WithColumnWidths, WithStyles, WithTitle
 {
     /** @var \Illuminate\Support\Collection<int,\App\Models\User> */
     protected Collection $users;
     protected ?string $groupNo;
     protected ?string $prodyName;
     protected int $rowIndex = 0;
+    protected int $totalUsers = 0;
+    protected string $exportedBy;
+    protected string $exportedAt;
 
     public function __construct(Collection $users, ?string $groupNo = null, ?string $prodyName = null)
     {
@@ -31,8 +38,11 @@ class TutorMahasiswaTemplateExport implements
         // Terima apa adanya dari Controller.
         $this->users = $users; 
 
+        $this->totalUsers = $users->count();
+        $this->exportedBy = Auth::user()?->name ?? '-';
+        $this->exportedAt = Carbon::now()->format('d M Y H:i');
         $this->groupNo   = $groupNo;
-        $this->prodyName = $prodyName;
+        $this->prodyName = $prodyName ?: optional($users->first()->prody)->name;
     }
 
     public function collection()
@@ -47,9 +57,15 @@ class TutorMahasiswaTemplateExport implements
             $groupLine = trim('Group ' . ($this->groupNo ?? '') . ($this->prodyName ? " — {$this->prodyName}" : ''));
         }
 
+        $metaLine = "Prodi: " . ($this->prodyName ?: '-') .
+            " | Jumlah: {$this->totalUsers}" .
+            " | Export by: {$this->exportedBy}" .
+            " | Waktu: {$this->exportedAt}";
+
         return [
             [$groupLine],
-            ['', '', '', 'MEETING', '', '', '', ''],
+            [$metaLine],
+            ['', '', '', '', '', '', '', ''],
             ['No', 'Name', 'SRN', 'Attendance', 'Daily', 'Final Test', 'SCORE', 'ALPHABETICAL SCORE'],
         ];
     }
@@ -59,17 +75,34 @@ class TutorMahasiswaTemplateExport implements
         /** @var User $user */
         $daily = BlCompute::dailyAvgForUser($user->id, $user->year);
         $att   = optional($user->basicListeningGrade)->attendance;
+        // Final Test: pakai nilai di grade; fallback ke attempt session 6 jika ada.
         $final = optional($user->basicListeningGrade)->final_test;
-
-        $finalNumeric = optional($user->basicListeningGrade)->final_numeric_cached;
-        if ($finalNumeric === null) {
-            $parts = [];
-            if (is_numeric($att))   $parts[] = (float)$att;
-            if (is_numeric($daily)) $parts[] = (float)$daily;
-            if (is_numeric($final)) $parts[] = (float)$final;
-            $finalNumeric = $parts ? round(array_sum($parts) / count($parts), 2) : null;
+        if (!is_numeric($final)) {
+            $finalAttempt = $user->basicListeningAttempts
+                ->where('session_id', 6)
+                ->sortByDesc('submitted_at')
+                ->first();
+            $final = $finalAttempt?->score;
         }
-        $finalLetter = optional($user->basicListeningGrade)->final_letter_cached ?? '';
+
+        $attVal   = is_numeric($att)   ? (float) $att   : null;
+        $dailyVal = is_numeric($daily) ? (float) $daily : null;
+        $finalVal = is_numeric($final) ? (float) $final : null;
+
+        $cachedNumeric = optional($user->basicListeningGrade)->final_numeric_cached;
+        $cachedLetter  = optional($user->basicListeningGrade)->final_letter_cached;
+
+        // Attendance wajib ada; jika tidak ada salah satu komponen, jangan tampilkan numeric/letter.
+        if ($attVal === null || $dailyVal === null || $finalVal === null) {
+            $finalNumeric = null;
+            $finalLetter  = '';
+        } else {
+            $finalNumeric = is_numeric($cachedNumeric)
+                ? (float) $cachedNumeric
+                : round(($attVal + $dailyVal + $finalVal) / 3, 2);
+
+            $finalLetter = $cachedLetter ?: BlGrading::letter($finalNumeric);
+        }
 
         return [
             ++$this->rowIndex,            
@@ -107,10 +140,11 @@ class TutorMahasiswaTemplateExport implements
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 $sheet->mergeCells('A1:H1'); 
-                $sheet->mergeCells('D2:F2'); 
+                $sheet->mergeCells('A2:H2'); 
+                $sheet->mergeCells('D3:F3'); 
 
-                $lastRow = 3 + $this->users->count(); 
-                $sheet->getStyle("A3:H{$lastRow}")->applyFromArray([
+                $lastRow = 4 + $this->users->count(); 
+                $sheet->getStyle("A4:H{$lastRow}")->applyFromArray([
                     'borders' => [
                         'allBorders' => ['borderStyle' => Border::BORDER_THIN],
                     ],
@@ -118,7 +152,8 @@ class TutorMahasiswaTemplateExport implements
 
                 $sheet->getRowDimension(1)->setRowHeight(24);
                 $sheet->getRowDimension(2)->setRowHeight(18);
-                $sheet->getRowDimension(3)->setRowHeight(22);
+                $sheet->getRowDimension(3)->setRowHeight(18);
+                $sheet->getRowDimension(4)->setRowHeight(22);
             },
         ];
     }
@@ -126,5 +161,10 @@ class TutorMahasiswaTemplateExport implements
     private function fmt($val): string
     {
         return is_numeric($val) ? (string) $val : '';
+    }
+
+    public function title(): string
+    {
+        return 'Rekap';
     }
 }

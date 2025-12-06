@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\TutorMahasiswaTemplateExport;
+use App\Exports\TutorMahasiswaSelectedExport;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -32,14 +32,21 @@ class TutorMahasiswaBulkExportController extends Controller
         }
 
         $users = User::query()
-            ->with(['basicListeningGrade'])
+            ->with([
+                'prody',
+                'basicListeningGrade',
+                'basicListeningManualScores',
+                'basicListeningAttempts' => fn ($q) => $q->whereNotNull('submitted_at'),
+            ])
             ->whereIn('id', $ids)
             ->get()
-            ->sortBy('srn', SORT_NATURAL)
+            ->sortByDesc(fn ($u) => (int) $u->srn, SORT_REGULAR)
             ->values();
 
+        $prodyName = optional($users->first()->prody)->name;
+
         return Excel::download(
-            new TutorMahasiswaTemplateExport($users, null, null),
+            new TutorMahasiswaSelectedExport($users, null, $prodyName),
             'Nilai_BL_Selected.xlsx'
         );
     }

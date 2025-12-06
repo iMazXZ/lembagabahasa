@@ -68,6 +68,8 @@
           }
 
           $baseEligible = is_numeric($attendance) && is_numeric($finalTest);
+          $meetsPassing = is_numeric($finalNumeric) && $finalNumeric >= 55;
+          $meetsPassing = is_numeric($finalNumeric) && $finalNumeric >= 55;
 
           // Survey Logic
           $survey = \App\Models\BasicListeningSurvey::query()
@@ -80,7 +82,7 @@
               ])->whereNotNull('submitted_at')->exists();
           }
 
-          $canDownload = $baseEligible && (!$surveyRequired || $surveyDone);
+          $canDownload = $baseEligible && $meetsPassing && (!$surveyRequired || $surveyDone);
           $surveyUrl   = \Illuminate\Support\Facades\Route::has('bl.survey.required') ? route('bl.survey.required') : null;
           $downloadUrl = \Illuminate\Support\Facades\Route::has('bl.certificate.download') ? route('bl.certificate.download') : null;
           $previewUrl  = $downloadUrl ? ($downloadUrl . '?inline=1') : null;
@@ -329,16 +331,26 @@
                                 <a href="{{ $downloadUrl }}" class="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
                                     <i class="fa-solid fa-file-pdf"></i> Unduh Sertifikat
                                 </a>
-                             @elseif(($surveyRequired ?? false) && !($surveyDone ?? false))
-                                <div class="bg-amber-50 p-3 rounded-lg border border-amber-100 text-center">
-                                    <p class="text-xs text-amber-800 mb-2">Isi kuesioner untuk unduh sertifikat.</p>
-                                    <a href="{{ $surveyUrl }}" class="inline-block w-full py-2 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600">
-                                        Isi Kuesioner
-                                    </a>
-                                </div>
-                             @else
-                                <div class="text-center py-2 bg-slate-50 rounded-lg border border-slate-100 border-dashed">
-                                    <p class="text-xs text-slate-400 italic">Menunggu input nilai final.</p>
+                            @elseif(($surveyRequired ?? false) && !($surveyDone ?? false))
+                               <div class="bg-amber-50 p-3 rounded-lg border border-amber-100 text-center">
+                                   <p class="text-xs text-amber-800 mb-2">Selamat!! Pembelajaran Sudah Selesai</p>
+                                   <a href="{{ $surveyUrl }}" class="inline-block w-full py-2 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600">
+                                       Isi Kuesioner
+                                   </a>
+                               </div>
+                            @else
+                               <div class="text-center py-2 bg-slate-50 rounded-lg border border-slate-100 border-dashed">
+                                    @if(!$baseEligible)
+                                        <p class="text-xs text-slate-400 italic">Menunggu input nilai final.</p>
+                                    @elseif(!$meetsPassing)
+                                        <div class="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
+                                            <p class="text-sm font-semibold text-rose-700 mb-1 flex items-center justify-center gap-2">
+                                                <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+                                                Anda Belum Lulus
+                                            </p>
+                                            <p class="text-[11px] text-rose-600">Nilai akhir belum mencapai 55 untuk sertifikat.</p>
+                                        </div>
+                                    @endif
                                 </div>
                              @endif
                         </div>
