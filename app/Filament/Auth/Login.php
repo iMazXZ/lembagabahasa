@@ -26,13 +26,7 @@ class Login extends BaseLogin
                     ->autocomplete()
                     ->autofocus(),
 
-                TextInput::make('password')
-                    ->label(__('filament-panels::pages/auth/login.form.password.label'))
-                    ->password()
-                    ->revealable(filament()->arePasswordsRevealable())
-                    ->autocomplete('current-password')
-                    ->required(),
-
+                $this->getPasswordFormComponent(),
                 $this->getRememberFormComponent(),
             ])
             ->statePath('data');
