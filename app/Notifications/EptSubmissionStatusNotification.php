@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Services\WhatsAppService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -15,11 +16,58 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
         public string $status,
         public ?string $verificationUrl = null,
         public ?string $pdfUrl = null,
+        public ?string $adminNote = null,
     ) {}
 
     public function via(object $notifiable): array
     {
+        // Jika user punya nomor WhatsApp yang terverifikasi, kirim via WA saja
+        if (!empty($notifiable->whatsapp) && $notifiable->whatsapp_verified_at) {
+            return ['whatsapp'];
+        }
+        
+        // Fallback ke email
         return ['mail'];
+    }
+
+    /**
+     * Kirim notifikasi via WhatsApp
+     */
+    public function toWhatsApp(object $notifiable): bool
+    {
+        $waService = app(WhatsAppService::class);
+        
+        $details = match ($this->status) {
+            'approved' => "Pengajuan Anda telah DISETUJUI dan Berhasil Dibuat.",
+            'rejected' => "Pengajuan Anda DITOLAK.",
+            'pending' => "Pengajuan Anda saat ini MENUNGGU PROSES PENINJAUAN oleh admin.",
+            default => '',
+        };
+
+        if ($this->status === 'approved' && !empty($this->adminNote)) {
+            $details .= "\n\nCatatan Admin:\n" . $this->adminNote;
+            $details .= "\n\nSilakan unduh dokumen Surat Rekomendasi, kemudian cetak dan bawa ke Kantor Lembaga Bahasa untuk mendapatkan Cap Basah.";
+        } elseif ($this->status === 'approved') {
+            $details .= "\n\nSilakan unduh dokumen Surat Rekomendasi, kemudian cetak dan bawa ke Kantor Lembaga Bahasa untuk mendapatkan Cap Basah.";
+        }
+
+        if ($this->status === 'rejected') {
+            if (!empty($this->adminNote)) {
+                $details .= "\n\nAlasan Penolakan:\n" . $this->adminNote;
+            }
+            $details .= "\n\nSilakan meninjau kembali persyaratan dan memperbaiki dokumen sesuai catatan admin.";
+        }
+        
+        $actionUrl = $this->verificationUrl ?? route('dashboard.ept');
+        
+        return $waService->sendNotification(
+            phone: $notifiable->whatsapp,
+            type: 'ept_status',
+            status: $this->status,
+            userName: $notifiable->name,
+            details: $details,
+            actionUrl: $actionUrl
+        );
     }
 
     public function toMail(object $notifiable): MailMessage

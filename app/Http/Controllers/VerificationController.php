@@ -137,9 +137,9 @@ class VerificationController extends Controller
                 'tanggal_surat'     => optional($rec->approved_at)->timezone(config('app.timezone', 'Asia/Jakarta')),
 
                 'scores'            => [
-                    ['label' => 'Tes I',   'tanggal' => optional($rec->tanggal_tes_1), 'nilai' => $rec->nilai_tes_1],
-                    ['label' => 'Tes II',  'tanggal' => optional($rec->tanggal_tes_2), 'nilai' => $rec->nilai_tes_2],
-                    ['label' => 'Tes III', 'tanggal' => optional($rec->tanggal_tes_3), 'nilai' => $rec->nilai_tes_3],
+                    ['label' => 'Tes I',   'tanggal' => $rec->tanggal_tes_1, 'nilai' => $rec->nilai_tes_1],
+                    ['label' => 'Tes II',  'tanggal' => $rec->tanggal_tes_2, 'nilai' => $rec->nilai_tes_2],
+                    ['label' => 'Tes III', 'tanggal' => $rec->tanggal_tes_3, 'nilai' => $rec->nilai_tes_3],
                 ],
             ];
 

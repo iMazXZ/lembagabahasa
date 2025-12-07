@@ -152,6 +152,180 @@
                                 </div>
                             </div>
 
+                            {{-- WhatsApp dengan Verifikasi OTP --}}
+                            <div class="md:col-span-2" 
+                                 x-data="{
+                                    phone: '{{ old('whatsapp', $user->whatsapp) }}',
+                                    otp: '',
+                                    step: '{{ $user->whatsapp_verified_at ? 'verified' : 'input' }}',
+                                    loading: false,
+                                    error: '',
+                                    countdown: 0,
+                                    async sendOtp() {
+                                        if (!this.phone || this.phone.length < 10) {
+                                            this.error = 'Nomor WhatsApp tidak valid';
+                                            return;
+                                        }
+                                        this.loading = true;
+                                        this.error = '';
+                                        try {
+                                            const res = await fetch('{{ route('api.whatsapp.send-otp') }}', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                                },
+                                                body: JSON.stringify({ whatsapp: this.phone })
+                                            });
+                                            const data = await res.json();
+                                            if (data.success) {
+                                                this.step = 'otp';
+                                                this.countdown = 60;
+                                                this.startCountdown();
+                                            } else {
+                                                this.error = data.message || 'Gagal mengirim OTP';
+                                            }
+                                        } catch (e) {
+                                            this.error = 'Terjadi kesalahan';
+                                        }
+                                        this.loading = false;
+                                    },
+                                    async verifyOtp() {
+                                        if (!this.otp || this.otp.length !== 6) {
+                                            this.error = 'Kode OTP harus 6 digit';
+                                            return;
+                                        }
+                                        this.loading = true;
+                                        this.error = '';
+                                        try {
+                                            const res = await fetch('{{ route('api.whatsapp.verify-otp') }}', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                                },
+                                                body: JSON.stringify({ otp: this.otp })
+                                            });
+                                            const data = await res.json();
+                                            if (data.success) {
+                                                this.step = 'verified';
+                                            } else {
+                                                this.error = data.message || 'OTP tidak valid';
+                                            }
+                                        } catch (e) {
+                                            this.error = 'Terjadi kesalahan';
+                                        }
+                                        this.loading = false;
+                                    },
+                                    startCountdown() {
+                                        const interval = setInterval(() => {
+                                            this.countdown--;
+                                            if (this.countdown <= 0) clearInterval(interval);
+                                        }, 1000);
+                                    },
+                                    changeNumber() {
+                                        this.step = 'input';
+                                        this.otp = '';
+                                        this.error = '';
+                                    }
+                                 }">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">
+                                    Nomor WhatsApp <span class="text-rose-500">*</span>
+                                </label>
+                                
+                                {{-- Step 1: Input Nomor --}}
+                                <div x-show="step === 'input'" class="space-y-3">
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <i class="fa-brands fa-whatsapp text-green-500"></i>
+                                        </div>
+                                        <input type="tel" 
+                                               x-model="phone"
+                                               name="whatsapp" 
+                                               inputmode="numeric"
+                                               class="pl-10 block w-full py-3 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-green-500 focus:ring-green-500 text-base transition-all duration-200"
+                                               placeholder="Masukan Nomor WhatsApp">
+                                    </div>
+                                    <button type="button"
+                                            @click="sendOtp()"
+                                            :disabled="loading || !phone"
+                                            :class="{'opacity-50 cursor-not-allowed': loading || !phone}"
+                                            class="w-full py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                                        <i x-show="!loading" class="fa-solid fa-paper-plane"></i>
+                                        <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
+                                        <span>Kirim Kode OTP</span>
+                                    </button>
+                                    <p class="text-xs text-slate-500 text-center">
+                                        <i class="fa-solid fa-circle-info text-slate-400"></i>
+                                        Kode verifikasi akan dikirim ke WhatsApp Anda
+                                    </p>
+                                </div>
+
+                                {{-- Step 2: Input OTP --}}
+                                <div x-show="step === 'otp'" class="space-y-3">
+                                    <div class="p-3 rounded-xl bg-green-50 border border-green-100 text-sm text-green-700">
+                                        <i class="fa-solid fa-check-circle"></i>
+                                        OTP dikirim ke <strong x-text="phone"></strong>
+                                    </div>
+                                    <div class="flex flex-col sm:flex-row gap-2">
+                                        <input type="text" 
+                                               x-model="otp"
+                                               maxlength="6"
+                                               inputmode="numeric"
+                                               pattern="[0-9]*"
+                                               class="w-full sm:flex-1 text-center text-xl tracking-[0.4em] font-mono py-3 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-green-500 focus:ring-green-500"
+                                               placeholder="● ● ● ● ● ●">
+                                        <button type="button"
+                                                @click="verifyOtp()"
+                                                :disabled="loading || otp.length !== 6"
+                                                :class="{'opacity-50 cursor-not-allowed': loading || otp.length !== 6}"
+                                                class="w-full sm:w-auto px-6 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                                            <i x-show="!loading" class="fa-solid fa-check"></i>
+                                            <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
+                                            <span>Verifikasi</span>
+                                        </button>
+                                    </div>
+                                    <div class="flex justify-between items-center text-xs">
+                                        <button type="button" @click="changeNumber()" class="text-slate-500 hover:text-slate-700">
+                                            <i class="fa-solid fa-arrow-left"></i> Ganti Nomor
+                                        </button>
+                                        <button type="button" 
+                                                @click="sendOtp()" 
+                                                :disabled="countdown > 0"
+                                                :class="countdown > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-green-600 hover:text-green-700'">
+                                            <span x-show="countdown > 0">Kirim ulang (<span x-text="countdown"></span>s)</span>
+                                            <span x-show="countdown <= 0">Kirim ulang OTP</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {{-- Step 3: Verified --}}
+                                <div x-show="step === 'verified'" class="space-y-2">
+                                    <div class="p-4 rounded-xl bg-green-50 border border-green-200">
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                                                <i class="fa-brands fa-whatsapp text-green-600 text-xl"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-base font-bold text-slate-800" x-text="phone"></p>
+                                                <p class="text-sm text-green-600 font-medium flex items-center gap-1">
+                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    Terverifikasi
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="whatsapp" x-bind:value="phone">
+                                    <button type="button" @click="changeNumber()" class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1">
+                                        <i class="fa-solid fa-pen-to-square"></i> Ganti Nomor WhatsApp
+                                    </button>
+                                </div>
+
+                                {{-- Error Message --}}
+                                <p x-show="error" x-text="error" class="mt-2 text-xs text-rose-600 pl-1"></p>
+                                @error('whatsapp') <p class="mt-1 text-xs text-rose-600 pl-1">{{ $message }}</p> @enderror
+                            </div>
+
                             {{-- Upload Foto --}}
                             <div class="md:col-span-2">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">Foto Profil</label>

@@ -412,8 +412,7 @@ class PenerjemahanResource extends Resource
                         )
                         ->action(function ($record) {
                             $record->update(['status' => 'Disetujui']);
-                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Disetujui'));
-                            Notification::make()->title("Pembayaran disetujui & notifikasi terkirim ke {$record->users?->email}")->success()->send();
+                            Notification::make()->title("Pembayaran disetujui untuk {$record->users?->name}")->success()->send();
                         }),
 
                     Tables\Actions\Action::make('pilih_penerjemah')
@@ -487,11 +486,12 @@ class PenerjemahanResource extends Resource
                             $record->status !== 'Selesai'
                         )
                         ->action(function ($record) {
+                            $record->ensureVerification();
                             $record->update([
                                 'status'          => 'Selesai',
                                 'completion_date' => now(),
                             ]);
-                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Selesai'));
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Selesai', $record->verification_url));
                             Notification::make()->title("Notifikasi terkirim ke {$record->users?->email}")->success()->send();
                         }),
 

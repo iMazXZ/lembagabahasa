@@ -84,6 +84,19 @@ class BasicListeningProfileController extends Controller
                 'max:100',
             ],
 
+            // ===== Nomor WhatsApp (wajib + validasi format) =====
+            'whatsapp' => [
+                'required', 
+                'string', 
+                'max:20',
+                function ($attribute, $value, $fail) {
+                    $normalized = \App\Support\NormalizeWhatsAppNumber::normalize($value);
+                    if (!$normalized) {
+                        $fail('Format nomor WhatsApp tidak valid. Contoh: 085712345678');
+                    }
+                },
+            ],
+
             // ===== Foto Profil (dikompres) =====
             'image'    => ['nullable', 'mimes:jpeg,jpg,png,webp', 'max:8192'], // 8MB
         ], [
@@ -107,11 +120,18 @@ class BasicListeningProfileController extends Controller
 
             'image.mimes'       => 'Foto harus berupa JPG, PNG, atau WebP.',
             'image.max'         => 'Ukuran foto maksimal 8 MB.',
+
+            'whatsapp.required' => 'Nomor WhatsApp wajib diisi.',
         ]);
 
         // Normalisasi nama ke uppercase jika diisi
         if (array_key_exists('name', $data) && $data['name'] !== null) {
             $data['name'] = mb_strtoupper(trim($data['name']), 'UTF-8');
+        }
+
+        // Normalisasi nomor WhatsApp
+        if (array_key_exists('whatsapp', $data) && !empty($data['whatsapp'])) {
+            $data['whatsapp'] = \App\Support\NormalizeWhatsAppNumber::normalize($data['whatsapp']);
         }
 
         // === FOTO PROFIL: kompres pakai ImageTransformer (union UploadedFile / TemporaryUploadedFile) ===

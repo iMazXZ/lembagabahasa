@@ -3,6 +3,9 @@
 namespace App\Filament\Auth;
 
 use App\Models\User;
+use App\Support\NormalizeWhatsAppNumber;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Form;
 use Filament\Pages\Auth\Login as BaseLogin;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -10,66 +13,94 @@ use Illuminate\Validation\ValidationException;
 class Login extends BaseLogin
 {
     /**
+     * Override form untuk mengubah label & placeholder.
+     */
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                TextInput::make('email')
+                    ->label('Email')
+                    ->placeholder('Masukkan email, NPM, atau nomor WhatsApp')
+                    ->required()
+                    ->autocomplete()
+                    ->autofocus(),
+
+                TextInput::make('password')
+                    ->label(__('filament-panels::pages/auth/login.form.password.label'))
+                    ->password()
+                    ->revealable(filament()->arePasswordsRevealable())
+                    ->autocomplete('current-password')
+                    ->required(),
+
+                $this->getRememberFormComponent(),
+            ])
+            ->statePath('data');
+    }
+
+    /**
      * Ambil kredensial dari form login.
-     * Di sini kita:
-     * - Cari user pakai email yang dinormalisasi (lowercase + trim) via WHERE LOWER(email)
-     * - Tampilkan pesan khusus untuk kasus .com / .con
-     * - Jika cocok, kirim balik email persis seperti yang ada di database ke Auth::attempt()
+     * Mendukung login via: Email, SRN (NPM), atau WhatsApp.
      */
     protected function getCredentialsFromFormData(array $data): array
     {
-        $rawEmail      = $data['email'];                 // apa adanya dari form
-        $normalized    = strtolower(trim($rawEmail));    // untuk pencarian & analisis
+        $input = trim($data['email'] ?? '');
+        $user  = null;
 
-        // 1. Cari user berdasarkan email (case-insensitive)
-        $user = User::whereRaw('LOWER(email) = ?', [$normalized])->first();
+        // 1. Deteksi tipe input
+        if (str_contains($input, '@')) {
+            // Input adalah Email
+            $normalized = strtolower($input);
+            $user = User::whereRaw('LOWER(email) = ?', [$normalized])->first();
 
-        // 2. Kalau tidak ketemu, cek kemungkinan typo .com / .con
-        if (! $user) {
-            // Kalau ketiknya .com, cek apakah di database ada .con
-            if (str_ends_with($normalized, '.com')) {
-                $altEmailLower = preg_replace('/\.com$/i', '.con', $normalized);
-
-                $altUser = User::whereRaw('LOWER(email) = ?', [$altEmailLower])->first();
-
-                if ($altUser) {
-                    throw ValidationException::withMessages([
-                        'data.email' => 'Email ini tidak ditemukan. '
-                            . 'Saat mendaftar, Anda mungkin mengetik: ' . $altUser->email . '. '
-                            . 'Coba gunakan email tersebut atau hubungi admin untuk pembaruan.',
-                    ]);
-                }
+            // Fallback: cek typo .com/.con
+            if (!$user) {
+                $user = $this->checkEmailTypo($normalized);
             }
 
-            // Kalau ketiknya .con, cek apakah di database ada .com
-            if (str_ends_with($normalized, '.con')) {
-                $altEmailLower = preg_replace('/\.con$/i', '.com', $normalized);
-
-                $altUser = User::whereRaw('LOWER(email) = ?', [$altEmailLower])->first();
-
-                if ($altUser) {
-                    throw ValidationException::withMessages([
-                        'data.email' => 'Email ini tidak ditemukan. '
-                            . 'Mungkin maksud Anda: ' . $altUser->email . '.',
-                    ]);
-                }
+            if (!$user) {
+                throw ValidationException::withMessages([
+                    'data.email' => 'Email tidak ditemukan di sistem.',
+                ]);
             }
 
-            // Kalau sama sekali tidak ada user
+        } elseif (preg_match('/^(0|62|\+62)?8\d{8,12}$/', preg_replace('/[\s\-]/', '', $input))) {
+            // Input adalah nomor WhatsApp
+            $normalized = NormalizeWhatsAppNumber::normalize($input);
+
+            if (!$normalized) {
+                throw ValidationException::withMessages([
+                    'data.email' => 'Format nomor WhatsApp tidak valid.',
+                ]);
+            }
+
+            $user = User::where('whatsapp', $normalized)->first();
+
+            if (!$user) {
+                throw ValidationException::withMessages([
+                    'data.email' => 'Nomor WhatsApp tidak terdaftar di sistem.',
+                ]);
+            }
+
+        } else {
+            // Input adalah SRN/NPM (angka atau alfanumerik)
+            $user = User::where('srn', $input)->first();
+
+            if (!$user) {
+                throw ValidationException::withMessages([
+                    'data.email' => 'NPM tidak ditemukan di sistem.',
+                ]);
+            }
+        }
+
+        // 2. Verifikasi password
+        if (!Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'data.email' => 'Email ini belum terdaftar di sistem.',
+                'data.password' => 'Kata sandi yang Anda masukkan salah.',
             ]);
         }
 
-        // 3. Kalau user ketemu, cek password manual
-        if (! Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'data.password' => 'Kata sandi yang Anda masukkan salah. Klik Lupa Kata Sandi atau Hubungi Admin.',
-            ]);
-        }
-
-        // 4. Kembalikan kredensial untuk Auth::attempt()
-        //    PENTING: pakai email persis seperti di database, bukan $normalized
+        // 3. Return kredensial dengan email asli dari database
         return [
             'email'    => $user->email,
             'password' => $data['password'],
@@ -77,7 +108,37 @@ class Login extends BaseLogin
     }
 
     /**
-     * Setelah login sukses, arahkan ke /dashboard (Blade, bukan panel admin langsung)
+     * Cek typo umum .com vs .con
+     */
+    private function checkEmailTypo(string $normalized): ?User
+    {
+        if (str_ends_with($normalized, '.com')) {
+            $alt = preg_replace('/\.com$/i', '.con', $normalized);
+            $altUser = User::whereRaw('LOWER(email) = ?', [$alt])->first();
+
+            if ($altUser) {
+                throw ValidationException::withMessages([
+                    'data.email' => "Email tidak ditemukan. Mungkin maksud Anda: {$altUser->email}",
+                ]);
+            }
+        }
+
+        if (str_ends_with($normalized, '.con')) {
+            $alt = preg_replace('/\.con$/i', '.com', $normalized);
+            $altUser = User::whereRaw('LOWER(email) = ?', [$alt])->first();
+
+            if ($altUser) {
+                throw ValidationException::withMessages([
+                    'data.email' => "Email tidak ditemukan. Mungkin maksud Anda: {$altUser->email}",
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Setelah login sukses, arahkan ke /dashboard
      */
     protected function getRedirectUrl(): string
     {

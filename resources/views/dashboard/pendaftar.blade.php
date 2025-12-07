@@ -21,6 +21,9 @@
     $biodataLengkap = $hasBasicInfo && (
         ! $needsManual || is_numeric($user->nilaibasiclistening)
     );
+
+    // Logic untuk popup WhatsApp - tampilkan jika belum ada nomor WA
+    $showWhatsAppModal = empty($user->whatsapp);
 @endphp
 
 <div class="space-y-6">
@@ -455,4 +458,102 @@
 
     </div>
 </div>
+
+{{-- Modal Prompt WhatsApp --}}
+@if($showWhatsAppModal)
+<div x-data="{ open: true }" x-cloak>
+    {{-- Backdrop --}}
+    <div x-show="open"
+         x-transition:enter="ease-out duration-300" 
+         x-transition:enter-start="opacity-0" 
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50">
+    </div>
+
+    {{-- Modal Content --}}
+    <div x-show="open"
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+         x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+         x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+         class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+        
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden">
+            
+            {{-- Close Button --}}
+            <button @click="open = false" 
+                    class="absolute top-4 right-4 text-white/70 hover:text-white transition-colors z-10">
+                <i class="fa-solid fa-times text-lg"></i>
+            </button>
+
+            {{-- Header with Icon --}}
+            <div class="bg-gradient-to-br from-green-500 to-green-600 px-6 py-6 text-center relative">
+                <div class="absolute inset-0 opacity-10">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-white rounded-full"></div>
+                    <div class="absolute -left-4 -bottom-4 w-16 h-16 bg-white rounded-full"></div>
+                </div>
+                <div class="relative">
+                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white/20 mb-3">
+                        <i class="fa-brands fa-whatsapp text-3xl text-white"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">Verifikasi Nomor WhatsApp</h3>
+                    <p class="text-green-100 text-sm mt-1">Untuk menerima notifikasi dan reset password</p>
+                </div>
+            </div>
+
+            {{-- Body --}}
+            <div class="px-6 py-6">
+                <div class="space-y-4">
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                            <i class="fa-solid fa-bell text-sm"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-800">Notifikasi Instan</h4>
+                            <p class="text-xs text-slate-500">Status layanan langsung ke WhatsApp Anda</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                            <i class="fa-solid fa-key text-sm"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-800">Reset Password Mudah</h4>
+                            <p class="text-xs text-slate-500">Terima link reset password via WhatsApp</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                            <i class="fa-solid fa-mobile-screen text-sm"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-800">Verifikasi OTP</h4>
+                            <p class="text-xs text-slate-500">Pastikan nomor WA Anda aktif dengan kode OTP</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Footer Actions --}}
+            <div class="px-6 pb-6 flex flex-col sm:flex-row gap-3">
+                <a href="{{ route('dashboard.biodata') }}" 
+                   class="flex-1 inline-flex justify-center items-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors shadow-lg shadow-green-200">
+                    <i class="fa-brands fa-whatsapp"></i>
+                    Verifikasi Sekarang
+                </a>
+                <button @click="open = false" 
+                        class="flex-1 inline-flex justify-center items-center gap-2 px-4 py-3 rounded-xl bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors">
+                    Nanti Saja
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 @endsection

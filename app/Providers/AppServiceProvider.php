@@ -52,5 +52,10 @@ class AppServiceProvider extends ServiceProvider
         // === Registrasi eksplisit policy (opsional jika auto-discovery sudah aktif) ===
         Gate::policy(BasicListeningAttempt::class, BasicListeningAttemptPolicy::class);
         Gate::policy(BasicListeningConnectCode::class, BasicListeningConnectCodePolicy::class);
+
+        // === Registrasi WhatsApp notification channel ===
+        \Illuminate\Support\Facades\Notification::extend('whatsapp', function ($app) {
+            return new \App\Channels\WhatsAppChannel();
+        });
     }
 }

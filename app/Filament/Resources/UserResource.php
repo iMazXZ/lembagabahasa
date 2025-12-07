@@ -62,6 +62,14 @@ class UserResource extends Resource
                     ->validationMessages([
                         'unique' => 'NPM ini sudah terdaftar pada pengguna lain.',
                     ]),
+                Forms\Components\TextInput::make('whatsapp')
+                    ->label('Nomor WhatsApp')
+                    ->tel()
+                    ->maxLength(20)
+                    ->unique(ignoreRecord: true)
+                    ->validationMessages([
+                        'unique' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
+                    ]),
                 Forms\Components\Select::make('prody_id')
                     ->label('Program Studi')
                     ->relationship('prody', 'name')
@@ -163,6 +171,16 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('email')
                     ->copyable()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('whatsapp')
+                    ->label('WhatsApp')
+                    ->copyable()
+                    ->searchable()
+                    ->formatStateUsing(fn ($state, $record) => $state 
+                        ? ($record->whatsapp_verified_at ? "✓ {$state}" : $state)
+                        : '-'
+                    )
+                    ->color(fn ($record) => $record->whatsapp_verified_at ? 'success' : 'gray')
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('srn')
                     ->label('SRN / NPM')
                     ->copyable()

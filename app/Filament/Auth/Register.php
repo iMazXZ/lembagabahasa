@@ -49,6 +49,11 @@ class Register extends AuthRegister
 
         $this->sendEmailVerificationNotification($user);
 
+        // Kirim OTP WhatsApp jika nomor diisi
+        if (!empty($user->whatsapp)) {
+            $this->sendWhatsAppOtp($user);
+        }
+
         Filament::auth()->login($user);
 
         session()->regenerate();
@@ -61,6 +66,34 @@ class Register extends AuthRegister
         };
     }
 
+    /**
+     * Kirim OTP ke WhatsApp setelah registrasi
+     */
+    protected function sendWhatsAppOtp($user): void
+    {
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = now()->addMinutes(10);
+
+        $user->update([
+            'whatsapp_otp' => $otp,
+            'whatsapp_otp_expires_at' => $expiresAt,
+        ]);
+
+        $waService = app(\App\Services\WhatsAppService::class);
+
+        if ($waService->isEnabled()) {
+            $sent = $waService->sendOtp($user->whatsapp, $otp);
+
+            if ($sent) {
+                Notification::make()
+                    ->title('OTP Terkirim')
+                    ->body('Kode verifikasi WhatsApp telah dikirim. Silakan cek WhatsApp Anda.')
+                    ->success()
+                    ->send();
+            }
+        }
+    }
+
     protected function getForms(): array
     {
         return [
@@ -69,12 +102,29 @@ class Register extends AuthRegister
                     ->schema([
                         $this->getNameFormComponent(),
                         $this->getEmailFormComponent(),
+                        $this->getWhatsAppFormComponent(),
                         $this->getPasswordFormComponent(),
                         $this->getPasswordConfirmationFormComponent(),
                     ])
                     ->statePath('data'),
             ),
         ];
+    }
+
+    /**
+     * Komponen input nomor WhatsApp (opsional)
+     */
+    protected function getWhatsAppFormComponent(): TextInput
+    {
+        return TextInput::make('whatsapp')
+            ->label('Nomor WhatsApp (Opsional)')
+            ->tel()
+            ->maxLength(20)
+            ->unique('users', 'whatsapp', ignoreRecord: true)
+            ->validationMessages([
+                'unique' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
+            ])
+            ->helperText('Untuk menerima notifikasi via WhatsApp');
     }
 
     /**
@@ -101,6 +151,11 @@ class Register extends AuthRegister
         // Normalisasi nama ke UPPERCASE
         if (!empty($data['name'])) {
             $data['name'] = mb_strtoupper(trim($data['name']), 'UTF-8');
+        }
+
+        // Normalisasi nomor WhatsApp
+        if (!empty($data['whatsapp'])) {
+            $data['whatsapp'] = \App\Support\NormalizeWhatsAppNumber::normalize($data['whatsapp']);
         }
 
         $user = $this->getUserModel()::create($data);

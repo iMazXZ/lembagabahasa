@@ -313,6 +313,144 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/dashboard/password', [DashboardPasswordController::class, 'update'])
         ->name('dashboard.password.update');
+
+    // API untuk update nomor WhatsApp via AJAX (tanpa OTP - legacy)
+    Route::post('/api/whatsapp/update', function (\Illuminate\Http\Request $request) {
+        $request->validate([
+            'whatsapp' => ['required', 'string', 'max:20'],
+        ]);
+
+        $normalized = \App\Support\NormalizeWhatsAppNumber::normalize($request->whatsapp);
+
+        if (!$normalized) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format nomor WhatsApp tidak valid',
+            ], 422);
+        }
+
+        $request->user()->update(['whatsapp' => $normalized]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nomor WhatsApp berhasil disimpan',
+        ]);
+    })->name('api.whatsapp.update');
+
+    // API Kirim OTP WhatsApp
+    Route::post('/api/whatsapp/send-otp', function (\Illuminate\Http\Request $request) {
+        $request->validate([
+            'whatsapp' => ['required', 'string', 'max:20'],
+        ]);
+
+        $normalized = \App\Support\NormalizeWhatsAppNumber::normalize($request->whatsapp);
+
+        if (!$normalized) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format nomor WhatsApp tidak valid',
+            ], 422);
+        }
+
+        // Cek apakah nomor sudah dipakai user lain
+        $existingUser = \App\Models\User::where('whatsapp', $normalized)
+            ->where('id', '!=', $request->user()->id)
+            ->first();
+
+        if ($existingUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
+            ], 422);
+        }
+
+        // Generate OTP 6 digit
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = now()->addMinutes(5);
+
+        // Simpan OTP sementara di user
+        $user = $request->user();
+        $user->update([
+            'whatsapp' => $normalized,
+            'whatsapp_otp' => $otp,
+            'whatsapp_otp_expires_at' => $expiresAt,
+            'whatsapp_verified_at' => null, // Reset verifikasi
+        ]);
+
+        // Kirim OTP via WhatsApp
+        $waService = app(\App\Services\WhatsAppService::class);
+        
+        if (!$waService->isEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Layanan WhatsApp tidak tersedia',
+            ], 503);
+        }
+
+        $sent = $waService->sendOtp($normalized, $otp);
+
+        if ($sent) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Kode OTP telah dikirim ke WhatsApp Anda',
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal mengirim OTP. Pastikan nomor WhatsApp aktif.',
+        ], 500);
+    })->name('api.whatsapp.send-otp');
+
+    // API Verifikasi OTP WhatsApp
+    Route::post('/api/whatsapp/verify-otp', function (\Illuminate\Http\Request $request) {
+        $request->validate([
+            'otp' => ['required', 'string', 'size:6'],
+        ]);
+
+        $user = $request->user();
+        $inputOtp = $request->input('otp');
+
+        // Cek apakah ada OTP yang pending
+        if (!$user->whatsapp_otp || !$user->whatsapp_otp_expires_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada OTP yang pending. Silakan kirim ulang OTP.',
+            ], 400);
+        }
+
+        // Cek expired
+        if (now()->isAfter($user->whatsapp_otp_expires_at)) {
+            $user->update([
+                'whatsapp_otp' => null,
+                'whatsapp_otp_expires_at' => null,
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Kode OTP sudah kadaluarsa. Silakan kirim ulang.',
+            ], 400);
+        }
+
+        // Verifikasi OTP
+        if ($user->whatsapp_otp !== $inputOtp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kode OTP tidak valid.',
+            ], 400);
+        }
+
+        // Sukses - tandai sebagai verified
+        $user->update([
+            'whatsapp_verified_at' => now(),
+            'whatsapp_otp' => null,
+            'whatsapp_otp_expires_at' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nomor WhatsApp berhasil diverifikasi!',
+        ]);
+    })->name('api.whatsapp.verify-otp');
 });
 
 /*

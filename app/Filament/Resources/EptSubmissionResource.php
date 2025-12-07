@@ -190,7 +190,7 @@ class EptSubmissionResource extends Resource
                             $verificationUrl = $fresh->verification_url;
                             // Sertakan link unduh PDF jika memang route-nya ada & aksesnya sesuai
                             $pdfUrl = route('ept-submissions.pdf', $fresh);
-                            $pemohon->notify(new EptSubmissionStatusNotification('approved', $verificationUrl, $pdfUrl));
+                            $pemohon->notify(new EptSubmissionStatusNotification('approved', $verificationUrl, $pdfUrl, $data['catatan_admin'] ?? null));
                         }
 
                         Notification::make()->title('Pengajuan disetujui & email terkirim.')->success()->send();
@@ -237,7 +237,7 @@ class EptSubmissionResource extends Resource
 
                         try {
                             // rejected tidak perlu link
-                            $pemohon->notify(new EptSubmissionStatusNotification('rejected', null, null));
+                            $pemohon->notify(new EptSubmissionStatusNotification('rejected', null, null, $data['catatan_admin']));
                             Notification::make()->title('Pengajuan ditolak & email terkirim.')->success()->send();
                         } catch (\Throwable $e) {
                             Log::error('Gagal kirim email rejected', [

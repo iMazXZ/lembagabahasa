@@ -32,6 +32,10 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
     protected $fillable = [
         'name',
         'email',
+        'whatsapp',
+        'whatsapp_verified_at',
+        'whatsapp_otp',
+        'whatsapp_otp_expires_at',
         'password',
         'srn',
         'prody_id',
