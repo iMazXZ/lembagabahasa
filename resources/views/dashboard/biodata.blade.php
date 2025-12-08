@@ -4,6 +4,15 @@
 @section('page-title', 'Biodata Pengguna')
 
 @section('content')
+<style>
+    @keyframes pulse-once {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    .animate-pulse-once {
+        animation: pulse-once 1s ease-in-out 3;
+    }
+</style>
 @php
     /** @var \App\Models\User $user */
     use Illuminate\Support\Facades\Storage;
@@ -153,14 +162,19 @@
                             </div>
 
                             {{-- WhatsApp dengan Verifikasi OTP --}}
-                            <div class="md:col-span-2" 
+                            @php
+                                $hasPendingOtp = $user->whatsapp_otp && $user->whatsapp_otp_expires_at && now()->isBefore($user->whatsapp_otp_expires_at);
+                                $initialStep = $user->whatsapp_verified_at ? 'verified' : ($hasPendingOtp ? 'otp' : 'input');
+                                $remainingSeconds = $hasPendingOtp ? (int) max(0, now()->diffInSeconds($user->whatsapp_otp_expires_at, false)) : 0;
+                            @endphp
+                            <div class="md:col-span-2 {{ $hasPendingOtp ? 'ring-2 ring-green-400 ring-offset-2 rounded-2xl p-4 bg-green-50/50 animate-pulse-once' : '' }}" 
                                  x-data="{
                                     phone: '{{ old('whatsapp', $user->whatsapp) }}',
                                     otp: '',
-                                    step: '{{ $user->whatsapp_verified_at ? 'verified' : 'input' }}',
+                                    step: '{{ $initialStep }}',
                                     loading: false,
                                     error: '',
-                                    countdown: 0,
+                                    countdown: {{ $remainingSeconds }},
                                     async sendOtp() {
                                         if (!this.phone || this.phone.length < 10) {
                                             this.error = 'Nomor WhatsApp tidak valid';

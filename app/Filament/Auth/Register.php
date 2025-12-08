@@ -50,7 +50,8 @@ class Register extends AuthRegister
         $this->sendEmailVerificationNotification($user);
 
         // Kirim OTP WhatsApp jika nomor diisi
-        if (!empty($user->whatsapp)) {
+        $hasWhatsApp = !empty($user->whatsapp);
+        if ($hasWhatsApp) {
             $this->sendWhatsAppOtp($user);
         }
 
@@ -58,10 +59,17 @@ class Register extends AuthRegister
 
         session()->regenerate();
 
-        return new class implements RegistrationResponseContract {
+        // Redirect ke biodata jika ada WA (untuk verifikasi OTP), atau ke dashboard
+        $redirectUrl = $hasWhatsApp 
+            ? route('dashboard.biodata') 
+            : route('dashboard.pendaftar');
+
+        return new class($redirectUrl) implements RegistrationResponseContract {
+            public function __construct(private string $url) {}
+            
             public function toResponse($request)
             {
-                return redirect()->intended(route('dashboard.pendaftar'));
+                return redirect()->intended($this->url);
             }
         };
     }
