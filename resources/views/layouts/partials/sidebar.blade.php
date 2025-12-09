@@ -79,6 +79,17 @@
                               {{ request()->routeIs('dashboard.translation*') ? 'text-um-blue' : 'text-slate-400 group-hover:text-slate-600' }}"></i>
                     <span :class="!sidebarOpen && 'lg:hidden'" class="whitespace-nowrap">Terjemahan Abstrak</span>
                 </a>
+
+                {{-- Pendaftaran EPT (S2 Only) --}}
+                @if($u && $u->prody && str_starts_with($u->prody->name ?? '', 'S2') && $u->prody_id && $u->srn && $u->year)
+                    <a href="{{ route('dashboard.ept-registration.index') }}"
+                       class="group flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
+                              {{ request()->routeIs('dashboard.ept-registration*') ? 'bg-blue-50 text-um-blue shadow-sm ring-1 ring-blue-100' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                        <i class="fa-solid fa-clipboard-list w-5 text-center transition-transform group-hover:scale-110
+                                  {{ request()->routeIs('dashboard.ept-registration*') ? 'text-um-blue' : 'text-slate-400 group-hover:text-slate-600' }}"></i>
+                        <span :class="!sidebarOpen && 'lg:hidden'" class="whitespace-nowrap">Pendaftaran EPT</span>
+                    </a>
+                @endif
             </div>
         </div>
 

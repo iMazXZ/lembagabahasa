@@ -75,21 +75,39 @@ class BasicListeningProfileController extends Controller
                 'max:' . (int) now()->year + 1, // biar sama2 aman
             ],
 
-            // ===== Nilai Basic Listening (conditional) =====
+            // ===== Nilai Basic Listening (conditional: angkatan <= 2024 DAN bukan S2) =====
             'nilaibasiclistening' => [
                 'nullable',
-                Rule::requiredIf(fn () => (int) $request->input('year') <= 2024),
+                Rule::requiredIf(function () use ($request) {
+                    $year = (int) $request->input('year');
+                    $prodyId = $request->input('prody_id');
+                    
+                    // Jika tahun > 2024, tidak wajib
+                    if ($year > 2024) return false;
+                    
+                    // Jika prodi S2, tidak wajib
+                    if ($prodyId) {
+                        $prody = \App\Models\Prody::find($prodyId);
+                        if ($prody && str_starts_with($prody->name, 'S2')) {
+                            return false;
+                        }
+                    }
+                    
+                    // Angkatan <= 2024 dan bukan S2, wajib
+                    return true;
+                }),
                 'numeric',
                 'min:0',
                 'max:100',
             ],
 
-            // ===== Nomor WhatsApp (wajib + validasi format) =====
+            // ===== Nomor WhatsApp (opsional + validasi format jika diisi) =====
             'whatsapp' => [
-                'required', 
+                'nullable', 
                 'string', 
                 'max:20',
                 function ($attribute, $value, $fail) {
+                    if (empty($value)) return; // Skip jika kosong
                     $normalized = \App\Support\NormalizeWhatsAppNumber::normalize($value);
                     if (!$normalized) {
                         $fail('Format nomor WhatsApp tidak valid. Contoh: 085712345678');

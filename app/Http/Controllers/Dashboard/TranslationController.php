@@ -25,6 +25,12 @@ class TranslationController extends Controller
         if (! $hasBasicInfo) return false;
 
         $year = (int) $u->year;
+        $isS2 = $u->prody && str_starts_with($u->prody->name ?? '', 'S2');
+
+        // S2 tidak perlu nilai BL
+        if ($isS2) {
+            return true;
+        }
 
         if ($year <= 2024) {
             // angkatan lama: wajib nilai BL manual
@@ -39,6 +45,12 @@ class TranslationController extends Controller
     {
         $u = Auth::user();
         if (! $u) return false;
+
+        // S2 tidak perlu Basic Listening
+        $isS2 = $u->prody && str_starts_with($u->prody->name ?? '', 'S2');
+        if ($isS2) {
+            return true;
+        }
 
         $year = (int) $u->year;
 

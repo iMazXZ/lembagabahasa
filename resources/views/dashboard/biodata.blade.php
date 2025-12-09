@@ -28,8 +28,10 @@
 <div
     x-data="{
         year: '{{ $initialYear }}',
+        isS2: {{ ($user->prody && str_starts_with($user->prody->name ?? '', 'S2')) ? 'true' : 'false' }},
         changePasswordOpen: {{ $shouldOpenPasswordModal ? 'true' : 'false' }}
     }"
+    @prodi-changed.window="isS2 = $event.detail.isS2"
     class="max-w-7xl mx-auto"
 >
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -244,7 +246,7 @@
                                     }
                                  }">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">
-                                    Nomor WhatsApp <span class="text-rose-500">*</span>
+                                    Nomor WhatsApp <span class="text-slate-400">(Opsional)</span>
                                 </label>
                                 
                                 {{-- Step 1: Input Nomor --}}
@@ -379,7 +381,8 @@
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">NPM / NIM <span class="text-rose-500">*</span></label>
                                 <input type="text" name="srn" value="{{ old('srn', $user->srn) }}"
-                                       class="block w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-um-blue focus:ring-um-blue sm:text-sm transition-all duration-200">
+                                       class="block w-full py-3 px-4 rounded-xl border-2 border-slate-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue text-base transition-all duration-200 placeholder:text-slate-400"
+                                       placeholder="Masukkan NPM / NIM">
                                 @error('srn') <p class="mt-1 text-xs text-rose-600 pl-1">{{ $message }}</p> @enderror
                             </div>
 
@@ -387,7 +390,7 @@
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">Tahun Angkatan <span class="text-rose-500">*</span></label>
                                 <select name="year" x-model="year"
-                                        class="block w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-um-blue focus:ring-um-blue sm:text-sm transition-all duration-200">
+                                        class="block w-full py-3 px-4 rounded-xl border-2 border-slate-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue text-base transition-all duration-200">
                                     <option value="">Pilih Tahun</option>
                                     @foreach (collect(range(2017, (int)date('Y')+1))->reverse() as $y)
                                         <option value="{{ $y }}" @selected((int) old('year', $user->year) === $y)>{{ $y }}</option>
@@ -396,37 +399,124 @@
                                 @error('year') <p class="mt-1 text-xs text-rose-600 pl-1">{{ $message }}</p> @enderror
                             </div>
 
-                            {{-- Prodi --}}
-                            <div class="md:col-span-2">
+                            {{-- Prodi - Searchable Dropdown --}}
+                            <div class="md:col-span-2" 
+                                 x-data="{
+                                    open: false,
+                                    search: '',
+                                    selected: {{ old('prody_id', $user->prody_id) ?: 'null' }},
+                                    selectedName: '{{ old('prody_id', $user->prody_id) ? $prodis->firstWhere('id', old('prody_id', $user->prody_id))?->name : '' }}',
+                                    prodis: {{ Js::from($prodis->map(fn($p) => ['id' => $p->id, 'name' => $p->name])) }},
+                                    get filtered() {
+                                        if (!this.search) return this.prodis;
+                                        return this.prodis.filter(p => 
+                                            p.name.toLowerCase().includes(this.search.toLowerCase())
+                                        );
+                                    },
+                                    selectProdi(prodi) {
+                                        this.selected = prodi.id;
+                                        this.selectedName = prodi.name;
+                                        this.search = '';
+                                        this.open = false;
+                                        // Dispatch event untuk update isS2 di parent
+                                        $dispatch('prodi-changed', { isS2: prodi.name.startsWith('S2') });
+                                    },
+                                    clear() {
+                                        this.selected = null;
+                                        this.selectedName = '';
+                                        this.search = '';
+                                    }
+                                 }"
+                                 @click.outside="open = false">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">Program Studi <span class="text-rose-500">*</span></label>
-                                <select name="prody_id"
-                                        class="block w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-um-blue focus:ring-um-blue sm:text-sm transition-all duration-200">
-                                    <option value="">Pilih Program Studi</option>
-                                    @foreach ($prodis as $prody)
-                                        <option value="{{ $prody->id }}" @selected(old('prody_id', $user->prody_id) == $prody->id)>
-                                            {{ $prody->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                
+                                {{-- Hidden input for form submission --}}
+                                <input type="hidden" name="prody_id" :value="selected">
+                                
+                                {{-- Dropdown trigger --}}
+                                <div class="relative">
+                                    <button type="button" 
+                                            @click="open = !open"
+                                            class="w-full py-3 px-4 rounded-xl border-2 border-slate-200 bg-white shadow-sm text-left text-base transition-all duration-200 flex items-center justify-between"
+                                            :class="open ? 'border-um-blue ring-2 ring-um-blue/20' : 'hover:border-slate-300'">
+                                        <span :class="selectedName ? 'text-slate-900' : 'text-slate-400'" x-text="selectedName || 'Pilih Program Studi'"></span>
+                                        <svg class="w-5 h-5 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                    </button>
+                                    
+                                    {{-- Dropdown panel --}}
+                                    <div x-show="open" 
+                                         x-transition:enter="transition ease-out duration-100"
+                                         x-transition:enter-start="opacity-0 scale-95"
+                                         x-transition:enter-end="opacity-100 scale-100"
+                                         x-transition:leave="transition ease-in duration-75"
+                                         x-transition:leave-start="opacity-100 scale-100"
+                                         x-transition:leave-end="opacity-0 scale-95"
+                                         class="absolute z-50 mt-2 w-full bg-white rounded-xl border-2 border-slate-200 shadow-lg overflow-hidden">
+                                        
+                                        {{-- Search input --}}
+                                        <div class="p-2 border-b border-slate-100">
+                                            <input type="text" 
+                                                   x-model="search"
+                                                   x-ref="searchInput"
+                                                   @keydown.escape="open = false"
+                                                   class="w-full py-2 px-3 rounded-lg border border-slate-200 text-sm focus:ring-um-blue focus:border-um-blue"
+                                                   placeholder="Cari program studi...">
+                                        </div>
+                                        
+                                        {{-- Options list --}}
+                                        <ul class="max-h-60 overflow-y-auto py-1">
+                                            <template x-for="prodi in filtered" :key="prodi.id">
+                                                <li>
+                                                    <button type="button"
+                                                            @click="selectProdi(prodi)"
+                                                            class="w-full px-4 py-2.5 text-left text-sm hover:bg-um-blue/10 transition-colors flex items-center gap-2"
+                                                            :class="selected === prodi.id && 'bg-um-blue/10 text-um-blue font-medium'">
+                                                        <svg x-show="selected === prodi.id" class="w-4 h-4 text-um-blue" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                        </svg>
+                                                        <span x-text="prodi.name"></span>
+                                                    </button>
+                                                </li>
+                                            </template>
+                                            <li x-show="filtered.length === 0" class="px-4 py-3 text-sm text-slate-400 text-center">
+                                                Tidak ditemukan
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 @error('prody_id') <p class="mt-1 text-xs text-rose-600 pl-1">{{ $message }}</p> @enderror
                             </div>
 
-                            {{-- Nilai BL (Conditional) --}}
-                            <div x-show="year && parseInt(year) <= 2024" x-collapse 
-                                 class="md:col-span-2 bg-blue-50/60 p-5 rounded-xl border border-blue-100 relative overflow-hidden">
-                                <div class="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 bg-blue-100 rounded-full blur-xl opacity-50"></div>
+                            {{-- Nilai BL (Conditional: angkatan <= 2024 DAN bukan S2) --}}
+                            <template x-if="year && parseInt(year) <= 2024 && !isS2">
+                            <div class="md:col-span-2 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-blue-200 relative overflow-hidden shadow-sm">
+                                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 sm:w-24 sm:h-24 bg-blue-200 rounded-full blur-2xl opacity-40"></div>
                                 <div class="relative z-10">
-                                    <label class="flex items-center gap-2 text-sm font-bold text-um-blue mb-2">
-                                        <i class="fa-solid fa-star"></i> Nilai Basic Listening
-                                    </label>
-                                    <p class="text-xs text-slate-600 mb-3 leading-relaxed">
-                                        Wajib diisi untuk mahasiswa angkatan <strong>2024 dan sebelumnya</strong> sebagai syarat administrasi.
+                                    <div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-um-blue rounded-lg sm:rounded-xl flex items-center justify-center shadow-md shrink-0">
+                                            <i class="fa-solid fa-star text-white text-sm sm:text-base"></i>
+                                        </div>
+                                        <div>
+                                            <label class="text-sm sm:text-base font-bold text-slate-900 block">Nilai Basic Listening <span class="text-rose-500">*</span></label>
+                                            <p class="text-[10px] sm:text-xs text-slate-500">Wajib untuk angkatan 2024 ke bawah</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <input type="number" name="nilaibasiclistening" min="1" max="100" placeholder="0"
+                                               value="{{ old('nilaibasiclistening', $user->nilaibasiclistening) }}"
+                                               required
+                                               class="w-24 sm:w-32 py-2 sm:py-3 px-3 sm:px-4 text-center text-xl sm:text-2xl font-bold rounded-lg sm:rounded-xl border-2 border-blue-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue">
+                                        <span class="text-sm sm:text-base text-slate-500 font-medium">/ 100</span>
+                                    </div>
+                                    <p class="text-[10px] sm:text-xs text-slate-500 mt-2 sm:mt-3">
+                                        <i class="fa-solid fa-info-circle text-blue-400"></i>
+                                        Masukkan nilai Basic Listening Anda.
                                     </p>
-                                    <input type="number" name="nilaibasiclistening" min="0" max="100" placeholder="0-100"
-                                           value="{{ old('nilaibasiclistening', $user->nilaibasiclistening) }}"
-                                           class="block w-full max-w-[150px] rounded-lg border-blue-200 focus:border-um-blue focus:ring-um-blue sm:text-sm bg-white">
                                 </div>
                             </div>
+                            </template>
                         </div>
                     </div>
 

@@ -22,7 +22,8 @@ class SubmitEptScoreController extends Controller
         // ==== Cek kelengkapan biodata ====
         $hasBasicInfo = !empty($user->prody_id) && !empty($user->srn) && !empty($user->year);
         $year         = (int) $user->year;
-        $needManual   = $year <= 2024;
+        $isS2         = $user->prody && str_starts_with($user->prody->name ?? '', 'S2');
+        $needManual   = $year <= 2024 && !$isS2; // S2 tidak perlu BL
 
         $biodataComplete = $hasBasicInfo && (
             ! $needManual || is_numeric($user->nilaibasiclistening)
@@ -31,7 +32,8 @@ class SubmitEptScoreController extends Controller
         // ==== Cek keikutsertaan Basic Listening (angkatan ≥ 2025) ====
         $completedBL = true;
 
-        if ($year >= 2025) {
+        // S2 tidak perlu Basic Listening
+        if (!$isS2 && $year >= 2025) {
             $grade = BasicListeningGrade::query()
                 ->where('user_id', $user->id)
                 ->where('user_year', $user->year)

@@ -16,7 +16,8 @@
     // Logic Biodata
     $hasBasicInfo = $user->prody_id && $user->srn && $user->year;
     $yearInt      = (int) $user->year;
-    $needsManual  = $yearInt && $yearInt <= 2024;
+    $isS2         = $user->prody && str_starts_with($user->prody->name ?? '', 'S2');
+    $needsManual  = $yearInt && $yearInt <= 2024 && !$isS2; // S2 tidak perlu BL manual
 
     $biodataLengkap = $hasBasicInfo && (
         ! $needsManual || is_numeric($user->nilaibasiclistening)
@@ -171,6 +172,147 @@
                 </div>
             </div>
         </div>
+    @endif
+
+    {{-- SECTION: EPT Registration Widget (S2 Only) - PROMINENT --}}
+    @php
+        $eptRegistration = $isS2 ? \App\Models\EptRegistration::where('user_id', $user->id)->latest()->first() : null;
+    @endphp
+    @if($isS2 && $biodataLengkap)
+        @if(!$eptRegistration)
+            {{-- Belum Daftar - Banner Biru Mencolok --}}
+            <div class="relative overflow-hidden bg-um-blue rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
+                <div class="absolute right-0 top-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full"></div>
+                <div class="absolute left-0 bottom-0 -mb-8 -ml-8 w-32 h-32 bg-white opacity-5 rounded-full"></div>
+                
+                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                            <i class="fa-solid fa-clipboard-list text-2xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xl font-bold text-white mb-1">Pendaftaran Tes EPT</h4>
+                            <p class="text-blue-100 text-sm leading-relaxed max-w-md">
+                                Daftarkan diri Anda untuk mengikuti Tes EPT dengan mengunggah bukti pembayaran.
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{{ route('dashboard.ept-registration.index') }}"
+                       class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-um-blue font-bold text-sm shadow-lg hover:bg-blue-50 transition-all hover:scale-[1.02] shrink-0">
+                        Daftar Sekarang
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+        @elseif($eptRegistration->status === 'pending')
+            {{-- Status: Menunggu Verifikasi --}}
+            <div class="relative overflow-hidden bg-amber-500 rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
+                <div class="absolute right-0 top-0 -mt-8 -mr-8 w-32 h-32 bg-white opacity-10 rounded-full"></div>
+                
+                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                            <i class="fa-solid fa-clock text-2xl"></i>
+                        </div>
+                        <div>
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold mb-2">
+                                <i class="fa-solid fa-hourglass-half"></i> Menunggu Verifikasi
+                            </div>
+                            <h4 class="text-lg font-bold text-white">Pendaftaran Sedang Diproses</h4>
+                            <p class="text-amber-100 text-sm mt-1">
+                                Diajukan pada {{ $eptRegistration->created_at->translatedFormat('d F Y, H:i') }}
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{{ route('dashboard.ept-registration.index') }}"
+                       class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-amber-600 font-semibold text-sm hover:bg-amber-50 transition shrink-0">
+                        Lihat Detail
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+        @elseif($eptRegistration->status === 'rejected')
+            {{-- Status: Ditolak --}}
+            <div class="relative overflow-hidden bg-red-500 rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
+                <div class="absolute right-0 top-0 -mt-8 -mr-8 w-32 h-32 bg-white opacity-10 rounded-full"></div>
+                
+                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                            <i class="fa-solid fa-xmark text-2xl"></i>
+                        </div>
+                        <div>
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold mb-2">
+                                <i class="fa-solid fa-circle-xmark"></i> Ditolak
+                            </div>
+                            <h4 class="text-lg font-bold text-white">Pendaftaran Ditolak</h4>
+                            <p class="text-red-100 text-sm mt-1 max-w-md">
+                                {{ Str::limit($eptRegistration->rejection_reason ?? 'Silakan upload ulang bukti pembayaran.', 80) }}
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{{ route('dashboard.ept-registration.index') }}"
+                       class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-red-600 font-semibold text-sm hover:bg-red-50 transition shrink-0">
+                        <i class="fa-solid fa-redo"></i>
+                        Daftar Ulang
+                    </a>
+                </div>
+            </div>
+
+        @elseif($eptRegistration->status === 'approved')
+            {{-- Status: Disetujui --}}
+            <div class="relative overflow-hidden bg-emerald-500 rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
+                <div class="absolute right-0 top-0 -mt-8 -mr-8 w-32 h-32 bg-white opacity-10 rounded-full"></div>
+                
+                <div class="relative z-10">
+                    <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-6 mb-4">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                                <i class="fa-solid fa-check text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold mb-2">
+                                    <i class="fa-solid fa-circle-check"></i> Disetujui
+                                </div>
+                                <h4 class="text-lg font-bold text-white">Pendaftaran EPT Berhasil</h4>
+                            </div>
+                        </div>
+                        @if($eptRegistration->hasSchedule())
+                            <a href="{{ route('dashboard.ept-registration.kartu') }}"
+                               class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-emerald-600 font-semibold text-sm hover:bg-emerald-50 transition shrink-0">
+                                <i class="fa-solid fa-download"></i>
+                                Download Kartu
+                            </a>
+                        @endif
+                    </div>
+
+                    @if($eptRegistration->hasSchedule())
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            @foreach([1, 2, 3] as $i)
+                                @php
+                                    $grup = $eptRegistration->{"grup_$i"};
+                                    $jadwal = $eptRegistration->{"jadwal_$i"};
+                                @endphp
+                                <div class="bg-white/20 backdrop-blur rounded-xl p-4 text-white">
+                                    <div class="text-xs font-bold text-emerald-100 mb-1">Tes ke-{{ $i }}</div>
+                                    <div class="font-bold">{{ $grup }}</div>
+                                    <div class="text-sm text-emerald-100 mt-1">
+                                        {{ $jadwal->translatedFormat('d M Y, H:i') }} WIB
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="mt-4 text-sm text-white">
+                            <i class="fa-solid fa-location-dot mr-1"></i> <strong>Lokasi:</strong> Ruang Stanford
+                        </div>
+                    @else
+                        <p class="text-emerald-100 text-sm">Jadwal tes akan segera diinformasikan oleh admin.</p>
+                    @endif
+                </div>
+            </div>
+        @endif
     @endif
 
     {{-- SECTION 2: Quick Actions (Fixed Layout) --}}
@@ -331,6 +473,7 @@
 
         $themeTrans = $getTheme($translation ? $statusTrans : null);
         $themeEpt   = $getTheme($ept ? $statusEpt : null);
+
     @endphp
 
     <h3 class="text-lg font-bold text-slate-800 mt-8 mb-5 px-1 flex items-center gap-2">

@@ -314,6 +314,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/dashboard/password', [DashboardPasswordController::class, 'update'])
         ->name('dashboard.password.update');
 
+    // EPT Registration (S2 only)
+    Route::get('/dashboard/ept-registration', [\App\Http\Controllers\Dashboard\EptRegistrationController::class, 'index'])
+        ->name('dashboard.ept-registration.index');
+    Route::post('/dashboard/ept-registration', [\App\Http\Controllers\Dashboard\EptRegistrationController::class, 'store'])
+        ->name('dashboard.ept-registration.store');
+    Route::get('/dashboard/ept-registration/kartu', [\App\Http\Controllers\Dashboard\EptRegistrationController::class, 'kartuPeserta'])
+        ->name('dashboard.ept-registration.kartu');
+
     // API untuk update nomor WhatsApp via AJAX (tanpa OTP - legacy)
     Route::post('/api/whatsapp/update', function (\Illuminate\Http\Request $request) {
         $request->validate([
