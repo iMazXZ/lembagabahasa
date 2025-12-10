@@ -29,6 +29,100 @@
 
 <div class="space-y-6">
 
+    {{-- ONBOARDING CHECKLIST WIDGET --}}
+    @php
+        $stepsDone = 1; // Akun terdaftar selalu done
+        $totalSteps = 3;
+        $waVerified = !empty($user->whatsapp_verified_at);
+        if ($waVerified) $stepsDone++;
+        if ($biodataLengkap) $stepsDone++;
+        $allDone = ($stepsDone === $totalSteps);
+        $progressPercent = ($stepsDone / $totalSteps) * 100;
+    @endphp
+    
+    @if(!$allDone)
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {{-- Header --}}
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-um-blue/10 flex items-center justify-center">
+                        <i class="fa-solid fa-list-check text-um-blue"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800">Lengkapi Akun Anda</h3>
+                        <p class="text-xs text-slate-500">{{ $stepsDone }}/{{ $totalSteps }} langkah selesai</p>
+                    </div>
+                </div>
+                <span class="text-sm font-bold text-um-blue">{{ round($progressPercent) }}%</span>
+            </div>
+            
+            {{-- Progress Bar --}}
+            <div class="h-1.5 bg-slate-100">
+                <div class="h-full bg-um-blue transition-all duration-500" style="width: {{ $progressPercent }}%"></div>
+            </div>
+            
+            {{-- Steps --}}
+            <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {{-- Step 1: Akun Terdaftar --}}
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-check text-emerald-600 text-sm"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800">Akun Terdaftar</p>
+                        <p class="text-xs text-emerald-600">Selesai</p>
+                    </div>
+                </div>
+                
+                {{-- Step 2: Verifikasi WhatsApp --}}
+                <div class="flex items-start gap-3">
+                    @if($waVerified)
+                        <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-check text-emerald-600 text-sm"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">WhatsApp Terverifikasi</p>
+                            <p class="text-xs text-emerald-600">Selesai</p>
+                        </div>
+                    @else
+                        <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                            <span class="text-amber-600 font-bold text-sm">2</span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">Verifikasi WhatsApp</p>
+                            <a href="{{ route('dashboard.biodata') }}" class="text-xs text-um-blue hover:underline">
+                                Verifikasi sekarang →
+                            </a>
+                        </div>
+                    @endif
+                </div>
+                
+                {{-- Step 3: Lengkapi Biodata --}}
+                <div class="flex items-start gap-3">
+                    @if($biodataLengkap)
+                        <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-check text-emerald-600 text-sm"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">Biodata Lengkap</p>
+                            <p class="text-xs text-emerald-600">Selesai</p>
+                        </div>
+                    @else
+                        <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                            <span class="text-amber-600 font-bold text-sm">3</span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">Lengkapi Biodata</p>
+                            <a href="{{ route('dashboard.biodata') }}" class="text-xs text-um-blue hover:underline">
+                                Lengkapi sekarang →
+                            </a>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- SECTION 1: Welcome & Biodata Status --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -325,6 +419,7 @@
             {{-- 1. Basic Listening --}}
             {{-- col-span-2 (HP) -> col-span-1 (Laptop/Tablet) --}}
             <a href="{{ route('bl.index') }}" 
+               title="Ikuti kelas Basic Listening dan dapatkan sertifikat"
                class="col-span-2 md:col-span-1 group relative overflow-hidden bg-violet-600 rounded-xl shadow-md shadow-violet-200 transition-all duration-200 hover:shadow-lg hover:bg-violet-700 flex items-center p-3.5 gap-3">
                 
                 {{-- Dekorasi Background --}}
@@ -348,7 +443,7 @@
             @endphp
 
             {{-- 2. Surat Rekomendasi --}}
-            <a href="{{ route('dashboard.ept') }}" class="{{ $cardClass }}">
+            <a href="{{ route('dashboard.ept') }}" title="Ajukan surat rekomendasi setelah 3x tes EPT" class="{{ $cardClass }}">
                 <div class="{{ $iconBase }} bg-blue-50 text-blue-600">
                     <i class="fa-solid fa-file-signature"></i>
                 </div>
@@ -359,7 +454,7 @@
             </a>
 
             {{-- 3. Penerjemahan --}}
-            <a href="{{ route('dashboard.translation') }}" class="{{ $cardClass }} hover:border-indigo-300">
+            <a href="{{ route('dashboard.translation') }}" title="Layanan penerjemahan abstrak untuk jurnal ilmiah" class="{{ $cardClass }} hover:border-indigo-300">
                 <div class="{{ $iconBase }} bg-indigo-50 text-indigo-600">
                     <i class="fa-solid fa-language"></i>
                 </div>
@@ -370,7 +465,7 @@
             </a>
 
             {{-- 4. Cek Nilai EPT --}}
-            <a href="{{ route('front.scores') }}" class="{{ $cardClass }} hover:border-emerald-300">
+            <a href="{{ route('front.scores') }}" title="Lihat skor EPT Anda berdasarkan NPM" class="{{ $cardClass }} hover:border-emerald-300">
                 <div class="{{ $iconBase }} bg-emerald-50 text-emerald-600">
                     <i class="fa-solid fa-square-poll-vertical"></i>
                 </div>
@@ -381,7 +476,7 @@
             </a>
 
             {{-- 5. Cek Jadwal EPT --}}
-            <a href="{{ route('front.schedule') }}" class="{{ $cardClass }} hover:border-amber-300">
+            <a href="{{ route('front.schedule') }}" title="Lihat jadwal tes EPT yang tersedia" class="{{ $cardClass }} hover:border-amber-300">
                 <div class="{{ $iconBase }} bg-amber-50 text-amber-600">
                     <i class="fa-solid fa-calendar-days"></i>
                 </div>
@@ -511,10 +606,15 @@
             {{-- Body --}}
             <div class="relative z-10 flex-1 flex flex-col">
                 @if (!$translation)
-                    <div class="flex-1 flex flex-col justify-center py-2">
-                        <p class="text-sm text-slate-500 mb-4">Belum ada pengajuan aktif saat ini.</p>
-                        <a href="{{ route('dashboard.translation') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-um-blue hover:underline decoration-um-blue/30 underline-offset-4">
-                            Ajukan Sekarang <i class="fa-solid fa-arrow-right"></i>
+                    <div class="flex-1 flex flex-col items-center justify-center py-6 text-center">
+                        <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                            <i class="fa-solid fa-file-lines text-2xl text-slate-400"></i>
+                        </div>
+                        <p class="text-sm font-medium text-slate-700 mb-1">Belum Ada Pengajuan</p>
+                        <p class="text-xs text-slate-500 mb-4 max-w-xs">Layanan penerjemahan abstrak untuk keperluan jurnal ilmiah & publikasi.</p>
+                        <a href="{{ route('dashboard.translation') }}" 
+                           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-um-blue text-white text-xs font-bold shadow-sm hover:bg-um-dark-blue transition">
+                            <i class="fa-solid fa-plus"></i> Ajukan Sekarang
                         </a>
                     </div>
                 @else
@@ -575,10 +675,15 @@
             {{-- Body --}}
             <div class="relative z-10 flex-1 flex flex-col">
                 @if (!$ept)
-                    <div class="flex-1 flex flex-col justify-center py-2">
-                        <p class="text-sm text-slate-500 mb-4">Belum ada permintaan surat.</p>
-                        <a href="{{ route('dashboard.ept') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-um-blue hover:underline decoration-um-blue/30 underline-offset-4">
-                            Buat Surat <i class="fa-solid fa-arrow-right"></i>
+                    <div class="flex-1 flex flex-col items-center justify-center py-6 text-center">
+                        <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                            <i class="fa-solid fa-file-pen text-2xl text-slate-400"></i>
+                        </div>
+                        <p class="text-sm font-medium text-slate-700 mb-1">Belum Ada Pengajuan</p>
+                        <p class="text-xs text-slate-500 mb-4 max-w-xs">Ajukan surat rekomendasi EPT setelah mengikuti 3x tes.</p>
+                        <a href="{{ route('dashboard.ept') }}" 
+                           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-um-blue text-white text-xs font-bold shadow-sm hover:bg-um-dark-blue transition">
+                            <i class="fa-solid fa-plus"></i> Ajukan Sekarang
                         </a>
                     </div>
                 @else
@@ -602,9 +707,94 @@
     </div>
 </div>
 
-{{-- Modal Prompt WhatsApp --}}
-@if($showWhatsAppModal)
-<div x-data="{ open: true }" x-cloak>
+{{-- WELCOME MODAL (untuk user baru atau belum verifikasi WA) --}}
+@php
+    $showWelcomeModal = !$user->has_seen_welcome || empty($user->whatsapp);
+@endphp
+
+@if($showWelcomeModal)
+<div x-data="{ 
+    open: true,
+    step: '{{ empty($user->whatsapp) ? 'whatsapp' : 'welcome' }}',
+    phone: '',
+    otp: '',
+    loading: false,
+    error: '',
+    countdown: 0,
+    async sendOtp() {
+        if (!this.phone || this.phone.length < 10) {
+            this.error = 'Nomor WhatsApp tidak valid';
+            return;
+        }
+        this.loading = true;
+        this.error = '';
+        try {
+            const res = await fetch('{{ route('api.whatsapp.send-otp') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ whatsapp: this.phone })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.step = 'otp';
+                this.countdown = 60;
+                this.startCountdown();
+            } else {
+                this.error = data.message || 'Gagal mengirim OTP';
+            }
+        } catch (e) {
+            this.error = 'Terjadi kesalahan';
+        }
+        this.loading = false;
+    },
+    async verifyOtp() {
+        if (!this.otp || this.otp.length !== 6) {
+            this.error = 'Kode OTP harus 6 digit';
+            return;
+        }
+        this.loading = true;
+        this.error = '';
+        try {
+            const res = await fetch('{{ route('api.whatsapp.verify-otp') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ otp: this.otp })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.step = 'success';
+                setTimeout(() => this.dismissWelcome(), 1500);
+            } else {
+                this.error = data.message || 'OTP tidak valid';
+            }
+        } catch (e) {
+            this.error = 'Terjadi kesalahan';
+        }
+        this.loading = false;
+    },
+    startCountdown() {
+        const interval = setInterval(() => {
+            this.countdown--;
+            if (this.countdown <= 0) clearInterval(interval);
+        }, 1000);
+    },
+    async dismissWelcome() {
+        await fetch('{{ route('api.dismiss-welcome') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        });
+        this.open = false;
+    }
+}" x-cloak>
     {{-- Backdrop --}}
     <div x-show="open"
          x-transition:enter="ease-out duration-300" 
@@ -613,87 +803,159 @@
          x-transition:leave="ease-in duration-200"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50">
+         class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50">
     </div>
 
     {{-- Modal Content --}}
     <div x-show="open"
          x-transition:enter="ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+         x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95"
          x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
          x-transition:leave="ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-         x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+         x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95"
          class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
         
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden">
             
             {{-- Close Button --}}
-            <button @click="open = false" 
+            <button @click="dismissWelcome()" 
                     class="absolute top-4 right-4 text-white/70 hover:text-white transition-colors z-10">
                 <i class="fa-solid fa-times text-lg"></i>
             </button>
 
-            {{-- Header with Icon --}}
-            <div class="bg-gradient-to-br from-green-500 to-green-600 px-6 py-6 text-center relative">
+            {{-- Header --}}
+            <div class="bg-um-blue px-6 py-6 text-center relative">
                 <div class="absolute inset-0 opacity-10">
                     <div class="absolute -right-4 -top-4 w-24 h-24 bg-white rounded-full"></div>
                     <div class="absolute -left-4 -bottom-4 w-16 h-16 bg-white rounded-full"></div>
                 </div>
                 <div class="relative">
                     <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white/20 mb-3">
-                        <i class="fa-brands fa-whatsapp text-3xl text-white"></i>
+                        <i class="fa-solid fa-hand-wave text-3xl text-white"></i>
                     </div>
-                    <h3 class="text-lg font-bold text-white">Verifikasi Nomor WhatsApp</h3>
-                    <p class="text-green-100 text-sm mt-1">Untuk menerima notifikasi dan reset password</p>
+                    <h3 class="text-lg font-bold text-white">Selamat Datang!</h3>
+                    <p class="text-blue-100 text-sm mt-1">Lembaga Bahasa UM Metro</p>
                 </div>
             </div>
 
-            {{-- Body --}}
-            <div class="px-6 py-6">
-                <div class="space-y-4">
-                    <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                            <i class="fa-solid fa-bell text-sm"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-semibold text-slate-800">Notifikasi Instan</h4>
-                            <p class="text-xs text-slate-500">Status layanan langsung ke WhatsApp Anda</p>
+            {{-- Step: Welcome --}}
+            <template x-if="step === 'welcome'">
+                <div>
+                    <div class="px-6 py-5">
+                        <p class="text-sm text-slate-600 mb-4">Berikut langkah untuk memulai:</p>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                                <div class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">✓</div>
+                                <span class="text-sm text-emerald-700 font-medium">Akun berhasil dibuat</span>
+                            </div>
+                            <div class="flex items-center gap-3 p-3 rounded-xl {{ $biodataLengkap ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100' }} border">
+                                <div class="w-8 h-8 rounded-full {{ $biodataLengkap ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white' }} flex items-center justify-center text-sm font-bold">
+                                    {{ $biodataLengkap ? '✓' : '2' }}
+                                </div>
+                                <span class="text-sm {{ $biodataLengkap ? 'text-emerald-700' : 'text-amber-700' }} font-medium">
+                                    {{ $biodataLengkap ? 'Biodata lengkap' : 'Lengkapi biodata Anda' }}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="w-8 h-8 rounded-full bg-slate-300 text-white flex items-center justify-center text-sm font-bold">3</div>
+                                <span class="text-sm text-slate-600 font-medium">Gunakan layanan (EPT, Terjemahan)</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                            <i class="fa-solid fa-key text-sm"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-semibold text-slate-800">Reset Password Mudah</h4>
-                            <p class="text-xs text-slate-500">Terima link reset password via WhatsApp</p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                            <i class="fa-solid fa-mobile-screen text-sm"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-semibold text-slate-800">Verifikasi OTP</h4>
-                            <p class="text-xs text-slate-500">Pastikan nomor WA Anda aktif dengan kode OTP</p>
-                        </div>
+                    <div class="px-6 pb-6">
+                        <button @click="dismissWelcome()" 
+                                class="w-full py-3 px-4 rounded-xl bg-um-blue text-white text-sm font-bold hover:bg-um-dark-blue transition">
+                            Mulai Sekarang
+                        </button>
                     </div>
                 </div>
-            </div>
+            </template>
 
-            {{-- Footer Actions --}}
-            <div class="px-6 pb-6 flex flex-col sm:flex-row gap-3">
-                <a href="{{ route('dashboard.biodata') }}" 
-                   class="flex-1 inline-flex justify-center items-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors shadow-lg shadow-green-200">
-                    <i class="fa-brands fa-whatsapp"></i>
-                    Verifikasi Sekarang
-                </a>
-                <button @click="open = false" 
-                        class="flex-1 inline-flex justify-center items-center gap-2 px-4 py-3 rounded-xl bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors">
-                    Nanti Saja
-                </button>
-            </div>
+            {{-- Step: Input WhatsApp --}}
+            <template x-if="step === 'whatsapp'">
+                <div>
+                    <div class="px-6 py-5">
+                        <p class="text-sm text-slate-600 mb-4">Masukkan nomor WhatsApp untuk menerima notifikasi:</p>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fa-brands fa-whatsapp text-green-500"></i>
+                            </div>
+                            <input type="tel" 
+                                   x-model="phone"
+                                   inputmode="numeric"
+                                   class="pl-10 block w-full py-3 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-green-500 focus:ring-green-500 text-base"
+                                   placeholder="08xxxxxxxxxx">
+                        </div>
+                        <p x-show="error" x-text="error" class="mt-2 text-xs text-rose-500"></p>
+                    </div>
+                    <div class="px-6 pb-6 flex gap-3">
+                        <button @click="dismissWelcome()" 
+                                class="flex-1 py-3 px-4 rounded-xl bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition">
+                            Nanti Saja
+                        </button>
+                        <button @click="sendOtp()"
+                                :disabled="loading || !phone"
+                                :class="{'opacity-50 cursor-not-allowed': loading || !phone}"
+                                class="flex-1 py-3 px-4 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition flex items-center justify-center gap-2">
+                            <i x-show="!loading" class="fa-solid fa-paper-plane"></i>
+                            <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
+                            Kirim OTP
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            {{-- Step: OTP Verification --}}
+            <template x-if="step === 'otp'">
+                <div>
+                    <div class="px-6 py-5">
+                        <div class="p-3 rounded-xl bg-green-50 border border-green-100 text-sm text-green-700 mb-4">
+                            <i class="fa-solid fa-check-circle"></i>
+                            OTP dikirim ke <strong x-text="phone"></strong>
+                        </div>
+                        <input type="text" 
+                               x-model="otp"
+                               maxlength="6"
+                               inputmode="numeric"
+                               class="w-full text-center text-2xl tracking-[0.4em] font-mono py-3 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-green-500 focus:ring-green-500"
+                               placeholder="● ● ● ● ● ●">
+                        <p x-show="error" x-text="error" class="mt-2 text-xs text-rose-500 text-center"></p>
+                        <div class="mt-3 flex justify-between text-xs">
+                            <button @click="step = 'whatsapp'" class="text-slate-500 hover:text-slate-700">
+                                <i class="fa-solid fa-arrow-left"></i> Ganti Nomor
+                            </button>
+                            <button @click="sendOtp()" 
+                                    :disabled="countdown > 0"
+                                    :class="countdown > 0 ? 'text-slate-400' : 'text-green-600 hover:text-green-700'">
+                                <span x-show="countdown > 0">Kirim ulang (<span x-text="countdown"></span>s)</span>
+                                <span x-show="countdown <= 0">Kirim ulang OTP</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6">
+                        <button @click="verifyOtp()"
+                                :disabled="loading || otp.length !== 6"
+                                :class="{'opacity-50 cursor-not-allowed': loading || otp.length !== 6}"
+                                class="w-full py-3 px-4 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition flex items-center justify-center gap-2">
+                            <i x-show="!loading" class="fa-solid fa-check"></i>
+                            <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
+                            Verifikasi
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            {{-- Step: Success --}}
+            <template x-if="step === 'success'">
+                <div class="px-6 py-10 text-center">
+                    <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-check text-3xl text-emerald-500"></i>
+                    </div>
+                    <h4 class="text-lg font-bold text-slate-800 mb-1">WhatsApp Terverifikasi!</h4>
+                    <p class="text-sm text-slate-500">Selamat menggunakan layanan kami</p>
+                </div>
+            </template>
         </div>
     </div>
 </div>

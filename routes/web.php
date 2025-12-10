@@ -459,6 +459,15 @@ Route::middleware('auth')->group(function () {
             'message' => 'Nomor WhatsApp berhasil diverifikasi!',
         ]);
     })->name('api.whatsapp.verify-otp');
+
+    // Dismiss Welcome Modal
+    Route::post('/dismiss-welcome', function (Request $request) {
+        $user = $request->user();
+        $user->has_seen_welcome = true;
+        $user->save();
+
+        return response()->json(['success' => true]);
+    })->name('api.dismiss-welcome');
 });
 
 /*

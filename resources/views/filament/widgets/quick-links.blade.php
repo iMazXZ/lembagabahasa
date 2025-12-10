@@ -33,6 +33,9 @@
         $terjemahBadge = $pendingTerjemah > 0
             ? $pendingTerjemah
             : ($approvedTerjemah > 0 ? $approvedTerjemah : null);
+
+        // Pendaftaran EPT
+        $pendingEpt = \App\Models\EptRegistration::where('status', 'pending')->count();
       @endphp
 
       <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
@@ -62,46 +65,25 @@
 
         <x-filament::button
           tag="a"
+          href="{{ route('filament.admin.resources.ept-registrations.index') }}"
+          size="lg"
+          :color="$pendingEpt > 0 ? 'danger' : 'success'"
+          icon="heroicon-o-academic-cap"
+          :badge="$pendingEpt ?: null"
+          class="w-full justify-start"
+        >
+          Pendaftaran EPT
+        </x-filament::button>
+
+        <x-filament::button
+          tag="a"
           href="{{ route('filament.admin.resources.users.index') }}"
           size="lg"
           color="success"
           icon="heroicon-o-users"
           class="w-full justify-start"
         >
-          Data Pendaftar
-        </x-filament::button>
-
-        <x-filament::button
-          tag="a"
-          href="{{ route('filament.admin.resources.basic-listening-connect-codes.index') }}"
-          size="lg"
-          color="success"
-          icon="heroicon-o-link"
-          class="w-full justify-start"
-        >
-          Connect Code
-        </x-filament::button>
-
-        <x-filament::button
-          tag="a"
-          href="{{ route('filament.admin.resources.basic-listening-attempts.index') }}"
-          size="lg"
-          color="success"
-          icon="heroicon-o-clipboard-document-check"
-          class="w-full justify-start"
-        >
-          Data Quiz Dikerjakan
-        </x-filament::button>
-
-        <x-filament::button
-          tag="a"
-          href="{{ route('filament.admin.resources.shield.roles.index') }}"
-          size="lg"
-          color="success"
-          icon="heroicon-o-shield-check"
-          class="w-full justify-start"
-        >
-          Pengaturan Role & Permission
+          Data User
         </x-filament::button>
       </div>
     @endrole

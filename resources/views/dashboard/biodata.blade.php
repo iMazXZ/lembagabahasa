@@ -34,6 +34,148 @@
     @prodi-changed.window="isS2 = $event.detail.isS2"
     class="max-w-7xl mx-auto"
 >
+    {{-- TOP BANNER: WhatsApp OTP Verification (hanya muncul jika ada pending OTP) --}}
+    @php
+        $hasPendingOtp = $user->whatsapp_otp && $user->whatsapp_otp_expires_at && now()->isBefore($user->whatsapp_otp_expires_at);
+        $remainingSeconds = $hasPendingOtp ? (int) max(0, now()->diffInSeconds($user->whatsapp_otp_expires_at, false)) : 0;
+    @endphp
+    
+    @if($hasPendingOtp)
+        <div class="mb-6 bg-green-500 rounded-2xl shadow-lg overflow-hidden"
+             x-data="{
+                 otp: '',
+                 loading: false,
+                 error: '',
+                 countdown: {{ $remainingSeconds }},
+                 verified: false,
+                 async verifyOtp() {
+                     if (!this.otp || this.otp.length !== 6) {
+                         this.error = 'Kode OTP harus 6 digit';
+                         return;
+                     }
+                     this.loading = true;
+                     this.error = '';
+                     try {
+                         const res = await fetch('{{ route('api.whatsapp.verify-otp') }}', {
+                             method: 'POST',
+                             headers: {
+                                 'Content-Type': 'application/json',
+                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                             },
+                             body: JSON.stringify({ otp: this.otp })
+                         });
+                         const data = await res.json();
+                         if (data.success) {
+                             this.verified = true;
+                             setTimeout(() => window.location.reload(), 1000);
+                         } else {
+                             this.error = data.message || 'OTP tidak valid';
+                         }
+                     } catch (e) {
+                         this.error = 'Terjadi kesalahan';
+                     }
+                     this.loading = false;
+                 },
+                 async resendOtp() {
+                     this.loading = true;
+                     this.error = '';
+                     try {
+                         const res = await fetch('{{ route('api.whatsapp.send-otp') }}', {
+                             method: 'POST',
+                             headers: {
+                                 'Content-Type': 'application/json',
+                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                             },
+                             body: JSON.stringify({ whatsapp: '{{ $user->whatsapp }}' })
+                         });
+                         const data = await res.json();
+                         if (data.success) {
+                             this.countdown = 60;
+                             this.startCountdown();
+                         } else {
+                             this.error = data.message || 'Gagal mengirim ulang OTP';
+                         }
+                     } catch (e) {
+                         this.error = 'Terjadi kesalahan';
+                     }
+                     this.loading = false;
+                 },
+                 startCountdown() {
+                     const interval = setInterval(() => {
+                         this.countdown--;
+                         if (this.countdown <= 0) clearInterval(interval);
+                     }, 1000);
+                 },
+                 init() {
+                     if (this.countdown > 0) this.startCountdown();
+                 }
+             }">
+            
+            <template x-if="!verified">
+                <div class="p-5 lg:p-6">
+                    <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+                        {{-- Left: Icon & Text --}}
+                        <div class="flex items-start gap-4 flex-1">
+                            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                                <i class="fa-brands fa-whatsapp text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white mb-1">Verifikasi Nomor WhatsApp</h3>
+                                <p class="text-green-100 text-sm">
+                                    Kode OTP sudah dikirim ke <strong class="text-white">{{ $user->whatsapp }}</strong>. 
+                                    Masukkan kode untuk verifikasi.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {{-- Right: OTP Input --}}
+                        <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+                            <input type="text" 
+                                   x-model="otp"
+                                   maxlength="6"
+                                   inputmode="numeric"
+                                   pattern="[0-9]*"
+                                   class="w-full sm:w-40 text-center text-xl tracking-[0.3em] font-mono py-3 px-4 rounded-xl border-0 bg-white/20 text-white placeholder-green-200 focus:bg-white/30 focus:ring-2 focus:ring-white"
+                                   placeholder="● ● ● ● ● ●">
+                            <button type="button"
+                                    @click="verifyOtp()"
+                                    :disabled="loading || otp.length !== 6"
+                                    :class="{'opacity-50 cursor-not-allowed': loading || otp.length !== 6}"
+                                    class="px-6 py-3 rounded-xl bg-white text-green-600 font-bold text-sm hover:bg-green-50 transition-colors flex items-center justify-center gap-2">
+                                <i x-show="!loading" class="fa-solid fa-check"></i>
+                                <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
+                                <span>Verifikasi</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {{-- Error Message --}}
+                    <p x-show="error" x-text="error" class="mt-3 text-sm text-white bg-red-500/50 rounded-lg px-3 py-2"></p>
+                    
+                    {{-- Resend Link --}}
+                    <div class="mt-3 flex justify-end">
+                        <button type="button" 
+                                @click="resendOtp()" 
+                                :disabled="countdown > 0 || loading"
+                                :class="countdown > 0 ? 'text-green-200 cursor-not-allowed' : 'text-white hover:underline'"
+                                class="text-sm">
+                            <span x-show="countdown > 0">Kirim ulang dalam <strong x-text="countdown"></strong> detik</span>
+                            <span x-show="countdown <= 0"><i class="fa-solid fa-redo mr-1"></i> Kirim ulang OTP</span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+            
+            {{-- Success State --}}
+            <template x-if="verified">
+                <div class="p-5 lg:p-6 bg-emerald-500 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-circle-check text-white text-2xl"></i>
+                    <span class="text-white font-bold text-lg">WhatsApp berhasil diverifikasi!</span>
+                </div>
+            </template>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {{-- KOLOM KIRI: Kartu Profil (Lebar 4/12) --}}

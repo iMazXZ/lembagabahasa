@@ -1,6 +1,14 @@
 {{-- resources/views/layouts/partials/sidebar.blade.php --}}
 @php
     $u = auth()->user();
+    
+    // Check biodata status for badge
+    $hasBasicInfo = $u && $u->prody_id && $u->srn && $u->year;
+    $isS2 = $u && $u->prody && str_starts_with($u->prody->name ?? '', 'S2');
+    $needsBL = $u && $u->year && (int)$u->year <= 2024 && !$isS2;
+    $biodataComplete = $hasBasicInfo && (!$needsBL || is_numeric($u->nilaibasiclistening ?? null));
+    $waVerified = $u && !empty($u->whatsapp_verified_at);
+    $biodataNeedsBadge = !$biodataComplete || !$waVerified;
 @endphp
 
 <aside
@@ -47,11 +55,16 @@
 
             {{-- Biodata --}}
             <a href="{{ route('dashboard.biodata') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
+               class="group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
                       {{ request()->routeIs('dashboard.biodata') ? 'bg-blue-50 text-um-blue shadow-sm ring-1 ring-blue-100' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                <i class="fa-solid fa-user-gear w-5 text-center transition-transform group-hover:scale-110
-                          {{ request()->routeIs('dashboard.biodata') ? 'text-um-blue' : 'text-slate-400 group-hover:text-slate-600' }}"></i>
-                <span :class="!sidebarOpen && 'lg:hidden'" class="whitespace-nowrap">Biodata</span>
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-user-gear w-5 text-center transition-transform group-hover:scale-110
+                              {{ request()->routeIs('dashboard.biodata') ? 'text-um-blue' : 'text-slate-400 group-hover:text-slate-600' }}"></i>
+                    <span :class="!sidebarOpen && 'lg:hidden'" class="whitespace-nowrap">Biodata</span>
+                </div>
+                @if($biodataNeedsBadge)
+                    <span class="w-2 h-2 rounded-full bg-amber-500 shrink-0" :class="!sidebarOpen && 'lg:hidden'" title="Perlu dilengkapi"></span>
+                @endif
             </a>
         </div>
 
