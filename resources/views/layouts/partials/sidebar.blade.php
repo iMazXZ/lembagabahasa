@@ -106,7 +106,11 @@
             </div>
         </div>
 
-        {{-- Section: Basic Listening --}}
+        {{-- Section: Basic Listening (hanya untuk tahun 2025+, bukan S2, dan sudah isi biodata) --}}
+        @php
+            $showBasicListeningMenu = $hasBasicInfo && ((int)($u->year ?? 0) >= 2025) && !$isS2;
+        @endphp
+        @if($showBasicListeningMenu)
         <div>
             <div class="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 transition-opacity duration-200"
                  :class="!sidebarOpen && 'lg:hidden'">
@@ -141,6 +145,7 @@
                 </a>
             </div>
         </div>
+        @endif
 
         {{-- Section: Admin (Conditional) --}}
         @if ($u && $u->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga', 'Penerjemah']))

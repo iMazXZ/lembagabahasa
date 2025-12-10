@@ -468,6 +468,40 @@ Route::middleware('auth')->group(function () {
 
         return response()->json(['success' => true]);
     })->name('api.dismiss-welcome');
+
+    // Delete WhatsApp Number
+    Route::post('/delete-whatsapp', function (Request $request) {
+        $user = $request->user();
+        
+        $user->update([
+            'whatsapp' => null,
+            'whatsapp_verified_at' => null,
+            'whatsapp_otp' => null,
+            'whatsapp_otp_expires_at' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nomor WhatsApp berhasil dihapus.',
+        ]);
+    })->name('api.whatsapp.delete');
+
+    // Reset Biodata (SRN, Prodi, Year, Nilai BL)
+    Route::post('/reset-biodata', function (Request $request) {
+        $user = $request->user();
+        
+        $user->update([
+            'srn' => null,
+            'prody_id' => null,
+            'year' => null,
+            'nilaibasiclistening' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Biodata berhasil direset.',
+        ]);
+    })->name('api.biodata.reset');
 });
 
 /*

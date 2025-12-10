@@ -474,9 +474,31 @@
                                         </div>
                                     </div>
                                     <input type="hidden" name="whatsapp" x-bind:value="phone">
-                                    <button type="button" @click="changeNumber()" class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1">
-                                        <i class="fa-solid fa-pen-to-square"></i> Ganti Nomor WhatsApp
-                                    </button>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" @click="changeNumber()" class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1">
+                                            <i class="fa-solid fa-pen-to-square"></i> Ganti Nomor
+                                        </button>
+                                        <span class="text-slate-300">|</span>
+                                        <button type="button" 
+                                                @click="if(confirm('Yakin ingin menghapus nomor WhatsApp? Anda perlu memasukkan nomor baru.')) { 
+                                                    fetch('{{ route('api.whatsapp.delete') }}', {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/json',
+                                                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                                        }
+                                                    }).then(res => res.json()).then(data => {
+                                                        if(data.success) {
+                                                            window.location.reload();
+                                                        } else {
+                                                            alert(data.message || 'Gagal menghapus nomor');
+                                                        }
+                                                    });
+                                                }" 
+                                                class="text-xs text-rose-500 hover:text-rose-700 flex items-center gap-1">
+                                            <i class="fa-solid fa-trash"></i> Hapus Nomor
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {{-- Error Message --}}
@@ -664,8 +686,24 @@
 
                     {{-- Form Footer --}}
                     <div class="pt-6 flex items-center justify-end gap-3">
-                        <button type="reset" class="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
-                            Reset
+                        <button type="button" 
+                                @click="if(confirm('Yakin ingin mereset biodata? Data SRN, Prodi, Tahun Angkatan, dan Nilai Basic Listening akan dihapus.')) { 
+                                    fetch('{{ route('api.biodata.reset') }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                        }
+                                    }).then(res => res.json()).then(data => {
+                                        if(data.success) {
+                                            window.location.reload();
+                                        } else {
+                                            alert(data.message || 'Gagal mereset biodata');
+                                        }
+                                    });
+                                }" 
+                                class="px-5 py-2.5 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Reset Biodata
                         </button>
                         <button type="submit"
                                 class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-um-blue hover:bg-um-dark-blue text-white text-sm font-semibold shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02] active:scale-95">

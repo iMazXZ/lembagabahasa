@@ -25,6 +25,10 @@
 
     // Logic untuk popup WhatsApp - tampilkan jika belum ada nomor WA
     $showWhatsAppModal = empty($user->whatsapp);
+
+    // Logic untuk menampilkan Basic Listening menu
+    // Tampilkan hanya jika: tahun 2025+, bukan S2, dan sudah isi biodata dasar
+    $showBasicListening = $hasBasicInfo && $yearInt >= 2025 && !$isS2;
 @endphp
 
 <div class="space-y-6">
@@ -416,7 +420,8 @@
         {{-- REVISI: lg:grid-cols-5 agar muat 5 item sejajar di laptop --}}
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 
-            {{-- 1. Basic Listening --}}
+            {{-- 1. Basic Listening (hanya untuk tahun 2025+ dan bukan S2) --}}
+            @if($showBasicListening)
             {{-- col-span-2 (HP) -> col-span-1 (Laptop/Tablet) --}}
             <a href="{{ route('bl.index') }}" 
                title="Ikuti kelas Basic Listening dan dapatkan sertifikat"
@@ -435,6 +440,7 @@
                 {{-- Icon Panah (Hanya muncul di HP biar tidak sempit di laptop) --}}
                 <i class="fa-solid fa-chevron-right text-white/50 text-xs hidden sm:block"></i>
             </a>
+            @endif
 
             {{-- Helper Style --}}
             @php

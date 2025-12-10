@@ -120,19 +120,51 @@ class Register extends AuthRegister
     }
 
     /**
-     * Komponen input nomor WhatsApp (opsional)
+     * Komponen input nama lengkap
+     */
+    protected function getNameFormComponent(): TextInput
+    {
+        return parent::getNameFormComponent()
+            ->label('Nama Lengkap')
+            ->placeholder('Masukkan nama lengkap sesuai KTP');
+    }
+
+    /**
+     * Komponen input kata sandi
+     */
+    protected function getPasswordFormComponent(): TextInput
+    {
+        return parent::getPasswordFormComponent()
+            ->label('Kata Sandi')
+            ->placeholder('Minimal 8 karakter');
+    }
+
+    /**
+     * Komponen konfirmasi kata sandi
+     */
+    protected function getPasswordConfirmationFormComponent(): TextInput
+    {
+        return parent::getPasswordConfirmationFormComponent()
+            ->label('Konfirmasi Kata Sandi')
+            ->placeholder('Ulangi kata sandi');
+    }
+
+    /**
+     * Komponen input nomor WhatsApp (wajib)
      */
     protected function getWhatsAppFormComponent(): TextInput
     {
         return TextInput::make('whatsapp')
-            ->label('Nomor WhatsApp (Opsional)')
+            ->label('Nomor WhatsApp Aktif')
             ->tel()
+            ->required()
             ->maxLength(20)
             ->unique('users', 'whatsapp', ignoreRecord: true)
             ->validationMessages([
                 'unique' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
+                'required' => 'Nomor WhatsApp wajib diisi.',
             ])
-            ->helperText('Untuk menerima notifikasi via WhatsApp');
+            ->helperText('Untuk menerima notifikasi dan verifikasi akun');
     }
 
     /**
@@ -142,6 +174,7 @@ class Register extends AuthRegister
     {
         // mulai dari versi bawaan AuthRegister (sudah ada ->email(), ->required(), ->unique(), dll)
         return parent::getEmailFormComponent()
+            ->label('Alamat Email')
             ->rule(function () {
                 return function (string $attribute, $value, Closure $fail) {
                     $value = strtolower(trim($value));
