@@ -832,7 +832,7 @@
                 </div>
                 <div class="relative">
                     <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white/20 mb-3">
-                        <i class="fa-solid fa-hand-wave text-3xl text-white"></i>
+                        <i class="fa-solid fa-graduation-cap text-3xl text-white"></i>
                     </div>
                     <h3 class="text-lg font-bold text-white">Selamat Datang!</h3>
                     <p class="text-blue-100 text-sm mt-1">Lembaga Bahasa UM Metro</p>
