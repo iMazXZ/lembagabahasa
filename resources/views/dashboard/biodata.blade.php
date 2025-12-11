@@ -337,9 +337,14 @@
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                this.step = 'otp';
-                                                this.countdown = 60;
-                                                this.startCountdown();
+                                                // Jika OTP dinonaktifkan, langsung ke verified
+                                                if (data.skip_otp) {
+                                                    this.step = 'verified';
+                                                } else {
+                                                    this.step = 'otp';
+                                                    this.countdown = 60;
+                                                    this.startCountdown();
+                                                }
                                             } else {
                                                 this.error = data.message || 'Gagal mengirim OTP';
                                             }
@@ -409,13 +414,13 @@
                                             :disabled="loading || !phone"
                                             :class="{'opacity-50 cursor-not-allowed': loading || !phone}"
                                             class="w-full py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                                        <i x-show="!loading" class="fa-solid fa-paper-plane"></i>
+                                        <i x-show="!loading" class="fa-solid fa-check"></i>
                                         <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
-                                        <span>Kirim Kode OTP</span>
+                                        <span>Simpan Nomor WhatsApp</span>
                                     </button>
                                     <p class="text-xs text-slate-500 text-center">
                                         <i class="fa-solid fa-circle-info text-slate-400"></i>
-                                        Kode verifikasi akan dikirim ke WhatsApp Anda
+                                        Nomor WhatsApp akan tersimpan dan terverifikasi otomatis
                                     </p>
                                 </div>
 

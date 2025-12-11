@@ -345,7 +345,7 @@ Route::middleware('auth')->group(function () {
         ]);
     })->name('api.whatsapp.update');
 
-    // API Kirim OTP WhatsApp
+    // API Kirim OTP WhatsApp (SEMENTARA DINONAKTIFKAN - langsung verifikasi)
     Route::post('/api/whatsapp/send-otp', function (\Illuminate\Http\Request $request) {
         $request->validate([
             'whatsapp' => ['required', 'string', 'max:20'],
@@ -372,42 +372,21 @@ Route::middleware('auth')->group(function () {
             ], 422);
         }
 
-        // Generate OTP 6 digit
-        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $expiresAt = now()->addMinutes(5);
-
-        // Simpan OTP sementara di user
+        // SEMENTARA: Langsung simpan dan verifikasi tanpa OTP
+        // (OTP dinonaktifkan karena WhatsApp terkena rate limit)
         $user = $request->user();
         $user->update([
             'whatsapp' => $normalized,
-            'whatsapp_otp' => $otp,
-            'whatsapp_otp_expires_at' => $expiresAt,
-            'whatsapp_verified_at' => null, // Reset verifikasi
+            'whatsapp_otp' => null,
+            'whatsapp_otp_expires_at' => null,
+            'whatsapp_verified_at' => now(), // Langsung tandai verified
         ]);
 
-        // Kirim OTP via WhatsApp
-        $waService = app(\App\Services\WhatsAppService::class);
-        
-        if (!$waService->isEnabled()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Layanan WhatsApp tidak tersedia',
-            ], 503);
-        }
-
-        $sent = $waService->sendOtp($normalized, $otp);
-
-        if ($sent) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Kode OTP telah dikirim ke WhatsApp Anda',
-            ]);
-        }
-
         return response()->json([
-            'success' => false,
-            'message' => 'Gagal mengirim OTP. Pastikan nomor WhatsApp aktif.',
-        ], 500);
+            'success' => true,
+            'message' => 'Nomor WhatsApp berhasil disimpan!',
+            'skip_otp' => true, // Flag untuk frontend agar langsung ke state verified
+        ]);
     })->name('api.whatsapp.send-otp');
 
     // API Verifikasi OTP WhatsApp
