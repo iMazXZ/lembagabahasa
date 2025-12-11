@@ -549,3 +549,61 @@ Route::middleware(['auth', 'role:pendaftar'])
 Route::post('/bl/quiz/ping/{attempt}', [BasicListeningQuizController::class, 'ping'])
     ->middleware('auth')
     ->name('bl.quiz.ping');
+
+/*
+|--------------------------------------------------------------------------
+| TOEFL Online (Protected + SEB)
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ToeflExamController;
+use App\Http\Controllers\ToeflConnectController;
+use App\Http\Controllers\ToeflQuizController;
+use App\Http\Middleware\SebMiddleware;
+
+// Public: List exams
+Route::get('/toefl', [ToeflExamController::class, 'index'])
+    ->name('toefl.index');
+
+// Protected + SEB: Exam flow
+Route::middleware(['auth', SebMiddleware::class])->group(function () {
+    // Entry point - show connect code form
+    Route::get('/toefl/exam/{exam}', [ToeflExamController::class, 'show'])
+        ->whereNumber('exam')
+        ->name('toefl.exam');
+
+    // Verify connect code
+    Route::post('/toefl/exam/{exam}/verify', [ToeflConnectController::class, 'verify'])
+        ->whereNumber('exam')
+        ->name('toefl.verify');
+
+    // Quiz flow
+    Route::get('/toefl/quiz/{attempt}', [ToeflQuizController::class, 'show'])
+        ->whereNumber('attempt')
+        ->name('toefl.quiz');
+
+    Route::post('/toefl/quiz/{attempt}/answer', [ToeflQuizController::class, 'saveAnswer'])
+        ->whereNumber('attempt')
+        ->name('toefl.answer');
+
+    Route::post('/toefl/quiz/{attempt}/submit-section', [ToeflQuizController::class, 'submitSection'])
+        ->whereNumber('attempt')
+        ->name('toefl.submit-section');
+
+    Route::post('/toefl/quiz/{attempt}/start-section', [ToeflQuizController::class, 'startSection'])
+        ->whereNumber('attempt')
+        ->name('toefl.start-section');
+
+    Route::post('/toefl/quiz/{attempt}/force-submit', [ToeflQuizController::class, 'forceSubmit'])
+        ->whereNumber('attempt')
+        ->name('toefl.force-submit');
+
+    Route::post('/toefl/quiz/{attempt}/ping', [ToeflQuizController::class, 'ping'])
+        ->whereNumber('attempt')
+        ->name('toefl.ping');
+
+    Route::get('/toefl/result/{attempt}', [ToeflQuizController::class, 'result'])
+        ->whereNumber('attempt')
+        ->name('toefl.result');
+});
+
