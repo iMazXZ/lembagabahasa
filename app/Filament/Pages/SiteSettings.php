@@ -11,6 +11,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Illuminate\Support\Facades\Http;
 
 class SiteSettings extends Page implements HasForms
 {
@@ -26,10 +27,20 @@ class SiteSettings extends Page implements HasForms
 
     protected static string $view = 'filament.pages.site-settings';
 
+    public function getMaxContentWidth(): \Filament\Support\Enums\MaxWidth
+    {
+        return \Filament\Support\Enums\MaxWidth::Full;
+    }
+
     public ?array $data = [];
+    public ?array $waStatus = null;
+    public ?array $waLogs = [];
 
     public function mount(): void
     {
+        $this->loadWaStatus();
+        $this->loadWaLogs();
+        
         $this->form->fill([
             'maintenance_mode' => SiteSetting::isMaintenanceEnabled(),
             'registration_enabled' => SiteSetting::isRegistrationEnabled(),
@@ -116,5 +127,44 @@ class SiteSettings extends Page implements HasForms
     protected function getFormActions(): array
     {
         return [];
+    }
+
+    public function loadWaStatus(): void
+    {
+        try {
+            $response = Http::timeout(5)->get('https://wa-api.lembagabahasa.site/status');
+            if ($response->successful()) {
+                $this->waStatus = $response->json();
+            } else {
+                $this->waStatus = ['status' => 'error', 'message' => 'Gagal terhubung ke API'];
+            }
+        } catch (\Exception $e) {
+            $this->waStatus = ['status' => 'error', 'message' => 'Timeout atau error: ' . $e->getMessage()];
+        }
+    }
+
+    public function refreshWaStatus(): void
+    {
+        $this->loadWaStatus();
+        $this->loadWaLogs();
+        
+        Notification::make()
+            ->title('Status WhatsApp diperbarui')
+            ->success()
+            ->send();
+    }
+
+    public function loadWaLogs(): void
+    {
+        try {
+            $response = Http::timeout(5)->get('https://wa-api.lembagabahasa.site/logs');
+            if ($response->successful()) {
+                $this->waLogs = $response->json()['logs'] ?? [];
+            } else {
+                $this->waLogs = [];
+            }
+        } catch (\Exception $e) {
+            $this->waLogs = [];
+        }
     }
 }

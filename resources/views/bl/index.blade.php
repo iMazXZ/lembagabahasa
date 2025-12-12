@@ -468,6 +468,19 @@
   @endif
 
   {{-- Sessions Grid --}}
+  @if(!$quizEnabled)
+    {{-- Quiz Disabled Banner --}}
+    <div class="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-start gap-4">
+        <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-pause-circle text-amber-600 text-xl"></i>
+        </div>
+        <div>
+            <h4 class="text-base font-bold text-amber-800 mb-1">Quiz Sedang Dinonaktifkan</h4>
+            <p class="text-sm text-amber-700">Quiz Basic Listening sementara tidak dapat diakses. Silakan hubungi admin atau tunggu pengumuman lebih lanjut.</p>
+        </div>
+    </div>
+  @endif
+
   @if(isset($sessions) && count($sessions) > 0)
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 p-4">
       @foreach($sessions as $index => $s)
@@ -485,8 +498,13 @@
           $rotate = $rotations[$index % count($rotations)];
         @endphp
 
+        @if($quizEnabled)
         <a href="{{ route('bl.session.show', $s) }}"
           class="group relative block {{ $color['bg'] }} rounded-2xl p-6 {{ $rotate }} hover:rotate-0 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl hover:z-10 border-b-4 {{ $color['border'] }}">
+        @else
+        <div
+          class="group relative block {{ $color['bg'] }} rounded-2xl p-6 {{ $rotate }} shadow-lg border-b-4 {{ $color['border'] }} opacity-60 cursor-not-allowed">
+        @endif
 
           {{-- Decorative Tape Effect --}}
           <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 w-20 h-8 bg-white/40 backdrop-blur-sm rounded-sm shadow-md border border-white/60"
@@ -599,7 +617,11 @@
 
           {{-- Corner Fold Effect --}}
           <div class="absolute top-0 right-0 w-0 h-0 border-t-[30px] border-r-[30px] border-t-transparent border-r-white/20 rounded-tr-2xl group-hover:border-t-[35px] group-hover:border-r-[35px] transition-all"></div>
+        @if($quizEnabled)
         </a>
+        @else
+        </div>
+        @endif
       @endforeach
     </div>
   @else

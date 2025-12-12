@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BasicListeningSession;
 use App\Models\BasicListeningAttempt;
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 
 class BasicListeningController extends Controller
@@ -21,7 +22,9 @@ class BasicListeningController extends Controller
             ->orderBy('number')
             ->get();
 
-        return view('bl.index', compact('sessions'));
+        $quizEnabled = SiteSetting::isBlQuizEnabled();
+
+        return view('bl.index', compact('sessions', 'quizEnabled'));
     }
 
     public function show(BasicListeningSession $session)
