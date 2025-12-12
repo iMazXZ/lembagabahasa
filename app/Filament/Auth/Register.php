@@ -15,8 +15,30 @@ use Filament\Http\Responses\Auth\Contracts\RegistrationResponse as RegistrationR
 
 class Register extends AuthRegister
 {
+    public function mount(): void
+    {
+        parent::mount();
+
+        // Jika registrasi ditutup, redirect ke login dengan pesan
+        if (!\App\Models\SiteSetting::isRegistrationEnabled()) {
+            session()->flash('registrationClosed', true);
+            $this->redirect(route('filament.admin.auth.login'));
+        }
+    }
+
     public function register(): ?RegistrationResponseContract
     {
+        // Cek apakah registrasi diaktifkan dari pengaturan situs
+        if (!\App\Models\SiteSetting::isRegistrationEnabled()) {
+            Notification::make()
+                ->title('Registrasi Ditutup')
+                ->body('Maaf, pendaftaran akun baru sementara tidak tersedia. Silakan hubungi admin.')
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
         try {
             $this->rateLimit(2);
         } catch (TooManyRequestsException $exception) {
@@ -75,10 +97,22 @@ class Register extends AuthRegister
     }
 
     /**
-     * Kirim OTP ke WhatsApp setelah registrasi
+     * Kirim OTP ke WhatsApp setelah registrasi (cek setting dari database)
      */
     protected function sendWhatsAppOtp($user): void
     {
+        // Cek apakah OTP diaktifkan dari pengaturan situs
+        if (!\App\Models\SiteSetting::isOtpEnabled()) {
+            // OTP nonaktif - langsung verifikasi
+            $user->update([
+                'whatsapp_verified_at' => now(),
+                'whatsapp_otp' => null,
+                'whatsapp_otp_expires_at' => null,
+            ]);
+            return;
+        }
+
+        // OTP aktif - generate dan kirim
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $expiresAt = now()->addMinutes(10);
 

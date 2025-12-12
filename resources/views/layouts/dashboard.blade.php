@@ -73,6 +73,11 @@
         trix-editor .attachment__caption {
             font-size: 0.75rem;
         }
+
+        /* Sembunyikan tombol attachment */
+        trix-toolbar .trix-button-group--file-tools {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased">

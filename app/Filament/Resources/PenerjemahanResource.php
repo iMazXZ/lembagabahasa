@@ -428,12 +428,26 @@ class PenerjemahanResource extends Resource
                         ])
                         ->visible(fn ($record) => auth()->user()?->hasRole('Admin') && $record->status === 'Disetujui')
                         ->action(function ($record, array $data) {
+                            $translator = User::find($data['translator_id']);
+                            
                             $record->update([
                                 'status'        => 'Diproses',
                                 'translator_id' => $data['translator_id'],
                             ]);
+                            
+                            // Notifikasi ke pemohon
                             $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Diproses'));
-                            Notification::make()->title("Penerjemahan diproses & notifikasi terkirim ke {$record->users?->email}")->success()->send();
+                            
+                            // Notifikasi ke penerjemah
+                            if ($translator) {
+                                $translator->notify(new \App\Notifications\TranslatorAssignedNotification(
+                                    pemohonName: $record->users?->name ?? 'Pemohon',
+                                    wordCount: $record->source_word_count ?? 0,
+                                    dashboardUrl: route('dashboard.penerjemah')
+                                ));
+                            }
+                            
+                            Notification::make()->title("Penerjemahan diproses & notifikasi terkirim ke penerjemah ({$translator?->email})")->success()->send();
                         }),
 
                     Tables\Actions\Action::make('tolak_pembayaran')

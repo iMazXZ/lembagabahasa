@@ -35,11 +35,34 @@
 
     {{-- ONBOARDING CHECKLIST WIDGET --}}
     @php
+        $otpEnabled = \App\Models\SiteSetting::isOtpEnabled();
+        
+        // Jika OTP disabled, step WA verification dianggap sudah selesai
+        $waVerified = $otpEnabled ? !empty($user->whatsapp_verified_at) : !empty($user->whatsapp);
+        
+        // Total steps: 2 jika OTP disabled, 3 jika OTP enabled
+        $totalSteps = $otpEnabled ? 3 : 2;
+        
         $stepsDone = 1; // Akun terdaftar selalu done
-        $totalSteps = 3;
-        $waVerified = !empty($user->whatsapp_verified_at);
         if ($waVerified) $stepsDone++;
-        if ($biodataLengkap) $stepsDone++;
+        if (!$otpEnabled && $biodataLengkap) {
+            // Jika OTP disabled, biodata adalah step 2
+            $stepsDone = $biodataLengkap ? 2 : 1;
+        } elseif ($otpEnabled) {
+            if ($waVerified) $stepsDone++;
+            if ($biodataLengkap) $stepsDone++;
+        }
+        
+        // Recalculate
+        $stepsDone = 1;
+        if ($otpEnabled) {
+            if ($waVerified) $stepsDone++;
+            if ($biodataLengkap) $stepsDone++;
+        } else {
+            // OTP disabled: skip WA verification step, hanya 2 step
+            if ($biodataLengkap) $stepsDone++;
+        }
+        
         $allDone = ($stepsDone === $totalSteps);
         $progressPercent = ($stepsDone / $totalSteps) * 100;
     @endphp
@@ -78,7 +101,8 @@
                     </div>
                 </div>
                 
-                {{-- Step 2: Verifikasi WhatsApp --}}
+                {{-- Step 2: Verifikasi WhatsApp (hanya tampil jika OTP enabled) --}}
+                @if($otpEnabled)
                 <div class="flex items-start gap-3">
                     @if($waVerified)
                         <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
@@ -100,8 +124,9 @@
                         </div>
                     @endif
                 </div>
+                @endif
                 
-                {{-- Step 3: Lengkapi Biodata --}}
+                {{-- Step 3 (atau 2 jika OTP disabled): Lengkapi Biodata --}}
                 <div class="flex items-start gap-3">
                     @if($biodataLengkap)
                         <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
@@ -113,7 +138,7 @@
                         </div>
                     @else
                         <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                            <span class="text-amber-600 font-bold text-sm">3</span>
+                            <span class="text-amber-600 font-bold text-sm">{{ $otpEnabled ? '3' : '2' }}</span>
                         </div>
                         <div>
                             <p class="text-sm font-semibold text-slate-800">Lengkapi Biodata</p>
@@ -716,6 +741,7 @@
 {{-- WELCOME MODAL (untuk user baru atau belum verifikasi WA) --}}
 @php
     $showWelcomeModal = !$user->has_seen_welcome || empty($user->whatsapp);
+    $otpEnabledForModal = \App\Models\SiteSetting::isOtpEnabled();
 @endphp
 
 @if($showWelcomeModal)
@@ -750,6 +776,34 @@
                 this.startCountdown();
             } else {
                 this.error = data.message || 'Gagal mengirim OTP';
+            }
+        } catch (e) {
+            this.error = 'Terjadi kesalahan';
+        }
+        this.loading = false;
+    },
+    async savePhoneOnly() {
+        if (!this.phone || this.phone.length < 10) {
+            this.error = 'Nomor WhatsApp tidak valid';
+            return;
+        }
+        this.loading = true;
+        this.error = '';
+        try {
+            const res = await fetch('{{ route('api.whatsapp.save-only') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ whatsapp: this.phone })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.step = 'success';
+                setTimeout(() => this.dismissWelcome(), 1500);
+            } else {
+                this.error = data.message || 'Gagal menyimpan nomor';
             }
         } catch (e) {
             this.error = 'Terjadi kesalahan';
@@ -900,14 +954,27 @@
                                 class="flex-1 py-3 px-4 rounded-xl bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition">
                             Nanti Saja
                         </button>
-                        <button @click="sendOtp()"
-                                :disabled="loading || !phone"
-                                :class="{'opacity-50 cursor-not-allowed': loading || !phone}"
-                                class="flex-1 py-3 px-4 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition flex items-center justify-center gap-2">
-                            <i x-show="!loading" class="fa-solid fa-paper-plane"></i>
-                            <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
-                            Kirim OTP
-                        </button>
+                        @if($otpEnabledForModal)
+                            {{-- OTP Enabled: Kirim OTP --}}
+                            <button @click="sendOtp()"
+                                    :disabled="loading || !phone"
+                                    :class="{'opacity-50 cursor-not-allowed': loading || !phone}"
+                                    class="flex-1 py-3 px-4 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition flex items-center justify-center gap-2">
+                                <i x-show="!loading" class="fa-solid fa-paper-plane"></i>
+                                <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
+                                Kirim OTP
+                            </button>
+                        @else
+                            {{-- OTP Disabled: Simpan langsung --}}
+                            <button @click="savePhoneOnly()"
+                                    :disabled="loading || !phone"
+                                    :class="{'opacity-50 cursor-not-allowed': loading || !phone}"
+                                    class="flex-1 py-3 px-4 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition flex items-center justify-center gap-2">
+                                <i x-show="!loading" class="fa-solid fa-check"></i>
+                                <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
+                                Simpan Nomor
+                            </button>
+                        @endif
                     </div>
                 </div>
             </template>

@@ -9,9 +9,24 @@ use Filament\Forms\Form;
 use Filament\Pages\Auth\Login as BaseLogin;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Filament\Notifications\Notification;
 
 class Login extends BaseLogin
 {
+    public function mount(): void
+    {
+        parent::mount();
+
+        // Tampilkan notifikasi jika redirect dari halaman register yang ditutup
+        if (session('registrationClosed')) {
+            Notification::make()
+                ->title('Registrasi Ditutup')
+                ->body('Maaf, pendaftaran akun baru sementara tidak tersedia. Silakan hubungi admin.')
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+    }
     /**
      * Override form untuk mengubah label & placeholder.
      */

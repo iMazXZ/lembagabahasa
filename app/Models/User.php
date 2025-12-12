@@ -180,6 +180,7 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
                 'super_admin',
                 'pendaftar',
                 'tutor',
+                'Penerjemah',
             ]);
         }
 

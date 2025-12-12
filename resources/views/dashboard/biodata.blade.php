@@ -409,18 +409,21 @@
                                                class="pl-10 block w-full py-3 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-green-500 focus:ring-green-500 text-base transition-all duration-200"
                                                placeholder="Masukan Nomor WhatsApp">
                                     </div>
+                                    @php
+                                        $otpEnabled = \App\Models\SiteSetting::isOtpEnabled();
+                                    @endphp
                                     <button type="button"
                                             @click="sendOtp()"
                                             :disabled="loading || !phone"
                                             :class="{'opacity-50 cursor-not-allowed': loading || !phone}"
                                             class="w-full py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                                        <i x-show="!loading" class="fa-solid fa-check"></i>
+                                        <i x-show="!loading" class="fa-solid {{ $otpEnabled ? 'fa-paper-plane' : 'fa-check' }}"></i>
                                         <i x-show="loading" class="fa-solid fa-spinner fa-spin"></i>
-                                        <span>Simpan Nomor WhatsApp</span>
+                                        <span>{{ $otpEnabled ? 'Kirim Kode OTP' : 'Simpan Nomor WhatsApp' }}</span>
                                     </button>
                                     <p class="text-xs text-slate-500 text-center">
                                         <i class="fa-solid fa-circle-info text-slate-400"></i>
-                                        Nomor WhatsApp akan tersimpan dan terverifikasi otomatis
+                                        {{ $otpEnabled ? 'Kode verifikasi akan dikirim ke WhatsApp Anda' : 'Nomor WhatsApp akan tersimpan dan terverifikasi otomatis' }}
                                     </p>
                                 </div>
 

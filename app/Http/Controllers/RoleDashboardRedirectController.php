@@ -15,11 +15,16 @@ class RoleDashboardRedirectController extends Controller
             return redirect()->route('dashboard.pendaftar');
         }
 
+        if ($user->hasRole('Penerjemah')) {
+            // Redirect ke dashboard Blade khusus Penerjemah
+            return redirect()->route('dashboard.penerjemah');
+        }
+
         if ($user->hasRole('tutor')) {
             return redirect()->route('filament.admin.pages.2'); // panel tutor/admin
         }
 
-        if ($user->hasAnyRole(['Admin', 'Staf', 'Staf Administrasi', 'Kepala Lembaga', 'Penerjemah'])) {
+        if ($user->hasAnyRole(['Admin', 'Staf', 'Staf Administrasi', 'Kepala Lembaga'])) {
             return redirect()->route('filament.admin.pages.2');
         }
 

@@ -54,6 +54,27 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/pendaftar', [PendaftarDashboardController::class, 'index'])
         ->middleware('role:pendaftar')
         ->name('dashboard.pendaftar');
+
+    // Dashboard Penerjemah
+    Route::get('/dashboard/penerjemah', [\App\Http\Controllers\PenerjemahDashboardController::class, 'index'])
+        ->middleware('role:Penerjemah')
+        ->name('dashboard.penerjemah');
+    
+    Route::get('/dashboard/penerjemah/tugas', [\App\Http\Controllers\PenerjemahDashboardController::class, 'tugas'])
+        ->middleware('role:Penerjemah')
+        ->name('dashboard.penerjemah.tugas');
+
+    Route::get('/dashboard/penerjemah/edit/{penerjemahan}', [\App\Http\Controllers\PenerjemahDashboardController::class, 'edit'])
+        ->middleware('role:Penerjemah')
+        ->name('dashboard.penerjemah.edit');
+
+    Route::put('/dashboard/penerjemah/update/{penerjemahan}', [\App\Http\Controllers\PenerjemahDashboardController::class, 'update'])
+        ->middleware('role:Penerjemah')
+        ->name('dashboard.penerjemah.update');
+
+    Route::post('/dashboard/penerjemah/selesai/{penerjemahan}', [\App\Http\Controllers\PenerjemahDashboardController::class, 'selesai'])
+        ->middleware('role:Penerjemah')
+        ->name('dashboard.penerjemah.selesai');
 });
 
 /*
@@ -345,7 +366,7 @@ Route::middleware('auth')->group(function () {
         ]);
     })->name('api.whatsapp.update');
 
-    // API Kirim OTP WhatsApp (SEMENTARA DINONAKTIFKAN - langsung verifikasi)
+    // API Kirim OTP WhatsApp (Cek setting dari database)
     Route::post('/api/whatsapp/send-otp', function (\Illuminate\Http\Request $request) {
         $request->validate([
             'whatsapp' => ['required', 'string', 'max:20'],
@@ -372,20 +393,59 @@ Route::middleware('auth')->group(function () {
             ], 422);
         }
 
-        // SEMENTARA: Langsung simpan dan verifikasi tanpa OTP
-        // (OTP dinonaktifkan karena WhatsApp terkena rate limit)
         $user = $request->user();
+
+        // Cek apakah OTP diaktifkan dari pengaturan situs
+        if (\App\Models\SiteSetting::isOtpEnabled()) {
+            // OTP AKTIF: Generate dan kirim OTP
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $expiresAt = now()->addMinutes(5);
+
+            $user->update([
+                'whatsapp' => $normalized,
+                'whatsapp_otp' => $otp,
+                'whatsapp_otp_expires_at' => $expiresAt,
+                'whatsapp_verified_at' => null,
+            ]);
+
+            // Kirim OTP via WhatsApp
+            $waService = app(\App\Services\WhatsAppService::class);
+
+            if (!$waService->isEnabled()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Layanan WhatsApp tidak tersedia',
+                ], 503);
+            }
+
+            $sent = $waService->sendOtp($normalized, $otp);
+
+            if ($sent) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Kode OTP telah dikirim ke WhatsApp Anda',
+                    'skip_otp' => false,
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim OTP. Pastikan nomor WhatsApp aktif.',
+            ], 500);
+        }
+
+        // OTP NONAKTIF: Langsung simpan dan verifikasi
         $user->update([
             'whatsapp' => $normalized,
             'whatsapp_otp' => null,
             'whatsapp_otp_expires_at' => null,
-            'whatsapp_verified_at' => now(), // Langsung tandai verified
+            'whatsapp_verified_at' => now(),
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Nomor WhatsApp berhasil disimpan!',
-            'skip_otp' => true, // Flag untuk frontend agar langsung ke state verified
+            'skip_otp' => true,
         ]);
     })->name('api.whatsapp.send-otp');
 
@@ -438,6 +498,41 @@ Route::middleware('auth')->group(function () {
             'message' => 'Nomor WhatsApp berhasil diverifikasi!',
         ]);
     })->name('api.whatsapp.verify-otp');
+
+    // API Simpan WhatsApp tanpa OTP (untuk saat OTP disabled)
+    Route::post('/api/whatsapp/save-only', function (Request $request) {
+        $request->validate([
+            'whatsapp' => ['required', 'string', 'min:10', 'max:20'],
+        ]);
+
+        $user = $request->user();
+        $whatsapp = preg_replace('/[^0-9]/', '', $request->input('whatsapp'));
+
+        // Cek apakah nomor sudah digunakan user lain
+        $exists = \App\Models\User::where('whatsapp', $whatsapp)
+            ->where('id', '!=', $user->id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
+            ], 422);
+        }
+
+        // Simpan nomor tanpa verifikasi
+        $user->update([
+            'whatsapp' => $whatsapp,
+            'whatsapp_otp' => null,
+            'whatsapp_otp_expires_at' => null,
+            // Tidak set whatsapp_verified_at karena tidak diverifikasi
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nomor WhatsApp berhasil disimpan!',
+        ]);
+    })->name('api.whatsapp.save-only');
 
     // Dismiss Welcome Modal
     Route::post('/dismiss-welcome', function (Request $request) {
