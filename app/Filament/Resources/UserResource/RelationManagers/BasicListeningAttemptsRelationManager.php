@@ -91,3 +91,4 @@ class BasicListeningAttemptsRelationManager extends RelationManager
             ->emptyStateHeading('Belum ada attempt');
     }
 }
+

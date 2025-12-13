@@ -345,6 +345,8 @@ class UserResource extends Resource
     {
         return [
             \App\Filament\Resources\UserResource\RelationManagers\BasicListeningAttemptsRelationManager::class,
+            \App\Filament\Resources\UserResource\RelationManagers\EptSubmissionsRelationManager::class,
+            \App\Filament\Resources\UserResource\RelationManagers\PenerjemahansRelationManager::class,
         ];
     }
 

@@ -35,6 +35,17 @@ class ViewUser extends ViewRecord
                             ->copyable()
                             ->copyMessage('Email disalin'),
 
+                        TextEntry::make('whatsapp')
+                            ->label('WhatsApp')
+                            ->copyable()
+                            ->formatStateUsing(function ($state, $record) {
+                                if (!$state) return null;
+                                $verified = $record->whatsapp_verified_at ? ' ✓' : '';
+                                return $state . $verified;
+                            })
+                            ->color(fn ($record) => $record->whatsapp_verified_at ? 'success' : 'gray')
+                            ->placeholder('—'),
+
                         TextEntry::make('srn')
                             ->label('SRN / NPM')
                             ->copyable()
@@ -64,48 +75,6 @@ class ViewUser extends ViewRecord
                 ])
                 ->columns(4)
                 ->compact(),
-
-            // ========== RINGKASAN BASIC LISTENING ==========
-            Section::make('Ringkasan Basic Listening')
-                ->columns(5)
-                ->schema([
-                    TextEntry::make('basicListeningGrade.attendance')
-                        ->label('Attendance')
-                        ->placeholder('—'),
-
-                    TextEntry::make('basicListeningGrade.final_test')
-                        ->label('Final Test')
-                        ->placeholder('—'),
-
-                    TextEntry::make('basicListeningGrade.final_numeric_cached')
-                        ->label('Final Score')
-                        ->formatStateUsing(fn (mixed $state) => is_numeric($state) ? number_format((float)$state, 2) : '—'),
-
-                    TextEntry::make('basicListeningGrade.final_letter_cached')
-                        ->label('Grade')
-                        ->badge()
-                        ->color(fn (?string $state) => match ($state) {
-                            'A','A-','B+','B' => 'success',
-                            'B-','C+','C'    => 'warning',
-                            'C-','D','E'     => 'danger',
-                            default          => 'gray',
-                        })
-                        ->placeholder('—'),
-
-                    TextEntry::make('attempt_last')
-                        ->label('Attempt Terakhir')
-                        ->state(function ($record) {
-                            $last = $record->basicListeningAttempts()
-                                ->latest('updated_at')
-                                ->select(['id', 'submitted_at', 'updated_at'])
-                                ->first();
-
-                            $dt = $last?->submitted_at ?? $last?->updated_at;
-                            return $dt
-                                ? $dt->timezone(config('app.timezone', 'Asia/Jakarta'))->format('d M Y H:i')
-                                : '—';
-                        }),
-                ]),
 
             // ========== TIMESTAMP ==========
             Section::make('Timestamp')

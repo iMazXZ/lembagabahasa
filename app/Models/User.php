@@ -107,6 +107,14 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
     }
 
     /**
+     * Relasi ke pengajuan penerjemahan milik user.
+     */
+    public function penerjemahans(): HasMany
+    {
+        return $this->hasMany(\App\Models\Penerjemahan::class, 'user_id');
+    }
+
+    /**
      * Relasi many-to-many: Tutor ↔ Prodi yang diampu.
      * Pivot: tutor_prody (user_id, prody_id).
      */
