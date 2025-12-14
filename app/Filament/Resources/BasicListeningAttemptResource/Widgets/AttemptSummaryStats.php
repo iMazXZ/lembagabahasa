@@ -41,11 +41,18 @@ class AttemptSummaryStats extends BaseWidget
      * Menyamakan scoping dengan Resource:
      * - Admin: semua data
      * - Tutor: hanya prodi yang dia ampu
+     * - Filter by period date
      */
     protected function scopedAttemptsQuery(): Builder
     {
         $q = BasicListeningAttempt::query()
             ->with(['user.prody', 'session', 'quiz', 'connectCode']);
+
+        // Filter by BL period start date
+        $startDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+        if ($startDate) {
+            $q->where('created_at', '>=', $startDate);
+        }
 
         $user = auth()->user();
 

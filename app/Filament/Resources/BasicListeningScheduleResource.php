@@ -83,7 +83,15 @@ class BasicListeningScheduleResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->with(['tutors:id,name','prody:id,name']);
+        $query = parent::getEloquentQuery()->with(['tutors:id,name','prody:id,name']);
+        
+        // Filter by BL period start date
+        $startDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+        if ($startDate) {
+            $query->where('created_at', '>=', $startDate);
+        }
+        
+        return $query;
     }
 
     public static function getPages(): array

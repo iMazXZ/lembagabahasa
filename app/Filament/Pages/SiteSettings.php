@@ -47,6 +47,7 @@ class SiteSettings extends Page implements HasForms
             'otp_enabled' => SiteSetting::isOtpEnabled(),
             'wa_notification_enabled' => SiteSetting::isWaNotificationEnabled(),
             'bl_quiz_enabled' => SiteSetting::isBlQuizEnabled(),
+            'bl_period_start_date' => SiteSetting::getBlPeriodStartDate(),
         ]);
     }
 
@@ -99,6 +100,13 @@ class SiteSettings extends Page implements HasForms
                             ->helperText('Jika nonaktif, user tidak bisa mengakses quiz Basic Listening')
                             ->onColor('success')
                             ->offColor('danger'),
+
+                        \Filament\Forms\Components\DatePicker::make('bl_period_start_date')
+                            ->label('Tanggal Mulai Periode BL')
+                            ->helperText('Data BL yang dibuat sebelum tanggal ini akan difilter dari tampilan default di admin panel')
+                            ->native(false)
+                            ->displayFormat('d M Y')
+                            ->nullable(),
                     ])
                     ->columns(1),
             ])
@@ -114,6 +122,7 @@ class SiteSettings extends Page implements HasForms
         SiteSetting::set('otp_enabled', $data['otp_enabled'] ?? false);
         SiteSetting::set('wa_notification_enabled', $data['wa_notification_enabled'] ?? true);
         SiteSetting::set('bl_quiz_enabled', $data['bl_quiz_enabled'] ?? true);
+        SiteSetting::set('bl_period_start_date', $data['bl_period_start_date'] ?? null);
 
         // Clear all cache
         SiteSetting::clearCache();

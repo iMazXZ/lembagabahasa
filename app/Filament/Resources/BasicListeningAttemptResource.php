@@ -61,6 +61,12 @@ class BasicListeningAttemptResource extends Resource
                 'answers',
             ]);
 
+        // Filter by BL period start date
+        $startDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+        if ($startDate) {
+            $query->where('created_at', '>=', $startDate);
+        }
+
         $user = auth()->user();
 
         if ($user && ($user->hasRole('Admin') || $user->hasRole('superuser'))) {

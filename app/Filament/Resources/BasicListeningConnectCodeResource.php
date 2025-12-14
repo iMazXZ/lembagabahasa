@@ -221,6 +221,12 @@ class BasicListeningConnectCodeResource extends Resource
     {
         $query = parent::getEloquentQuery()->with(['prody', 'creator', 'session', 'quiz']);
 
+        // Filter by BL period start date
+        $startDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+        if ($startDate) {
+            $query->where('created_at', '>=', $startDate);
+        }
+
         $user = auth()->user();
 
         if ($user && $user->hasRole('tutor')) {

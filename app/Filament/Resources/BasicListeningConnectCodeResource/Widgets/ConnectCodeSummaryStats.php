@@ -46,6 +46,13 @@ class ConnectCodeSummaryStats extends BaseWidget
     protected function scopedCodesQuery(): Builder
     {
         $q = BasicListeningConnectCode::query()->with(['prody', 'creator']);
+        
+        // Filter by BL period start date
+        $startDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+        if ($startDate) {
+            $q->where('created_at', '>=', $startDate);
+        }
+
         $user = auth()->user();
 
         if ($user && $user->hasRole('Admin')) {
@@ -76,6 +83,12 @@ class ConnectCodeSummaryStats extends BaseWidget
         $base = DB::table('basic_listening_code_usages as u')
             ->join('basic_listening_connect_codes as c', 'c.id', '=', 'u.connect_code_id')
             ->whereDate('u.created_at', $today);
+
+        // Filter by BL period start date
+        $startDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+        if ($startDate) {
+            $base->where('c.created_at', '>=', $startDate);
+        }
 
         if ($user && $user->hasRole('Admin')) {
             return (int) $base->count();

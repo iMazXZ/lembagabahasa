@@ -26,23 +26,35 @@ class BlSummaryWidget extends Widget
         $lastWeekStart = $startWeek->copy()->subWeek();
         $recentCutoff = Carbon::now()->subDays(7);
 
-        $attemptsThisWeek = BasicListeningAttempt::query()
+        // Get period start date for filtering
+        $periodStartDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+
+        $attemptsThisWeekQuery = BasicListeningAttempt::query()
+            ->whereNotNull('submitted_at')
+            ->where('submitted_at', '>=', $startWeek);
+        if ($periodStartDate) {
+            $attemptsThisWeekQuery->where('created_at', '>=', $periodStartDate);
+        }
+        $attemptsThisWeek = $attemptsThisWeekQuery->count();
+
+        $attemptsLastWeekQuery = BasicListeningAttempt::query()
+            ->whereNotNull('submitted_at')
+            ->whereBetween('submitted_at', [$lastWeekStart, $startWeek]);
+        if ($periodStartDate) {
+            $attemptsLastWeekQuery->where('created_at', '>=', $periodStartDate);
+        }
+        $attemptsLastWeek = $attemptsLastWeekQuery->count();
+
+        $avgScoreWeekQuery = BasicListeningAttempt::query()
             ->whereNotNull('submitted_at')
             ->where('submitted_at', '>=', $startWeek)
-            ->count();
+            ->whereNotNull('score');
+        if ($periodStartDate) {
+            $avgScoreWeekQuery->where('created_at', '>=', $periodStartDate);
+        }
+        $avgScoreWeek = $avgScoreWeekQuery->avg('score');
 
-        $attemptsLastWeek = BasicListeningAttempt::query()
-            ->whereNotNull('submitted_at')
-            ->whereBetween('submitted_at', [$lastWeekStart, $startWeek])
-            ->count();
-
-        $avgScoreWeek = BasicListeningAttempt::query()
-            ->whereNotNull('submitted_at')
-            ->where('submitted_at', '>=', $startWeek)
-            ->whereNotNull('score')
-            ->avg('score');
-
-        $prodyStats = BasicListeningAttempt::query()
+        $prodyStatsQuery = BasicListeningAttempt::query()
             ->selectRaw(
                 'users.prody_id, prodies.name as prody_name, COUNT(*) as attempt_count, MAX(basic_listening_attempts.submitted_at) as latest_submitted_at,
                 SUM(CASE WHEN basic_listening_attempts.submitted_at >= ? THEN 1 ELSE 0 END) as attempt_this_week,
@@ -53,7 +65,13 @@ class BlSummaryWidget extends Widget
             ->join('prodies', 'prodies.id', '=', 'users.prody_id')
             ->whereNotNull('basic_listening_attempts.submitted_at')
             ->where('basic_listening_attempts.submitted_at', '>=', $recentCutoff)
-            ->whereNotNull('users.prody_id')
+            ->whereNotNull('users.prody_id');
+        
+        if ($periodStartDate) {
+            $prodyStatsQuery->where('basic_listening_attempts.created_at', '>=', $periodStartDate);
+        }
+
+        $prodyStats = $prodyStatsQuery
             ->groupBy('users.prody_id', 'prodies.name')
             ->orderByDesc('latest_submitted_at')
             ->get()

@@ -25,6 +25,19 @@ class BlSurveyResource extends Resource
     protected static ?string $navigationGroup = 'Basic Listening';
     protected static ?string $label = 'Kuesioner';
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        
+        // Filter by BL period start date
+        $startDate = \App\Models\SiteSetting::getBlPeriodStartDate();
+        if ($startDate) {
+            $query->where('created_at', '>=', $startDate);
+        }
+        
+        return $query;
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([

@@ -129,4 +129,12 @@ class SiteSetting extends Model
     {
         return (bool) static::get('bl_quiz_enabled', true);
     }
+
+    /**
+     * Get BL period start date for filtering
+     */
+    public static function getBlPeriodStartDate(): ?string
+    {
+        return static::get('bl_period_start_date', null);
+    }
 }
