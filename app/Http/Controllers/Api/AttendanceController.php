@@ -252,9 +252,18 @@ class AttendanceController extends Controller
     {
         $perPage = min($request->input('per_page', 15), 50); // max 50
 
-        $attendances = Attendance::with('office:id,name')
-            ->where('user_id', $request->user()->id)
-            ->orderByDesc('clock_in')
+        $query = Attendance::with('office:id,name')
+            ->where('user_id', $request->user()->id);
+
+        if ($request->has('month')) {
+            $query->whereMonth('clock_in', $request->month);
+        }
+
+        if ($request->has('year')) {
+            $query->whereYear('clock_in', $request->year);
+        }
+
+        $attendances = $query->orderByDesc('clock_in')
             ->paginate($perPage);
 
         $data = $attendances->through(function ($attendance) {
