@@ -219,6 +219,33 @@ class AttendanceController extends Controller
     }
 
     /**
+     * Update catatan absensi.
+     */
+    public function updateNotes(Request $request, $id)
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        $attendance = Attendance::where('user_id', $request->user()->id)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        $attendance->update([
+            'notes' => $request->notes,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Catatan berhasil diperbarui',
+            'data' => [
+                'id' => $attendance->id,
+                'notes' => $attendance->notes,
+            ],
+        ]);
+    }
+
+    /**
      * Riwayat absensi (paginated).
      */
     public function history(Request $request)
@@ -241,6 +268,7 @@ class AttendanceController extends Controller
                 'clock_out_lat' => $attendance->clock_out_lat,
                 'clock_out_long' => $attendance->clock_out_long,
                 'work_duration' => $attendance->hasClockOut() ? $attendance->work_duration_formatted : null,
+                'notes' => $attendance->notes,
                 'created_at' => $attendance->created_at->toIso8601String(),
             ];
         });

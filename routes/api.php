@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/today', [AttendanceController::class, 'today']);
         Route::post('/clock-in', [AttendanceController::class, 'clockIn']);
         Route::post('/clock-out', [AttendanceController::class, 'clockOut']);
+        Route::post('/{id}/update-notes', [AttendanceController::class, 'updateNotes']);
         Route::get('/history', [AttendanceController::class, 'history']);
     });
 });
