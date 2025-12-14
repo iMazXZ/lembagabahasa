@@ -18,6 +18,7 @@ class Attendance extends Model
         'clock_out_lat',
         'clock_out_long',
         'clock_out_photo',
+        'notes',
     ];
 
     protected function casts(): array

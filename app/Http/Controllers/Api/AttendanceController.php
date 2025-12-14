@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Office;
+use App\Support\ImageTransformer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
@@ -104,8 +105,15 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // Simpan foto
-        $photoPath = $request->file('photo')->store('attendance/clock-in', 'public');
+        // Simpan foto dengan konversi ke WebP (ukuran lebih kecil)
+        $photoResult = ImageTransformer::toWebpFromUploaded(
+            $request->file('photo'),
+            'public',
+            'attendance/clock-in',
+            quality: 75,
+            maxWidth: 800,
+        );
+        $photoPath = $photoResult['path'];
 
         // Buat attendance record
         $attendance = Attendance::create([
@@ -140,6 +148,7 @@ class AttendanceController extends Controller
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
             'photo' => 'required|image|max:5120', // max 5MB
+            'notes' => 'nullable|string|max:2000', // catatan aktivitas hari ini
         ]);
 
         $user = $request->user();
@@ -176,8 +185,15 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // Simpan foto
-        $photoPath = $request->file('photo')->store('attendance/clock-out', 'public');
+        // Simpan foto dengan konversi ke WebP (ukuran lebih kecil)
+        $photoResult = ImageTransformer::toWebpFromUploaded(
+            $request->file('photo'),
+            'public',
+            'attendance/clock-out',
+            quality: 75,
+            maxWidth: 800,
+        );
+        $photoPath = $photoResult['path'];
 
         // Update attendance
         $attendance->update([
@@ -185,6 +201,7 @@ class AttendanceController extends Controller
             'clock_out_lat' => $request->latitude,
             'clock_out_long' => $request->longitude,
             'clock_out_photo' => $photoPath,
+            'notes' => $request->notes,
         ]);
 
         return response()->json([
@@ -196,6 +213,7 @@ class AttendanceController extends Controller
                 'clock_out' => $attendance->clock_out->toIso8601String(),
                 'work_duration' => $attendance->work_duration_formatted,
                 'clock_out_photo' => Storage::url($attendance->clock_out_photo),
+                'notes' => $attendance->notes,
             ],
         ]);
     }
