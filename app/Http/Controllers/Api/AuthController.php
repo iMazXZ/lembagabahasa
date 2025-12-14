@@ -11,6 +11,47 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /**
+     * Register user baru dari mobile app.
+     */
+    public function register(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+            'device_name' => 'required|string|max:255',
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+
+        // Assign role pendaftar (default untuk user baru)
+        if (method_exists($user, 'assignRole')) {
+            $user->assignRole('pendaftar');
+        }
+
+        // Buat token
+        $token = $user->createToken($request->device_name)->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registrasi berhasil',
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'created_at' => $user->created_at,
+                ],
+                'token' => $token,
+            ],
+        ]);
+    }
+
+    /**
      * Login dan dapatkan API token.
      */
     public function login(Request $request)
