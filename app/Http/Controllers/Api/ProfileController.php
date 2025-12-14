@@ -98,12 +98,14 @@ class ProfileController extends Controller
         }
 
         // Convert to WebP and store
-        $photoPath = ImageTransformer::toWebpFromUploaded(
-            $request->file('photo'),
-            'photos',
-            400,
-            85
+        $result = ImageTransformer::toWebpFromUploaded(
+            uploaded: $request->file('photo'),
+            targetDisk: 'public',
+            targetDir: 'photos',
+            quality: 85,
+            maxWidth: 400
         );
+        $photoPath = $result['path'];
 
         $user->image = $photoPath;
         $user->save();
