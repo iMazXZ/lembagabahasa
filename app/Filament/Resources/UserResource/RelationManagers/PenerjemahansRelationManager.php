@@ -62,7 +62,7 @@ class PenerjemahansRelationManager extends RelationManager
                     ->label('Lihat')
                     ->icon('heroicon-o-eye')
                     ->url(fn (Penerjemahan $record) =>
-                        \App\Filament\Resources\PenerjemahanResource::getUrl('view', ['record' => $record])
+                        \App\Filament\Resources\PenerjemahanResource::getUrl('edit', ['record' => $record])
                     )
                     ->openUrlInNewTab(),
             ])
