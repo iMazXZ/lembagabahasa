@@ -53,7 +53,7 @@ class TutorMahasiswaSummaryStats extends BaseWidget
         ];
     }
 
-    /** Samakan scoping dengan page: Admin = semua; Tutor = prodi binaan + SRN prefix 25 */
+    /** Samakan scoping dengan page: Admin = semua; Tutor = prodi binaan + angkatan sesuai setting */
     protected function scopedStudentsQuery(): Builder
     {
         $q = User::query()
@@ -71,9 +71,17 @@ class TutorMahasiswaSummaryStats extends BaseWidget
                 return $q->whereRaw('1=0');
             }
 
+            // Gunakan setting bl_active_batch (support multiple: "25,26")
+            $activeBatch = \App\Models\SiteSetting::get('bl_active_batch', now()->format('y'));
+            $batches = array_map('trim', explode(',', $activeBatch));
+
             return $q
                 ->whereIn('prody_id', $ids)
-                ->where('srn', 'like', '25%');
+                ->where(function ($query) use ($batches) {
+                    foreach ($batches as $batch) {
+                        $query->orWhere('srn', 'like', $batch.'%');
+                    }
+                });
         }
 
         return $q->whereRaw('1=0');

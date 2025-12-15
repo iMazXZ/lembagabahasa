@@ -32,23 +32,27 @@ class EditBasicListeningAttempt extends EditRecord
     }
 
     /**
-     * Logika Hitung Skor saat tombol "Simpan" ditekan (Manual Edit)
+     * Setelah save, hitung ulang skor dari database (bukan dari form state)
+     * Ini menghindari bug skor = 0 karena form repeater relationship tidak mengirim data dengan benar
      */
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function afterSave(): void
     {
-        // Ambil data jawaban dari form repeater
-        $answers = $data['answers'] ?? [];
-        $total = count($answers);
+        $attempt = $this->getRecord();
         
-        // Hitung jumlah yang statusnya "Benar" (1)
-        $correct = collect($answers)
-            ->filter(fn ($row) => in_array($row['is_correct'] ?? 0, [1, '1', true, 'true'], true))
-            ->count();
-
-        // Update Skor
-        $data['score'] = $total > 0 ? round(($correct / $total) * 100, 2) : 0;
-
-        return $data;
+        // Reload answers dari database
+        $attempt->load('answers');
+        
+        $total = $attempt->answers->count();
+        $correct = $attempt->answers->where('is_correct', true)->count();
+        
+        // Update skor
+        $newScore = $total > 0 ? round(($correct / $total) * 100, 2) : 0;
+        
+        // Hanya update jika berbeda (menghindari infinite loop)
+        if ((float)$attempt->score !== (float)$newScore) {
+            $attempt->score = $newScore;
+            $attempt->saveQuietly(); // saveQuietly agar tidak trigger event lagi
+        }
     }
 
     protected function getRedirectUrl(): string

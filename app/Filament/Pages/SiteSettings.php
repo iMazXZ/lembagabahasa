@@ -48,6 +48,7 @@ class SiteSettings extends Page implements HasForms
             'wa_notification_enabled' => SiteSetting::isWaNotificationEnabled(),
             'bl_quiz_enabled' => SiteSetting::isBlQuizEnabled(),
             'bl_period_start_date' => SiteSetting::getBlPeriodStartDate(),
+            'bl_active_batch' => SiteSetting::get('bl_active_batch', now()->format('y')),
         ]);
     }
 
@@ -107,6 +108,13 @@ class SiteSettings extends Page implements HasForms
                             ->native(false)
                             ->displayFormat('d M Y')
                             ->nullable(),
+
+                        \Filament\Forms\Components\TextInput::make('bl_active_batch')
+                            ->label('Angkatan BL Aktif')
+                            ->helperText('Prefix NPM yang ditampilkan ke tutor. Bisa lebih dari satu, pisah dengan koma (contoh: 25,26)')
+                            ->default(now()->format('y'))
+                            ->maxLength(20)
+                            ->required(),
                     ])
                     ->columns(1),
             ])
@@ -123,6 +131,7 @@ class SiteSettings extends Page implements HasForms
         SiteSetting::set('wa_notification_enabled', $data['wa_notification_enabled'] ?? true);
         SiteSetting::set('bl_quiz_enabled', $data['bl_quiz_enabled'] ?? true);
         SiteSetting::set('bl_period_start_date', $data['bl_period_start_date'] ?? null);
+        SiteSetting::set('bl_active_batch', $data['bl_active_batch'] ?? now()->format('y'));
 
         // Clear all cache
         SiteSetting::clearCache();

@@ -173,7 +173,8 @@ class TutorMahasiswa extends Page implements HasTable
                         if ($prefix !== '') {
                             $query->where('srn', 'like', $prefix . '%');
                         }
-                    }),
+                    })
+                    ->visible(fn () => auth()->user()?->hasRole('Admin')), // Hanya Admin yang bisa filter angkatan
 
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
@@ -598,7 +599,15 @@ class TutorMahasiswa extends Page implements HasTable
             if (empty($ids)) return $query->whereRaw('1=0');
             $query = $query->whereIn('prody_id', $ids);
             if ($limitYear) {
-                $query = $query->where('srn', 'like', now()->format('y').'%');
+                // Gunakan setting bl_active_batch dari Site Settings (support multiple: "25,26")
+                $activeBatch = \App\Models\SiteSetting::get('bl_active_batch', now()->format('y'));
+                $batches = array_map('trim', explode(',', $activeBatch));
+                
+                $query = $query->where(function ($q) use ($batches) {
+                    foreach ($batches as $batch) {
+                        $q->orWhere('srn', 'like', $batch.'%');
+                    }
+                });
             }
             return $query;
         }
