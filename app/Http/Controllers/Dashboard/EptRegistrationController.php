@@ -81,26 +81,42 @@ class EptRegistrationController extends Controller
             ->with('success', 'Pendaftaran berhasil! Silakan tunggu verifikasi dari admin.');
     }
 
-    public function kartuPeserta()
+    public function kartuPeserta(Request $request)
     {
         $user = Auth::user();
+        $jadwalNum = $request->query('jadwal', 1);
         
-        $registration = EptRegistration::where('user_id', $user->id)
+        $registration = EptRegistration::with(['grup1', 'grup2', 'grup3'])
+            ->where('user_id', $user->id)
             ->approved()
             ->latest()
             ->first();
             
-        if (!$registration || !$registration->hasSchedule()) {
-            abort(404, 'Kartu peserta belum tersedia.');
+        if (!$registration) {
+            abort(404, 'Pendaftaran tidak ditemukan.');
+        }
+        
+        // Get the specific grup based on jadwal number
+        $grup = match((int)$jadwalNum) {
+            1 => $registration->grup1,
+            2 => $registration->grup2,
+            3 => $registration->grup3,
+            default => null,
+        };
+        
+        if (!$grup || !$grup->jadwal) {
+            abort(404, 'Jadwal belum ditetapkan.');
         }
         
         $pdf = Pdf::loadView('pdf.kartu-peserta-ept', [
             'user' => $user,
             'registration' => $registration,
+            'grup' => $grup,
+            'jadwalNum' => $jadwalNum,
         ]);
         
         $pdf->setPaper('a4', 'portrait');
         
-        return $pdf->download('Kartu_Peserta_EPT_' . Str::slug($user->name) . '.pdf');
+        return $pdf->download('Kartu_Peserta_EPT_' . Str::slug($user->name) . '_Jadwal' . $jadwalNum . '.pdf');
     }
 }

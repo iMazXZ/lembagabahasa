@@ -386,53 +386,71 @@
 
         @elseif($eptRegistration->status === 'approved')
             {{-- Status: Disetujui --}}
-            <div class="relative overflow-hidden bg-emerald-500 rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
-                <div class="absolute right-0 top-0 -mt-8 -mr-8 w-32 h-32 bg-white opacity-10 rounded-full"></div>
-                
-                <div class="relative z-10">
-                    <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-6 mb-4">
-                        <div class="flex items-start gap-4">
-                            <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
-                                <i class="fa-solid fa-check text-2xl"></i>
-                            </div>
-                            <div>
-                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold mb-2">
-                                    <i class="fa-solid fa-circle-check"></i> Disetujui
-                                </div>
-                                <h4 class="text-lg font-bold text-white">Pendaftaran EPT Berhasil</h4>
-                            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+                {{-- Header --}}
+                <div class="bg-gradient-to-r from-emerald-500 to-teal-500 p-5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
                         </div>
-                        @if($eptRegistration->hasSchedule())
-                            <a href="{{ route('dashboard.ept-registration.kartu') }}"
-                               class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-emerald-600 font-semibold text-sm hover:bg-emerald-50 transition shrink-0">
-                                <i class="fa-solid fa-download"></i>
-                                Download Kartu
-                            </a>
-                        @endif
+                        <div class="flex-1">
+                            <p class="text-emerald-100 text-xs font-medium">Status Pendaftaran</p>
+                            <h4 class="text-white font-bold">EPT Disetujui</h4>
+                        </div>
+                        <a href="{{ route('dashboard.ept-registration.index') }}"
+                           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition">
+                            <span>Lihat Detail</span>
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </a>
                     </div>
-
-                    @if($eptRegistration->hasSchedule())
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            @foreach([1, 2, 3] as $i)
-                                @php
-                                    $grup = $eptRegistration->{"grup_$i"};
-                                    $jadwal = $eptRegistration->{"jadwal_$i"};
-                                @endphp
-                                <div class="bg-white/20 backdrop-blur rounded-xl p-4 text-white">
-                                    <div class="text-xs font-bold text-emerald-100 mb-1">Tes ke-{{ $i }}</div>
-                                    <div class="font-bold">{{ $grup }}</div>
-                                    <div class="text-sm text-emerald-100 mt-1">
-                                        {{ $jadwal->translatedFormat('d M Y, H:i') }} WIB
-                                    </div>
+                </div>
+                
+                {{-- Jadwal Grid --}}
+                <div class="p-4">
+                    @php
+                        $grups = [
+                            1 => $eptRegistration->grup1,
+                            2 => $eptRegistration->grup2,
+                            3 => $eptRegistration->grup3,
+                        ];
+                    @endphp
+                    <div class="space-y-2">
+                        @foreach($grups as $i => $grup)
+                            <div class="flex items-center gap-3 p-3 rounded-xl {{ $grup?->jadwal ? 'bg-slate-50 border border-slate-100' : 'bg-amber-50 border border-amber-100' }}">
+                                <span class="w-8 h-8 rounded-lg {{ $grup?->jadwal ? 'bg-blue-600' : 'bg-slate-300' }} text-white text-sm font-bold flex items-center justify-center shrink-0">{{ $i }}</span>
+                                <div class="flex-1 min-w-0">
+                                    @if($grup)
+                                        <p class="font-semibold text-slate-900 text-sm truncate">Grup {{ $grup->name }}</p>
+                                        @if($grup->jadwal)
+                                            <p class="text-xs text-slate-500">{{ $grup->jadwal->translatedFormat('d M Y, H:i') }}</p>
+                                        @else
+                                            <p class="text-xs text-amber-600 flex items-center gap-1">
+                                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                Menunggu jadwal
+                                            </p>
+                                        @endif
+                                    @else
+                                        <p class="text-xs text-slate-400">Belum ditentukan</p>
+                                    @endif
                                 </div>
-                            @endforeach
-                        </div>
-                        <div class="mt-4 text-sm text-white">
-                            <i class="fa-solid fa-location-dot mr-1"></i> <strong>Lokasi:</strong> Ruang Stanford
-                        </div>
-                    @else
-                        <p class="text-emerald-100 text-sm">Jadwal tes akan segera diinformasikan oleh admin.</p>
-                    @endif
+                                @if($grup?->jadwal)
+                                    <a href="{{ route('dashboard.ept-registration.index') }}"
+                                       class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        Kartu
+                                    </a>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
             </div>
         @endif

@@ -15,20 +15,29 @@ class EptRegistration extends Model
         'bukti_pembayaran',
         'status',
         'rejection_reason',
-        'grup_1', 'jadwal_1',
-        'grup_2', 'jadwal_2',
-        'grup_3', 'jadwal_3',
-    ];
-
-    protected $casts = [
-        'jadwal_1' => 'datetime',
-        'jadwal_2' => 'datetime',
-        'jadwal_3' => 'datetime',
+        'grup_1_id',
+        'grup_2_id',
+        'grup_3_id',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function grup1(): BelongsTo
+    {
+        return $this->belongsTo(EptGroup::class, 'grup_1_id');
+    }
+
+    public function grup2(): BelongsTo
+    {
+        return $this->belongsTo(EptGroup::class, 'grup_2_id');
+    }
+
+    public function grup3(): BelongsTo
+    {
+        return $this->belongsTo(EptGroup::class, 'grup_3_id');
     }
 
     public function scopePending($query)
@@ -66,8 +75,20 @@ class EptRegistration extends Model
         };
     }
 
+    /**
+     * Cek apakah ada jadwal (minimal 1 grup punya jadwal)
+     */
     public function hasSchedule(): bool
     {
-        return $this->jadwal_1 && $this->jadwal_2 && $this->jadwal_3;
+        return $this->grup1?->jadwal || $this->grup2?->jadwal || $this->grup3?->jadwal;
+    }
+
+    /**
+     * Cek apakah semua jadwal sudah lengkap
+     */
+    public function hasAllSchedules(): bool
+    {
+        return $this->grup1?->jadwal && $this->grup2?->jadwal && $this->grup3?->jadwal;
     }
 }
+

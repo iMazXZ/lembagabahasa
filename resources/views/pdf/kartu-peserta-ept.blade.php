@@ -131,50 +131,44 @@
 </head>
 <body>
     <div class="page">
-        @foreach([1, 2, 3] as $i)
-            @php
-                $grup = $registration->{"grup_$i"};
-                $jadwal = $registration->{"jadwal_$i"};
-            @endphp
-            <div class="card">
-                <div class="card-badge">Tes ke-{{ $i }}</div>
-                
-                <div class="card-header">
-                    <h1>KARTU PESERTA TES EPT</h1>
-                    <p>Lembaga Bahasa - Universitas Muhammadiyah Metro</p>
-                </div>
-                
-                <div class="card-body">
-                    <div class="card-left">
-                        <div class="info-row">
-                            <div class="info-label">Nama Lengkap</div>
-                            <div class="info-value">{{ $user->name }}</div>
-                        </div>
-                        <div class="info-row">
-                            <div class="info-label">NPM / NIM</div>
-                            <div class="info-value">{{ $user->srn }}</div>
-                        </div>
-                        <div class="info-row">
-                            <div class="info-label">Program Studi</div>
-                            <div class="info-value">{{ $user->prody->name ?? '-' }}</div>
-                        </div>
+        <div class="card">
+            <div class="card-badge">Tes ke-{{ $jadwalNum }}</div>
+            
+            <div class="card-header">
+                <h1>KARTU PESERTA TES EPT</h1>
+                <p>Lembaga Bahasa - Universitas Muhammadiyah Metro</p>
+            </div>
+            
+            <div class="card-body">
+                <div class="card-left">
+                    <div class="info-row">
+                        <div class="info-label">Nama Lengkap</div>
+                        <div class="info-value">{{ $user->name }}</div>
                     </div>
-                    
-                    <div class="card-right">
-                        <div class="schedule-grup">{{ $grup }}</div>
-                        <div class="schedule-date">{{ $jadwal->translatedFormat('l, d F Y') }}</div>
-                        <div class="schedule-time">{{ $jadwal->format('H:i') }} WIB</div>
-                        <div class="schedule-location">
-                            <strong>Lokasi:</strong> Ruang Stanford
-                        </div>
+                    <div class="info-row">
+                        <div class="info-label">NPM / NIM</div>
+                        <div class="info-value">{{ $user->srn }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Program Studi</div>
+                        <div class="info-value">{{ $user->prody->name ?? '-' }}</div>
                     </div>
                 </div>
                 
-                <div class="card-footer">
-                    Dicetak pada {{ now()->translatedFormat('d F Y, H:i') }} WIB | © {{ date('Y') }} Lembaga Bahasa UM Metro
+                <div class="card-right">
+                    <div class="schedule-grup">{{ $grup->name }}</div>
+                    <div class="schedule-date">{{ $grup->jadwal->translatedFormat('l, d F Y') }}</div>
+                    <div class="schedule-time">{{ $grup->jadwal->format('H:i') }} WIB</div>
+                    <div class="schedule-location">
+                        <strong>Lokasi:</strong> {{ $grup->lokasi }}
+                    </div>
                 </div>
             </div>
-        @endforeach
+            
+            <div class="card-footer">
+                Dicetak pada {{ now()->translatedFormat('d F Y, H:i') }} WIB | © {{ date('Y') }} Lembaga Bahasa UM Metro
+            </div>
+        </div>
     </div>
 </body>
 </html>

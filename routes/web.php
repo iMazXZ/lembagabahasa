@@ -623,3 +623,56 @@ Route::middleware(['auth', 'role:pendaftar'])
 Route::post('/bl/quiz/ping/{attempt}', [BasicListeningQuizController::class, 'ping'])
     ->middleware('auth')
     ->name('bl.quiz.ping');
+
+/*
+|--------------------------------------------------------------------------
+| Admin: EPT Group - Kirim WA Individual
+|--------------------------------------------------------------------------
+*/
+Route::post('/admin/ept-group/{group}/send-wa/{registration}', function (
+    \App\Models\EptGroup $group,
+    \App\Models\EptRegistration $registration
+) {
+    $user = $registration->user;
+    
+    if (!$user->whatsapp || !$user->whatsapp_verified_at) {
+        return response()->json(['success' => false, 'message' => 'User tidak memiliki WhatsApp terverifikasi.'], 400);
+    }
+    
+    if (!$group->jadwal) {
+        return response()->json(['success' => false, 'message' => 'Grup belum memiliki jadwal.'], 400);
+    }
+    
+    // Determine which tes number
+    $tesNum = match(true) {
+        $registration->grup_1_id === $group->id => 1,
+        $registration->grup_2_id === $group->id => 2,
+        $registration->grup_3_id === $group->id => 3,
+        default => null,
+    };
+    
+    try {
+        $jadwal = $group->jadwal->translatedFormat('l, d F Y H:i');
+        $dashboardUrl = route('dashboard.ept-registration.index');
+
+        $message = "*Jadwal Tes EPT Ditetapkan*\n\n";
+        $message .= "Yth. *{$user->name}*,\n\n";
+        $message .= "Jadwal *Tes ke-{$tesNum}* EPT Anda telah ditetapkan:\n\n";
+        $message .= "*Grup:* {$group->name}\n";
+        $message .= "*Waktu:* {$jadwal} WIB\n";
+        $message .= "*Lokasi:* {$group->lokasi}\n\n";
+        $message .= "Silakan download Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
+        $message .= "_Wajib membawa kartu peserta dan KTP/Kartu Mahasiswa._";
+
+        $sent = app(\App\Services\WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+
+        if ($sent) {
+            return response()->json(['success' => true, 'message' => "Pesan berhasil dikirim ke {$user->name}"]);
+        }
+        
+        return response()->json(['success' => false, 'message' => 'Gagal mengirim pesan. Cek koneksi WhatsApp.'], 500);
+            
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+})->middleware(['auth', 'can:view_any_ept::group'])->name('admin.ept-group.send-wa-single');

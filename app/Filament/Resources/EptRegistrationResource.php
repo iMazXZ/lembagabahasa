@@ -133,68 +133,40 @@ class EptRegistrationResource extends Resource
                     ->color('success')
                     ->visible(fn ($record) => $record->status === 'pending')
                     ->form([
-                        Forms\Components\TextInput::make('grup_1')
-                            ->label('Nama Grup 1')
-                            ->required()
-                            ->placeholder('Contoh: Grup 001 Pasca'),
-                        Forms\Components\DateTimePicker::make('jadwal_1')
-                            ->label('Jadwal Tes 1')
+                        Forms\Components\Select::make('grup_1_id')
+                            ->label('Grup Tes 1')
+                            ->options(\App\Models\EptGroup::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
                             ->required(),
-                        Forms\Components\TextInput::make('grup_2')
-                            ->label('Nama Grup 2')
+                        Forms\Components\Select::make('grup_2_id')
+                            ->label('Grup Tes 2')
+                            ->options(\App\Models\EptGroup::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
                             ->required(),
-                        Forms\Components\DateTimePicker::make('jadwal_2')
-                            ->label('Jadwal Tes 2')
-                            ->required(),
-                        Forms\Components\TextInput::make('grup_3')
-                            ->label('Nama Grup 3')
-                            ->required(),
-                        Forms\Components\DateTimePicker::make('jadwal_3')
-                            ->label('Jadwal Tes 3')
+                        Forms\Components\Select::make('grup_3_id')
+                            ->label('Grup Tes 3')
+                            ->options(\App\Models\EptGroup::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
                             ->required(),
                     ])
                     ->action(function ($record, array $data) {
                         $record->update([
                             'status' => 'approved',
-                            'grup_1' => $data['grup_1'],
-                            'jadwal_1' => $data['jadwal_1'],
-                            'grup_2' => $data['grup_2'],
-                            'jadwal_2' => $data['jadwal_2'],
-                            'grup_3' => $data['grup_3'],
-                            'jadwal_3' => $data['jadwal_3'],
+                            'grup_1_id' => $data['grup_1_id'],
+                            'grup_2_id' => $data['grup_2_id'],
+                            'grup_3_id' => $data['grup_3_id'],
                         ]);
 
-                        // Send WhatsApp notification
-                        $user = $record->user;
-                        if ($user->whatsapp && $user->whatsapp_verified_at) {
-                            try {
-                                $jadwal1 = \Carbon\Carbon::parse($data['jadwal_1'])->translatedFormat('l, d F Y H:i');
-                                $jadwal2 = \Carbon\Carbon::parse($data['jadwal_2'])->translatedFormat('l, d F Y H:i');
-                                $jadwal3 = \Carbon\Carbon::parse($data['jadwal_3'])->translatedFormat('l, d F Y H:i');
-
-                                $dashboardUrl = route('dashboard.ept-registration.index');
-
-                                $message = "*Pendaftaran EPT Disetujui*\n\n";
-                                $message .= "Yth. *{$user->name}*,\n\n";
-                                $message .= "Pendaftaran Tes EPT Anda telah *disetujui*. Berikut jadwal tes yang telah ditetapkan:\n\n";
-                                $message .= "*Jadwal Tes:*\n";
-                                $message .= "1. {$data['grup_1']}\n   {$jadwal1} WIB\n";
-                                $message .= "2. {$data['grup_2']}\n   {$jadwal2} WIB\n";
-                                $message .= "3. {$data['grup_3']}\n   {$jadwal3} WIB\n\n";
-                                $message .= "*Lokasi:* Ruang Stanford\n\n";
-                                $message .= "Silakan download dan cetak *Kartu Peserta* melalui link berikut:\n{$dashboardUrl}\n\n";
-                                $message .= "_Wajib membawa kartu peserta dan KTP/Kartu Mahasiswa saat ujian._";
-
-                                app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
-                            } catch (\Exception $e) {
-                                // Log error but don't fail
-                            }
-                        }
+                        // Tidak kirim notifikasi WA di sini
+                        // Notifikasi dikirim melalui EptGroupResource > Kirim Notif WA
 
                         Notification::make()
                             ->success()
                             ->title('Pendaftaran Disetujui')
-                            ->body('Jadwal berhasil disimpan dan notifikasi WA terkirim.')
+                            ->body('Peserta berhasil ditambahkan ke grup. Jadwal akan dikirim setelah ditetapkan.')
                             ->send();
                     }),
 
