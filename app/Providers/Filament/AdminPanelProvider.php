@@ -71,7 +71,9 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Lembaga Bahasa UM Metro')
             ->navigationGroups([
                 'Layanan Lembaga Bahasa',
-                'Manajemen EPT',
+                'EPT',
+                'Basic Listening',
+                'Sistem',
             ])
             ->middleware([
                 EncryptCookies::class,

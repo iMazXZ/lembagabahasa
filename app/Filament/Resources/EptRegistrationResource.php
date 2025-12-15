@@ -17,11 +17,11 @@ class EptRegistrationResource extends Resource
 {
     protected static ?string $model = EptRegistration::class;
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
-    protected static ?string $navigationGroup = 'Layanan Lembaga Bahasa';
+    protected static ?string $navigationGroup = 'EPT';
     protected static ?string $navigationLabel = 'Pendaftaran EPT';
     protected static ?string $modelLabel = 'Pendaftaran EPT';
     protected static ?string $pluralModelLabel = 'Pendaftaran EPT';
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
