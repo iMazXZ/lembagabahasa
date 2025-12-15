@@ -116,6 +116,68 @@ class ViewUser extends ViewRecord
                         ->label('Nilai BL (legacy)')
                         ->placeholder('—'),
                 ]),
+
+            // ========== NILAI AKADEMIK ==========
+            Section::make('Nilai Akademik')
+                ->description('Nilai Basic Listening, Interactive Class, atau Interactive Bahasa Arab')
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('nilaibasiclistening')
+                        ->label('Nilai Basic Listening')
+                        ->placeholder('—')
+                        ->visible(fn ($record) => 
+                            $record->prody?->name !== 'Pendidikan Bahasa Inggris'
+                        ),
+
+                    // Interactive Class (6 semester) - Pendidikan Bahasa Inggris
+                    Grid::make(6)
+                        ->schema([
+                            TextEntry::make('interactive_class_1')
+                                ->label('IC Sem 1')
+                                ->placeholder('—'),
+                            TextEntry::make('interactive_class_2')
+                                ->label('IC Sem 2')
+                                ->placeholder('—'),
+                            TextEntry::make('interactive_class_3')
+                                ->label('IC Sem 3')
+                                ->placeholder('—'),
+                            TextEntry::make('interactive_class_4')
+                                ->label('IC Sem 4')
+                                ->placeholder('—'),
+                            TextEntry::make('interactive_class_5')
+                                ->label('IC Sem 5')
+                                ->placeholder('—'),
+                            TextEntry::make('interactive_class_6')
+                                ->label('IC Sem 6')
+                                ->placeholder('—'),
+                        ])
+                        ->columnSpanFull()
+                        ->visible(fn ($record) => 
+                            $record->prody?->name === 'Pendidikan Bahasa Inggris'
+                        ),
+
+                    // Interactive Bahasa Arab (2 field) - 3 Prodi Islam
+                    Grid::make(2)
+                        ->schema([
+                            TextEntry::make('interactive_bahasa_arab_1')
+                                ->label('Bahasa Arab 1')
+                                ->placeholder('—'),
+                            TextEntry::make('interactive_bahasa_arab_2')
+                                ->label('Bahasa Arab 2')
+                                ->placeholder('—'),
+                        ])
+                        ->columnSpanFull()
+                        ->visible(fn ($record) => 
+                            in_array($record->prody?->name, [
+                                'Komunikasi dan Penyiaran Islam',
+                                'Pendidikan Agama Islam',
+                                'Pendidikan Islam Anak Usia Dini',
+                            ])
+                        ),
+                ])
+                ->visible(fn ($record) => 
+                    $record->year && (int) $record->year <= 2024
+                ),
         ]);
     }
 }

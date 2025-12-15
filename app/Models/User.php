@@ -44,6 +44,16 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         'image',
         'nilaibasiclistening',
         'nomor_grup_bl',
+        // Interactive Class (Pendidikan Bahasa Inggris)
+        'interactive_class_1',
+        'interactive_class_2',
+        'interactive_class_3',
+        'interactive_class_4',
+        'interactive_class_5',
+        'interactive_class_6',
+        // Interactive Bahasa Arab (3 Prodi Islam)
+        'interactive_bahasa_arab_1',
+        'interactive_bahasa_arab_2',
     ];
 
     /**

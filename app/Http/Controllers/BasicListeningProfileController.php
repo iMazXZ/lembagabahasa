@@ -11,6 +11,45 @@ use Illuminate\Support\Str;
 
 class BasicListeningProfileController extends Controller
 {
+    /**
+     * List of Islamic study programs that require Interactive Bahasa Arab
+     */
+    private const PRODI_ISLAM = [
+        'Komunikasi dan Penyiaran Islam',
+        'Pendidikan Agama Islam',
+        'Pendidikan Islam Anak Usia Dini',
+    ];
+
+    /**
+     * Check if the selected prodi is Pendidikan Bahasa Inggris and year <= 2024
+     */
+    private function isPendidikanBahasaInggris($request): bool
+    {
+        $year = (int) $request->input('year');
+        if ($year > 2024) return false;
+
+        $prodyId = $request->input('prody_id');
+        if (!$prodyId) return false;
+
+        $prody = \App\Models\Prody::find($prodyId);
+        return $prody && $prody->name === 'Pendidikan Bahasa Inggris';
+    }
+
+    /**
+     * Check if the selected prodi is one of 3 Islamic study programs and year <= 2024
+     */
+    private function isProdiIslam($request): bool
+    {
+        $year = (int) $request->input('year');
+        if ($year > 2024) return false;
+
+        $prodyId = $request->input('prody_id');
+        if (!$prodyId) return false;
+
+        $prody = \App\Models\Prody::find($prodyId);
+        return $prody && in_array($prody->name, self::PRODI_ISLAM);
+    }
+
     public function updateGroupNumber(Request $request)
     {
         $user = $request->user();
@@ -75,7 +114,7 @@ class BasicListeningProfileController extends Controller
                 'max:' . (int) now()->year + 1, // biar sama2 aman
             ],
 
-            // ===== Nilai Basic Listening (conditional: angkatan <= 2024 DAN bukan S2) =====
+            // ===== Nilai Basic Listening (conditional: angkatan <= 2024 DAN bukan S2 DAN bukan Pendidikan Bahasa Inggris) =====
             'nilaibasiclistening' => [
                 'nullable',
                 Rule::requiredIf(function () use ($request) {
@@ -85,21 +124,35 @@ class BasicListeningProfileController extends Controller
                     // Jika tahun > 2024, tidak wajib
                     if ($year > 2024) return false;
                     
-                    // Jika prodi S2, tidak wajib
                     if ($prodyId) {
                         $prody = \App\Models\Prody::find($prodyId);
-                        if ($prody && str_starts_with($prody->name, 'S2')) {
-                            return false;
+                        if ($prody) {
+                            // Jika prodi S2, tidak wajib
+                            if (str_starts_with($prody->name, 'S2')) return false;
+                            // Jika Pendidikan Bahasa Inggris, tidak wajib (pakai Interactive Class)
+                            if ($prody->name === 'Pendidikan Bahasa Inggris') return false;
                         }
                     }
                     
-                    // Angkatan <= 2024 dan bukan S2, wajib
+                    // Angkatan <= 2024 dan bukan S2 dan bukan PBI, wajib
                     return true;
                 }),
                 'numeric',
                 'min:0',
                 'max:100',
             ],
+
+            // ===== Interactive Class (6 field) - KHUSUS Pendidikan Bahasa Inggris angkatan <= 2024 =====
+            'interactive_class_1' => ['nullable', Rule::requiredIf($this->isPendidikanBahasaInggris($request)), 'numeric', 'min:0', 'max:100'],
+            'interactive_class_2' => ['nullable', Rule::requiredIf($this->isPendidikanBahasaInggris($request)), 'numeric', 'min:0', 'max:100'],
+            'interactive_class_3' => ['nullable', Rule::requiredIf($this->isPendidikanBahasaInggris($request)), 'numeric', 'min:0', 'max:100'],
+            'interactive_class_4' => ['nullable', Rule::requiredIf($this->isPendidikanBahasaInggris($request)), 'numeric', 'min:0', 'max:100'],
+            'interactive_class_5' => ['nullable', Rule::requiredIf($this->isPendidikanBahasaInggris($request)), 'numeric', 'min:0', 'max:100'],
+            'interactive_class_6' => ['nullable', Rule::requiredIf($this->isPendidikanBahasaInggris($request)), 'numeric', 'min:0', 'max:100'],
+
+            // ===== Interactive Bahasa Arab (2 field) - KHUSUS 3 Prodi Islam angkatan <= 2024 =====
+            'interactive_bahasa_arab_1' => ['nullable', Rule::requiredIf($this->isProdiIslam($request)), 'numeric', 'min:0', 'max:100'],
+            'interactive_bahasa_arab_2' => ['nullable', Rule::requiredIf($this->isProdiIslam($request)), 'numeric', 'min:0', 'max:100'],
 
             // ===== Nomor WhatsApp (opsional + validasi format jika diisi) =====
             'whatsapp' => [
@@ -135,6 +188,16 @@ class BasicListeningProfileController extends Controller
             'nilaibasiclistening.numeric'  => 'Nilai Basic Listening harus berupa angka.',
             'nilaibasiclistening.min'      => 'Nilai Basic Listening minimal 0.',
             'nilaibasiclistening.max'      => 'Nilai Basic Listening maksimal 100.',
+
+            'interactive_class_1.required' => 'Nilai Interactive Class Semester 1 wajib diisi.',
+            'interactive_class_2.required' => 'Nilai Interactive Class Semester 2 wajib diisi.',
+            'interactive_class_3.required' => 'Nilai Interactive Class Semester 3 wajib diisi.',
+            'interactive_class_4.required' => 'Nilai Interactive Class Semester 4 wajib diisi.',
+            'interactive_class_5.required' => 'Nilai Interactive Class Semester 5 wajib diisi.',
+            'interactive_class_6.required' => 'Nilai Interactive Class Semester 6 wajib diisi.',
+
+            'interactive_bahasa_arab_1.required' => 'Nilai Interactive Bahasa Arab 1 wajib diisi.',
+            'interactive_bahasa_arab_2.required' => 'Nilai Interactive Bahasa Arab 2 wajib diisi.',
 
             'image.mimes'       => 'Foto harus berupa JPG, PNG, atau WebP.',
             'image.max'         => 'Ukuran foto maksimal 8 MB.',

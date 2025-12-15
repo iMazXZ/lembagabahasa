@@ -84,7 +84,83 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('nilaibasiclistening')
                     ->label('Nilai Basic Listening')
                     ->numeric()
-                    ->default(null),
+                    ->default(null)
+                    ->visible(fn (Get $get) => 
+                        // Hide for Pendidikan Bahasa Inggris (uses Interactive Class instead)
+                        $get('prody_id') && 
+                        optional(\App\Models\Prody::find($get('prody_id')))->name !== 'Pendidikan Bahasa Inggris'
+                    ),
+
+                // Interactive Class (6 fields) - Only for Pendidikan Bahasa Inggris
+                Forms\Components\Section::make('Nilai Interactive Class')
+                    ->description('Khusus untuk prodi Pendidikan Bahasa Inggris')
+                    ->schema([
+                        Forms\Components\Grid::make(3)
+                            ->schema([
+                                Forms\Components\TextInput::make('interactive_class_1')
+                                    ->label('Semester 1')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                                Forms\Components\TextInput::make('interactive_class_2')
+                                    ->label('Semester 2')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                                Forms\Components\TextInput::make('interactive_class_3')
+                                    ->label('Semester 3')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                                Forms\Components\TextInput::make('interactive_class_4')
+                                    ->label('Semester 4')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                                Forms\Components\TextInput::make('interactive_class_5')
+                                    ->label('Semester 5')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                                Forms\Components\TextInput::make('interactive_class_6')
+                                    ->label('Semester 6')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                            ]),
+                    ])
+                    ->collapsible()
+                    ->visible(fn (Get $get) => 
+                        $get('prody_id') && 
+                        optional(\App\Models\Prody::find($get('prody_id')))->name === 'Pendidikan Bahasa Inggris'
+                    ),
+
+                // Interactive Bahasa Arab (2 fields) - Only for 3 Prodi Islam
+                Forms\Components\Section::make('Nilai Interactive Bahasa Arab')
+                    ->description('Khusus untuk prodi keislaman')
+                    ->schema([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('interactive_bahasa_arab_1')
+                                    ->label('Bahasa Arab 1')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                                Forms\Components\TextInput::make('interactive_bahasa_arab_2')
+                                    ->label('Bahasa Arab 2')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100),
+                            ]),
+                    ])
+                    ->collapsible()
+                    ->visible(fn (Get $get) => 
+                        $get('prody_id') && 
+                        in_array(
+                            optional(\App\Models\Prody::find($get('prody_id')))->name, 
+                            ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini']
+                        )
+                    ),
 
                 Forms\Components\Select::make('roles')
                     ->label('Roles')
@@ -193,6 +269,26 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('nilaibasiclistening')
                     ->label('Score BL')
                     ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('interactive_class_summary')
+                    ->label('Interactive Class')
+                    ->getStateUsing(function ($record) {
+                        $values = [];
+                        for ($i = 1; $i <= 6; $i++) {
+                            $val = $record->{"interactive_class_{$i}"};
+                            if ($val !== null) $values[] = $val;
+                        }
+                        return $values ? implode(', ', $values) : '-';
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('interactive_bahasa_arab_summary')
+                    ->label('Bahasa Arab')
+                    ->getStateUsing(function ($record) {
+                        $v1 = $record->interactive_bahasa_arab_1;
+                        $v2 = $record->interactive_bahasa_arab_2;
+                        if ($v1 === null && $v2 === null) return '-';
+                        return ($v1 ?? '-') . ', ' . ($v2 ?? '-');
+                    })
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\ImageColumn::make('image')
                     ->label('Foto Profil')

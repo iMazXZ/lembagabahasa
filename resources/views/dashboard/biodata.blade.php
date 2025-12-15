@@ -29,9 +29,10 @@
     x-data="{
         year: '{{ $initialYear }}',
         isS2: {{ ($user->prody && str_starts_with($user->prody->name ?? '', 'S2')) ? 'true' : 'false' }},
+        prodiName: '{{ $user->prody->name ?? '' }}',
         changePasswordOpen: {{ $shouldOpenPasswordModal ? 'true' : 'false' }}
     }"
-    @prodi-changed.window="isS2 = $event.detail.isS2"
+    @prodi-changed.window="isS2 = $event.detail.isS2; prodiName = $event.detail.prodiName"
     class="max-w-7xl mx-auto"
 >
     {{-- TOP BANNER: WhatsApp OTP Verification (hanya muncul jika ada pending OTP) --}}
@@ -590,8 +591,8 @@
                                         this.selectedName = prodi.name;
                                         this.search = '';
                                         this.open = false;
-                                        // Dispatch event untuk update isS2 di parent
-                                        $dispatch('prodi-changed', { isS2: prodi.name.startsWith('S2') });
+                                        // Dispatch event untuk update isS2 dan prodiName di parent
+                                        $dispatch('prodi-changed', { isS2: prodi.name.startsWith('S2'), prodiName: prodi.name });
                                     },
                                     clear() {
                                         this.selected = null;
@@ -661,8 +662,8 @@
                                 @error('prody_id') <p class="mt-1 text-xs text-rose-600 pl-1">{{ $message }}</p> @enderror
                             </div>
 
-                            {{-- Nilai BL (Conditional: angkatan <= 2024 DAN bukan S2) --}}
-                            <template x-if="year && parseInt(year) <= 2024 && !isS2">
+                            {{-- Nilai BL (Conditional: angkatan <= 2024 DAN bukan S2 DAN bukan Pendidikan Bahasa Inggris) --}}
+                            <template x-if="year && parseInt(year) <= 2024 && !isS2 && prodiName !== 'Pendidikan Bahasa Inggris'">
                             <div class="md:col-span-2 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-blue-200 relative overflow-hidden shadow-sm">
                                 <div class="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 sm:w-24 sm:h-24 bg-blue-200 rounded-full blur-2xl opacity-40"></div>
                                 <div class="relative z-10">
@@ -678,7 +679,6 @@
                                     <div class="flex items-center gap-3">
                                         <input type="number" name="nilaibasiclistening" min="1" max="100" placeholder="0"
                                                value="{{ old('nilaibasiclistening', $user->nilaibasiclistening) }}"
-                                               required
                                                class="w-24 sm:w-32 py-2 sm:py-3 px-3 sm:px-4 text-center text-xl sm:text-2xl font-bold rounded-lg sm:rounded-xl border-2 border-blue-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue">
                                         <span class="text-sm sm:text-base text-slate-500 font-medium">/ 100</span>
                                     </div>
@@ -686,6 +686,83 @@
                                         <i class="fa-solid fa-info-circle text-blue-400"></i>
                                         Masukkan nilai Basic Listening Anda.
                                     </p>
+                                </div>
+                            </div>
+                            </template>
+
+                            {{-- Interactive Class (6 semester) - KHUSUS Pendidikan Bahasa Inggris --}}
+                            <template x-if="year && parseInt(year) <= 2024 && prodiName === 'Pendidikan Bahasa Inggris'">
+                            <div class="md:col-span-2 bg-gradient-to-br from-violet-50 to-purple-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-violet-200 relative overflow-hidden shadow-sm">
+                                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 sm:w-24 sm:h-24 bg-violet-200 rounded-full blur-2xl opacity-40"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-violet-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md shrink-0">
+                                            <i class="fa-solid fa-comments text-white text-sm sm:text-base"></i>
+                                        </div>
+                                        <div>
+                                            <label class="text-sm sm:text-base font-bold text-slate-900 block">Nilai Interactive Class <span class="text-rose-500">*</span></label>
+                                            <p class="text-[10px] sm:text-xs text-slate-500">Wajib untuk Pendidikan Bahasa Inggris (Semester 1-6)</p>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        @for ($i = 1; $i <= 6; $i++)
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-600 mb-1">Semester {{ $i }}</label>
+                                            <input type="number" name="interactive_class_{{ $i }}" min="0" max="100" placeholder="0"
+                                                   value="{{ old('interactive_class_'.$i, $user->{'interactive_class_'.$i}) }}"
+                                                   class="w-full py-2 px-3 text-center text-lg font-bold rounded-lg border-2 border-violet-200 bg-white shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                        </div>
+                                        @endfor
+                                    </div>
+                                    <p class="text-[10px] sm:text-xs text-slate-500 mt-2 sm:mt-3">
+                                        <i class="fa-solid fa-info-circle text-violet-400"></i>
+                                        Masukkan nilai Interactive Class untuk setiap semester.
+                                    </p>
+                                    @for ($i = 1; $i <= 6; $i++)
+                                        @error('interactive_class_'.$i) <p class="text-xs text-rose-600 mt-1">{{ $message }}</p> @enderror
+                                    @endfor
+                                </div>
+                            </div>
+                            </template>
+
+                            {{-- Interactive Bahasa Arab (2 field) - KHUSUS 3 Prodi Islam --}}
+                            @php
+                                $prodiIslam = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
+                                $prodiIslamJs = Js::from($prodiIslam);
+                            @endphp
+                            <template x-if="year && parseInt(year) <= 2024 && {{ $prodiIslamJs }}.includes(prodiName)">
+                            <div class="md:col-span-2 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-emerald-200 relative overflow-hidden shadow-sm">
+                                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 sm:w-24 sm:h-24 bg-emerald-200 rounded-full blur-2xl opacity-40"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md shrink-0">
+                                            <i class="fa-solid fa-book-quran text-white text-sm sm:text-base"></i>
+                                        </div>
+                                        <div>
+                                            <label class="text-sm sm:text-base font-bold text-slate-900 block">Nilai Interactive Bahasa Arab <span class="text-rose-500">*</span></label>
+                                            <p class="text-[10px] sm:text-xs text-slate-500">Wajib untuk prodi keislaman</p>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-600 mb-1">Bahasa Arab 1</label>
+                                            <input type="number" name="interactive_bahasa_arab_1" min="0" max="100" placeholder="0"
+                                                   value="{{ old('interactive_bahasa_arab_1', $user->interactive_bahasa_arab_1) }}"
+                                                   class="w-full py-2 px-3 text-center text-lg font-bold rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-600 mb-1">Bahasa Arab 2</label>
+                                            <input type="number" name="interactive_bahasa_arab_2" min="0" max="100" placeholder="0"
+                                                   value="{{ old('interactive_bahasa_arab_2', $user->interactive_bahasa_arab_2) }}"
+                                                   class="w-full py-2 px-3 text-center text-lg font-bold rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] sm:text-xs text-slate-500 mt-2 sm:mt-3">
+                                        <i class="fa-solid fa-info-circle text-emerald-400"></i>
+                                        Masukkan nilai Interactive Bahasa Arab Anda.
+                                    </p>
+                                    @error('interactive_bahasa_arab_1') <p class="text-xs text-rose-600 mt-1">{{ $message }}</p> @enderror
+                                    @error('interactive_bahasa_arab_2') <p class="text-xs text-rose-600 mt-1">{{ $message }}</p> @enderror
                                 </div>
                             </div>
                             </template>

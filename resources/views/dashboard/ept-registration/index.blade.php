@@ -72,6 +72,17 @@
                             Lakukan pembayaran terlebih dahulu, kemudian unggah bukti pembayaran di bawah ini.
                         </p>
                     </div>
+                    <div class="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                        <p class="text-sm font-semibold text-amber-800 mb-2">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-2"></i>
+                            Perhatian! Pastikan foto bukti pembayaran:
+                        </p>
+                        <ul class="text-sm text-amber-700 space-y-1 ml-6 list-disc">
+                            <li>Nama pengirim/penerima <strong>terlihat jelas</strong></li>
+                            <li>Foto <strong>tidak blur</strong> atau buram</li>
+                            <li>Diambil di <strong>tempat yang terang</strong></li>
+                        </ul>
+                    </div>
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-2">
                             Bukti Pembayaran <span class="text-red-500">*</span>
