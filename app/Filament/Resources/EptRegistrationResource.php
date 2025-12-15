@@ -91,6 +91,40 @@ class EptRegistrationResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+
+                // DOWNLOAD BUKTI PEMBAYARAN AS PNG
+                Tables\Actions\Action::make('download_bukti')
+                    ->label('Download Bukti')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('info')
+                    ->visible(fn ($record) => !empty($record->bukti_pembayaran))
+                    ->action(function ($record) {
+                        // Use 'public' disk since that's where files are stored
+                        $publicDisk = Storage::disk('public');
+                        
+                        if (!$publicDisk->exists($record->bukti_pembayaran)) {
+                            Notification::make()
+                                ->danger()
+                                ->title('File tidak ditemukan')
+                                ->send();
+                            return;
+                        }
+
+                        $filePath = $publicDisk->path($record->bukti_pembayaran);
+
+                        // Use Intervention Image (v3) to convert to PNG
+                        $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
+                        $image = $manager->read($filePath);
+                        $pngData = $image->toPng();
+                        
+                        $filename = 'bukti_pembayaran_' . $record->user->srn . '_' . now()->format('Ymd') . '.png';
+                        
+                        return response()->streamDownload(function () use ($pngData) {
+                            echo $pngData;
+                        }, $filename, [
+                            'Content-Type' => 'image/png',
+                        ]);
+                    }),
                 
                 // APPROVE ACTION
                 Tables\Actions\Action::make('approve')
@@ -207,8 +241,6 @@ class EptRegistrationResource extends Resource
                             ->body('Notifikasi penolakan terkirim via WA.')
                             ->send();
                     }),
-
-                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
