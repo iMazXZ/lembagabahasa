@@ -160,13 +160,29 @@ class EptRegistrationResource extends Resource
                             'grup_3_id' => $data['grup_3_id'],
                         ]);
 
-                        // Tidak kirim notifikasi WA di sini
-                        // Notifikasi dikirim melalui EptGroupResource > Kirim Notif WA
+                        // Kirim notifikasi WA persetujuan
+                        $user = $record->user;
+                        if ($user->whatsapp && $user->whatsapp_verified_at) {
+                            try {
+                                $dashboardUrl = route('dashboard.ept-registration.index');
+
+                                $message = "*Pendaftaran EPT Diterima* ✅\n\n";
+                                $message .= "Yth. *{$user->name}*,\n\n";
+                                $message .= "Pembayaran Tes EPT Anda sudah kami verifikasi dan *valid*.\n\n";
+                                $message .= "Mohon menunggu penetapan jadwal tes. Ketika kuota peserta sudah terpenuhi, jadwal tes akan segera dikirimkan melalui WhatsApp.\n\n";
+                                $message .= "Silakan pantau status pendaftaran Anda di:\n{$dashboardUrl}\n\n";
+                                $message .= "_Terima kasih telah mendaftar._";
+
+                                app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+                            } catch (\Exception $e) {
+                                // Log error but don't fail
+                            }
+                        }
 
                         Notification::make()
                             ->success()
                             ->title('Pendaftaran Disetujui')
-                            ->body('Peserta berhasil ditambahkan ke grup. Jadwal akan dikirim setelah ditetapkan.')
+                            ->body('Peserta berhasil ditambahkan ke grup. Notifikasi WA telah dikirim.')
                             ->send();
                     }),
 
