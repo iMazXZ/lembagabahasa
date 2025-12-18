@@ -13,6 +13,8 @@ class Post extends Model
         'title',
         'slug',
         'type',
+        'event_date',
+        'related_post_id',
         'excerpt',
         'body',
         'cover_path',
@@ -23,6 +25,7 @@ class Post extends Model
     protected $casts = [
         'is_published' => 'boolean',
         'published_at' => 'datetime',
+        'event_date' => 'date',
         'views' => 'integer',
     ];
 
@@ -57,6 +60,14 @@ class Post extends Model
     public function author()
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    /**
+     * Relasi ke post jadwal terkait (untuk post tipe scores).
+     */
+    public function relatedPost()
+    {
+        return $this->belongsTo(Post::class, 'related_post_id');
     }
 
     /**

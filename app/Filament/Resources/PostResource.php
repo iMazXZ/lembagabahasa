@@ -115,7 +115,72 @@ class PostResource extends Resource
                         ->options(\App\Models\Post::TYPES)
                         ->required()
                         ->searchable()
-                        ->native(false),
+                        ->native(false)
+                        ->live(),
+
+                    // Grid untuk Nomor Grup dan Tanggal (2 kolom)
+                    Grid::make(2)
+                        ->schema([
+                            TextInput::make('group_number')
+                                ->label('Nomor Grup')
+                                ->numeric()
+                                ->required()
+                                ->minValue(1)
+                                ->maxValue(999)
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
+                                    $eventDate = $get('event_date');
+                                    if ($state && $eventDate) {
+                                        $date = \Carbon\Carbon::parse($eventDate);
+                                        $formatted = $date->translatedFormat('l, d F Y');
+                                        $set('title', "Jadwal Tes EPT Grup {$state} ({$formatted})");
+                                    }
+                                }),
+
+                            Forms\Components\DatePicker::make('event_date')
+                                ->label('Tanggal Tes')
+                                ->native(false)
+                                ->required()
+                                ->minDate(now()->startOfDay())
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
+                                    $groupNumber = $get('group_number');
+                                    if ($groupNumber && $state) {
+                                        $date = \Carbon\Carbon::parse($state);
+                                        $formatted = $date->translatedFormat('l, d F Y');
+                                        $set('title', "Jadwal Tes EPT Grup {$groupNumber} ({$formatted})");
+                                    }
+                                }),
+                        ])
+                        ->visible(fn (Get $get) => $get('type') === 'schedule'),
+
+                    // Field reaktif: Pilih Jadwal Terkait (hanya untuk tipe nilai)
+                    Select::make('related_post_id')
+                        ->label('Jadwal Terkait')
+                        ->options(fn () => \App\Models\Post::query()
+                            ->where('type', 'schedule')
+                            ->orderByDesc('event_date')
+                            ->pluck('title', 'id')
+                        )
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->visible(fn (Get $get) => $get('type') === 'scores')
+                        ->live()
+                        ->afterStateUpdated(function (Set $set, Get $get, ?int $state) {
+                            // Auto generate judul dari jadwal terkait
+                            if ($state) {
+                                $related = \App\Models\Post::find($state);
+                                if ($related && $related->event_date) {
+                                    $formatted = $related->event_date->translatedFormat('l, d F Y');
+                                    // Extract group number from title if possible
+                                    preg_match('/Grup\s*(\d+)/i', $related->title, $matches);
+                                    $groupNum = $matches[1] ?? '';
+                                    $set('title', "Nilai EPT Grup {$groupNum} ({$formatted})");
+                                }
+                            }
+                        })
+                        ->helperText('Judul akan otomatis terisi dari jadwal terkait'),
 
                     Toggle::make('is_published')
                         ->label('Terbitkan Sekarang')
