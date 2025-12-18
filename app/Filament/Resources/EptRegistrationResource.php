@@ -23,6 +23,15 @@ class EptRegistrationResource extends Resource
     protected static ?string $pluralModelLabel = 'Pendaftaran EPT';
     protected static ?int $navigationSort = 1;
 
+    public static function getNavigationBadge(): ?string
+    {
+        if (! auth()->user()?->hasAnyRole(['Admin', 'super_admin', 'Staf Administrasi'])) {
+            return null;
+        }
+        $count = static::getModel()::where('status', 'pending')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -75,6 +84,13 @@ class EptRegistrationResource extends Resource
                         'rejected' => 'Ditolak',
                         default => $state,
                     }),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Tanggal Disetujui')
+                    ->dateTime('d M Y, H:i')
+                    ->sortable()
+                    ->toggleable()
+                    ->getStateUsing(fn ($record) => $record->status === 'approved' ? $record->updated_at : null)
+                    ->placeholder('-'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Tanggal Daftar')
                     ->dateTime('d M Y, H:i')
