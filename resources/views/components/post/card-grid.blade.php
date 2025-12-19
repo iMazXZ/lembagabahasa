@@ -36,9 +36,25 @@
           @php
             $isSchedule = ($item->type ?? null) === 'schedule';
             $eventDate = $item->event_date ?? null;
-            $isUpcoming = $eventDate && Carbon::parse($eventDate)->isFuture();
+            $eventTime = $item->event_time ?? null;
+            
+            // Build full datetime for accurate comparison
+            $eventDateTime = null;
+            if ($eventDate) {
+              $eventDateTime = Carbon::parse($eventDate);
+              if ($eventTime) {
+                $parsedTime = Carbon::parse($eventTime);
+                $eventDateTime->setTime($parsedTime->hour, $parsedTime->minute);
+              } else {
+                // If no time, assume end of day for "past" check
+                $eventDateTime->endOfDay();
+              }
+            }
+            
+            $isUpcoming = $eventDateTime && $eventDateTime->isFuture();
+            $isToday = $eventDate && Carbon::parse($eventDate)->isToday();
             $daysLeft = $eventDate ? Carbon::now()->startOfDay()->diffInDays(Carbon::parse($eventDate)->startOfDay(), false) : null;
-            $isPast = $eventDate && Carbon::parse($eventDate)->isPast();
+            $isPast = $eventDateTime && $eventDateTime->isPast();
             
             $typeLabel = match($item->type ?? 'news') {
               'schedule' => 'JADWAL',
