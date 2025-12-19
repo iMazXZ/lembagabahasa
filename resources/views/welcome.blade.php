@@ -96,10 +96,10 @@
   </div>
 </section>
 
-{{-- SECTION: Berita / Jadwal / Nilai --}}
-<section id="berita" class="py-8 bg-white">
-  <x-post.section-split title="Jadwal Tes EPT Offline" :items="$schedules" :moreRoute="route('front.schedule')" emptyText="Belum ada jadwal."/>
-  <x-post.section-split title="Nilai Tes EPT" :items="$scores" :moreRoute="route('front.scores')" emptyText="Belum ada pengumuman nilai."/>
+{{-- SECTION: Jadwal / Nilai (Card Grid) & Berita (Split Layout) --}}
+<section id="berita" class="py-4 bg-white">
+  <x-post.card-grid title="Jadwal Tes EPT Offline" :items="$schedules" :moreRoute="route('front.schedule')" emptyText="Belum ada jadwal." type="schedule"/>
+  <x-post.card-grid title="Nilai Tes EPT" :items="$scores" :moreRoute="route('front.scores')" emptyText="Belum ada pengumuman nilai." type="scores"/>
   <x-post.section-split title="Berita Terbaru" :items="$news" :moreRoute="route('front.news')" emptyText="Belum ada berita."/>
 </section>
 

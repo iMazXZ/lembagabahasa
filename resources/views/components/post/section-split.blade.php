@@ -8,7 +8,7 @@
   $hasItems  = $items && $items->count() > 0;
 
   $featured  = $hasItems ? $items->first() : null;
-  $others    = $hasItems ? $items->skip(1)->take(5) : collect();
+  $others    = $hasItems ? $items->skip(1)->take(7) : collect();
 @endphp
 
 <section class="py-16 bg-slate-50/50" aria-labelledby="{{ $sectionId }}-title">

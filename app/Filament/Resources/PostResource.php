@@ -141,7 +141,6 @@ class PostResource extends Resource
                                 ->label('Tanggal Tes')
                                 ->native(false)
                                 ->required()
-                                ->minDate(now()->startOfDay())
                                 ->live()
                                 ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
                                     $groupNumber = $get('group_number');
@@ -151,6 +150,17 @@ class PostResource extends Resource
                                         $set('title', "Jadwal Tes EPT Grup {$groupNumber} ({$formatted})");
                                     }
                                 }),
+
+                            Forms\Components\TimePicker::make('event_time')
+                                ->label('Waktu Tes')
+                                ->native(false)
+                                ->seconds(false)
+                                ->default('08:30'),
+
+                            TextInput::make('event_location')
+                                ->label('Lokasi/Ruangan')
+                                ->maxLength(255)
+                                ->default('Kampus 3, Ruang Standford'),
                         ])
                         ->visible(fn (Get $get) => $get('type') === 'schedule'),
 

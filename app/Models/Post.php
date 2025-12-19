@@ -14,6 +14,8 @@ class Post extends Model
         'slug',
         'type',
         'event_date',
+        'event_time',
+        'event_location',
         'related_post_id',
         'excerpt',
         'body',
@@ -26,6 +28,7 @@ class Post extends Model
         'is_published' => 'boolean',
         'published_at' => 'datetime',
         'event_date' => 'date',
+        'event_time' => 'datetime:H:i',
         'views' => 'integer',
     ];
 

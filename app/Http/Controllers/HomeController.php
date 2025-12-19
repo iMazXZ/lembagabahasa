@@ -15,7 +15,7 @@ class HomeController extends Controller
             // Jadwal diurutkan berdasarkan published_at (terbaru dibuat)
             'schedules' => Post::published()->type('schedule')
                 ->latest('published_at')->limit(6)
-                ->get(['title','slug','type','excerpt','cover_path','published_at','event_date']),
+                ->get(['title','slug','type','excerpt','cover_path','published_at','event_date','event_time','event_location']),
             'scores'    => Post::published()->type('scores')
                 ->latest('published_at')->limit(6)
                 ->get(['title','slug','type','excerpt','cover_path','published_at']),
