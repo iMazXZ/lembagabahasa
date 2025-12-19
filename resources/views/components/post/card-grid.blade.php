@@ -21,7 +21,6 @@
 
     {{-- Section Header --}}
     <div class="text-center mb-10">
-      <span class="text-blue-600 text-sm font-bold uppercase tracking-widest mb-3 block">Update Terbaru</span>
       <h2 id="{{ $sectionId }}-title" class="text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
         {{ $title }}
       </h2>
@@ -61,9 +60,29 @@
               'scores' => 'NILAI',
               default => 'BERITA'
             };
+
+            // Card background based on status
+            $cardBg = 'bg-slate-50 border-slate-200'; // default
+            if ($isSchedule) {
+              if ($isUpcoming) {
+                if ($isToday) {
+                  // Hari Ini - paling mencolok
+                  $cardBg = 'bg-gradient-to-br from-emerald-50 to-green-100 border-emerald-300';
+                } elseif ($daysLeft !== null && $daysLeft <= 3) {
+                  // 1-3 hari lagi - cukup mencolok
+                  $cardBg = 'bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-300';
+                } else {
+                  // Lebih dari 3 hari - sedikit warna
+                  $cardBg = 'bg-gradient-to-br from-slate-50 to-blue-50 border-blue-200';
+                }
+              } else {
+                // Selesai
+                $cardBg = 'bg-slate-100 border-slate-200 opacity-75';
+              }
+            }
           @endphp
 
-          <article class="group flex flex-col bg-slate-50 rounded-2xl border border-slate-200 shadow-md hover:shadow-xl {{ $colors['hover'] }} transition-all duration-300">
+          <article class="group flex flex-col {{ $cardBg }} rounded-2xl shadow-md hover:shadow-xl {{ $colors['hover'] }} transition-all duration-300">
             <div class="p-5 flex flex-col flex-1">
               
               {{-- Header: Badge + Date + Countdown --}}

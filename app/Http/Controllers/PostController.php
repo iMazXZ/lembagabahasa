@@ -58,8 +58,8 @@ class PostController extends Controller
             ->type($post->type)
             ->where('id', '!=', $post->id)
             ->latest('published_at')
-            ->limit(4)
-            ->get(['title', 'slug', 'cover_path', 'published_at']);
+            ->limit(6)
+            ->get(['title', 'slug', 'type', 'excerpt', 'cover_path', 'published_at', 'event_date', 'event_time', 'event_location']);
 
         $body = $this->formatBody($post->body ?? '');
 

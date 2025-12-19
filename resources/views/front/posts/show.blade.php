@@ -208,20 +208,13 @@
 
     @if($related->count())
       <div class="mt-16">
-        <h2 class="text-2xl text-center lg:text-2xl font-bold text-gray-900 mb-6">Informasi Lainnya</h2>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          @foreach($related as $r)
-            <a href="{{ route('front.post.show', $r->slug) }}" 
-               class="group block p-6 rounded-xl border border-gray-200 bg-white hover:shadow-lg hover:border-blue-300 transition-all duration-300">
-              <div class="text-xs font-semibold uppercase text-blue-600 mb-2">
-                {{ strtoupper(optional($r->published_at)->translatedFormat('d M Y')) }}
-              </div>
-              <div class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
-                {{ $r->title }}
-              </div>
-            </a>
-          @endforeach
-        </div>
+        <x-post.card-grid 
+          title="Informasi Lainnya" 
+          :items="$related" 
+          :moreRoute="$post->type === 'schedule' ? route('front.schedule') : route('front.scores')" 
+          :type="$post->type"
+          emptyText="Tidak ada informasi lainnya."
+        />
       </div>
     @endif
 
