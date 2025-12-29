@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\Penerjemahan;
 use App\Models\EptSubmission;
 use App\Models\BasicListeningGrade;
+use App\Models\ManualCertificate;
 
 class VerificationController extends Controller
 {
@@ -146,7 +147,73 @@ class VerificationController extends Controller
             return view('verification.show', ['vm' => $vm]);
         }
 
-        // ==== D. Tidak ditemukan ====
+        // ==== D. Manual Certificate (Sertifikat Interactive Class, dll) ====
+        // Sekarang cek SEMUA sertifikat dengan verification_code yang sama (untuk multi-semester)
+        $certificates = ManualCertificate::with(['category'])
+            ->where('verification_code', $code)
+            ->orderBy('semester')
+            ->get();
+
+        if ($certificates->isNotEmpty()) {
+            $firstCert = $certificates->first();
+            $status = 'VALID';
+            $reason = $certificates->count() > 1 
+                ? "Ditemukan {$certificates->count()} sertifikat untuk SRN ini."
+                : 'Sertifikat valid dan terverifikasi.';
+
+            // Build list of certificates with their details
+            $certificateList = $certificates->map(function ($cert) use ($code) {
+                $scoresArray = [];
+                if (!empty($cert->scores) && is_array($cert->scores)) {
+                    foreach ($cert->scores as $field => $value) {
+                        $scoresArray[$field] = $value;
+                    }
+                }
+
+                return [
+                    'id' => $cert->id,
+                    'semester' => $cert->semester,
+                    'certificate_number' => $cert->certificate_number,
+                    'grade' => $cert->grade,
+                    'average_score' => $cert->average_score,
+                    'total_score' => $cert->total_score,
+                    'issued_at' => $cert->issued_at?->format('d M Y'),
+                    'scores' => $scoresArray,
+                    'pdf_url' => route('manual-certificate.download-by-id', ['id' => $cert->id]),
+                ];
+            })->all();
+
+            $vm = [
+                'type'              => 'manual_certificate',
+                'title'             => 'Verifikasi Sertifikat ' . ($firstCert->category?->name ?? 'Manual'),
+                'status'            => $status,
+                'reason'            => $reason,
+
+                'applicant_name'    => $firstCert->name ?? '-',
+                'srn'               => $firstCert->srn ?? '-',
+                'prody'             => $firstCert->study_program ?? '-',
+
+                'status_text'       => $certificates->count() . ' Sertifikat',
+                'done_at'           => $firstCert->issued_at?->timezone(config('app.timezone', 'Asia/Jakarta')),
+
+                'verification_code' => $firstCert->verification_code ?? '-',
+                'verification_url'  => route('verification.show', ['code' => $code], true),
+
+                'pdf_url'           => null, // Multiple PDFs handled in certificates array
+
+                'nomor_surat'       => null,
+                'tanggal_surat'     => null,
+
+                'scores'            => null,
+                
+                // Data khusus untuk multi-certificate
+                'certificates'      => $certificateList,
+            ];
+
+            return view('verification.show', ['vm' => $vm]);
+        }
+
+        // ==== E. Tidak ditemukan ====
         $vm = [
             'type'   => null,
             'title'  => 'Verifikasi Dokumen',

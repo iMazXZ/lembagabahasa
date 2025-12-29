@@ -39,21 +39,25 @@
             
             // Build full datetime for accurate comparison
             $eventDateTime = null;
+            $eventEndTime = null; // +2 hours buffer
             if ($eventDate) {
               $eventDateTime = Carbon::parse($eventDate);
               if ($eventTime) {
                 $parsedTime = Carbon::parse($eventTime);
                 $eventDateTime->setTime($parsedTime->hour, $parsedTime->minute);
               } else {
-                // If no time, assume end of day for "past" check
-                $eventDateTime->endOfDay();
+                // If no time, assume start of day
+                $eventDateTime->startOfDay();
               }
+              // Event dianggap selesai 2 jam setelah waktu mulai
+              $eventEndTime = $eventDateTime->copy()->addHours(1);
             }
             
             $isUpcoming = $eventDateTime && $eventDateTime->isFuture();
             $isToday = $eventDate && Carbon::parse($eventDate)->isToday();
             $daysLeft = $eventDate ? Carbon::now()->startOfDay()->diffInDays(Carbon::parse($eventDate)->startOfDay(), false) : null;
-            $isPast = $eventDateTime && $eventDateTime->isPast();
+            // Baru "Selesai" setelah +2 jam dari waktu jadwal
+            $isPast = $eventEndTime && $eventEndTime->isPast();
             
             $typeLabel = match($item->type ?? 'news') {
               'schedule' => 'JADWAL',

@@ -183,6 +183,61 @@
             </div>
           </div>
         @endif
+
+        {{-- Multi-Certificate List (untuk manual certificates multi-semester) --}}
+        @if(($vm['type'] ?? null) === 'manual_certificate' && !empty($vm['certificates']))
+          <div class="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-800">Daftar Sertifikat ({{ count($vm['certificates']) }})</h3>
+            </div>
+            <div class="divide-y divide-gray-100">
+              @foreach($vm['certificates'] as $cert)
+                <div class="p-6 hover:bg-gray-50/50 transition">
+                  <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div>
+                      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700">
+                        Semester {{ $cert['semester'] ?? '-' }}
+                      </span>
+                      <span class="ml-2 text-gray-500 text-sm">{{ $cert['certificate_number'] ?? '' }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="text-sm text-gray-500">{{ $cert['issued_at'] ?? '' }}</span>
+                      <a href="{{ $cert['pdf_url'] ?? '#' }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-gray-800 transition shadow">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        PDF
+                      </a>
+                    </div>
+                  </div>
+                  
+                  {{-- Scores Grid --}}
+                  <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    @foreach($cert['scores'] ?? [] as $field => $value)
+                      <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">{{ ucfirst($field) }}</div>
+                        <div class="text-lg font-bold text-gray-900">{{ $value ?? '-' }}</div>
+                      </div>
+                    @endforeach
+                    <div class="bg-blue-50 rounded-lg p-3 text-center">
+                      <div class="text-xs text-blue-600 uppercase tracking-wide mb-1">Total</div>
+                      <div class="text-lg font-bold text-blue-700">{{ $cert['total_score'] ?? '-' }}</div>
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-3 text-center">
+                      <div class="text-xs text-blue-600 uppercase tracking-wide mb-1">Average</div>
+                      <div class="text-lg font-bold text-blue-700">{{ number_format($cert['average_score'] ?? 0, 2) }}</div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-3 text-center col-span-2 sm:col-span-1">
+                      <div class="text-xs text-green-600 uppercase tracking-wide mb-1">Grade</div>
+                      <div class="text-lg font-bold text-green-700">{{ $cert['grade'] ?? '-' }}</div>
+                    </div>
+                  </div>
+                </div>
+              @endforeach
+            </div>
+          </div>
+        @endif
       </div>
 
       {{-- Sidebar --}}

@@ -119,6 +119,32 @@ class SurveyResponses extends Page implements HasTable
         return true;
     }
 
+    /** Statistik untuk header widget */
+    public function getStats(): array
+    {
+        $totalResponses = BasicListeningSurveyResponse::whereNotNull('submitted_at')->count();
+        
+        $avgScore = BasicListeningSurveyResponse::query()
+            ->whereNotNull('submitted_at')
+            ->withAvg('answers', 'likert_value')
+            ->get()
+            ->avg('answers_avg_likert_value');
+
+        $todayResponses = BasicListeningSurveyResponse::query()
+            ->whereNotNull('submitted_at')
+            ->whereDate('submitted_at', today())
+            ->count();
+
+        $pendingResponses = BasicListeningSurveyResponse::whereNull('submitted_at')->count();
+
+        return [
+            'total' => $totalResponses,
+            'avg' => $avgScore ? number_format($avgScore, 2) : '—',
+            'today' => $todayResponses,
+            'pending' => $pendingResponses,
+        ];
+    }
+
     private function categoryOptions(): array
     {
         $options = BasicListeningCategory::query()
@@ -133,5 +159,52 @@ class SurveyResponses extends Page implements HasTable
             'supervisor' => 'Supervisor',
             'institute'  => 'Lembaga',
         ];
+    }
+
+    /** State untuk modal pending */
+    public bool $showPendingModal = false;
+    public array $pendingResponses = [];
+    public int $pendingLimit = 20;
+    public int $pendingTotal = 0;
+
+    /** Tampilkan modal pending responses */
+    public function showPendingDetail(): void
+    {
+        $query = BasicListeningSurveyResponse::query()
+            ->whereNull('submitted_at')
+            ->with(['user', 'survey']);
+
+        $this->pendingTotal = (clone $query)->count();
+
+        $this->pendingResponses = $query
+            ->select(['id', 'user_id', 'survey_id', 'created_at'])
+            ->orderByDesc('created_at')
+            ->limit($this->pendingLimit)
+            ->get()
+            ->map(fn($r) => [
+                'id' => $r->id,
+                'user_name' => $r->user?->name ?? '—',
+                'survey_title' => $r->survey?->title ?? '—',
+                'created_at' => $r->created_at?->format('d M Y, H:i') ?? '—',
+            ])
+            ->toArray();
+
+        $this->showPendingModal = true;
+    }
+
+    /** Load more pending */
+    public function loadMorePending(): void
+    {
+        $this->pendingLimit += 20;
+        $this->showPendingDetail();
+    }
+
+    /** Tutup modal */
+    public function closePendingModal(): void
+    {
+        $this->showPendingModal = false;
+        $this->pendingResponses = [];
+        $this->pendingLimit = 20;
+        $this->pendingTotal = 0;
     }
 }

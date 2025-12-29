@@ -97,10 +97,39 @@ class BlSurveyResults extends Page implements HasForms, HasTable
 
                 Forms\Components\Select::make('tutorId')
                     ->label('Pilih Tutor')
-                    ->options(fn () => User::query()
-                        ->role('tutor')
-                        ->orderBy('name')
-                        ->pluck('name', 'id'))
+                    ->options(function () {
+                        // Ambil survey aktif untuk kategori tutor
+                        $survey = BasicListeningSurvey::query()
+                            ->where('category', 'tutor')
+                            ->where('is_active', true)
+                            ->orderBy('sort_order')
+                            ->orderByDesc('id')
+                            ->first();
+
+                        // Hitung jumlah response per tutor
+                        $responseCounts = $survey
+                            ? BasicListeningSurveyResponse::query()
+                                ->where('survey_id', $survey->id)
+                                ->whereNotNull('tutor_id')
+                                ->selectRaw('tutor_id, COUNT(*) as count')
+                                ->groupBy('tutor_id')
+                                ->pluck('count', 'tutor_id')
+                                ->all()
+                            : [];
+
+                        return User::query()
+                            ->role('tutor')
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(function ($user) use ($responseCounts) {
+                                $count = $responseCounts[$user->id] ?? 0;
+                                $label = $count > 0 
+                                    ? "{$user->name} ({$count})" 
+                                    : $user->name;
+                                return [$user->id => $label];
+                            })
+                            ->all();
+                    })
                     ->visible(fn (Get $get) => $get('category') === 'tutor')
                     ->searchable()
                     ->preload()
@@ -113,10 +142,39 @@ class BlSurveyResults extends Page implements HasForms, HasTable
 
                 Forms\Components\Select::make('supervisorId')
                     ->label('Pilih Supervisor')
-                    ->options(fn () => BasicListeningSupervisor::query()
-                        ->where('is_active', true)
-                        ->orderBy('name')
-                        ->pluck('name', 'id'))
+                    ->options(function () {
+                        // Ambil survey aktif untuk kategori supervisor
+                        $survey = BasicListeningSurvey::query()
+                            ->where('category', 'supervisor')
+                            ->where('is_active', true)
+                            ->orderBy('sort_order')
+                            ->orderByDesc('id')
+                            ->first();
+
+                        // Hitung jumlah response per supervisor
+                        $responseCounts = $survey
+                            ? BasicListeningSurveyResponse::query()
+                                ->where('survey_id', $survey->id)
+                                ->whereNotNull('supervisor_id')
+                                ->selectRaw('supervisor_id, COUNT(*) as count')
+                                ->groupBy('supervisor_id')
+                                ->pluck('count', 'supervisor_id')
+                                ->all()
+                            : [];
+
+                        return BasicListeningSupervisor::query()
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(function ($supervisor) use ($responseCounts) {
+                                $count = $responseCounts[$supervisor->id] ?? 0;
+                                $label = $count > 0 
+                                    ? "{$supervisor->name} ({$count})" 
+                                    : $supervisor->name;
+                                return [$supervisor->id => $label];
+                            })
+                            ->all();
+                    })
                     ->visible(fn (Get $get) => $get('category') === 'supervisor')
                     ->searchable()
                     ->preload()
@@ -238,9 +296,16 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->first();
 
         if (! $survey) {
-            return ['avg' => null, 'respondents' => 0];
+            return [
+                'avg' => null, 
+                'respondents' => 0,
+                'likertDistribution' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0],
+                'lowScoreCount' => 0,
+                'totalQuestions' => 0,
+            ];
         }
 
+        // Build base query untuk responses
         $respQuery = BasicListeningSurveyResponse::query()->where('survey_id', $survey->id);
 
         if ($this->category === 'tutor' && $this->tutorId) {
@@ -251,19 +316,141 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             $respQuery->where('supervisor_id', $this->supervisorId);
         }
 
-        $responseIds = $respQuery->pluck('id');
+        // Subquery untuk filter answers
+        $responseSubquery = function ($query) use ($survey) {
+            $query->select('id')
+                ->from('basic_listening_survey_responses')
+                ->where('survey_id', $survey->id);
 
+            if ($this->category === 'tutor' && $this->tutorId) {
+                $query->where('tutor_id', $this->tutorId);
+            }
+
+            if ($this->category === 'supervisor' && $this->supervisorId) {
+                $query->where('supervisor_id', $this->supervisorId);
+            }
+        };
+
+        // Rata-rata keseluruhan
         $avg = BasicListeningSurveyAnswer::query()
-            ->whereIn('response_id', $responseIds)
+            ->whereIn('response_id', $responseSubquery)
             ->avg('likert_value');
 
+        // Distribusi Likert (1-5)
+        $likertDistribution = BasicListeningSurveyAnswer::query()
+            ->whereIn('response_id', $responseSubquery)
+            ->whereNotNull('likert_value')
+            ->selectRaw('likert_value, COUNT(*) as count')
+            ->groupBy('likert_value')
+            ->pluck('count', 'likert_value')
+            ->all();
+
+        // Pastikan semua nilai 1-5 ada
+        $distribution = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $distribution[$i] = $likertDistribution[$i] ?? 0;
+        }
+
+        // Hitung pertanyaan dengan rata-rata < 3.5
+        $lowScoreQuestions = DB::table('basic_listening_survey_answers as a')
+            ->join('basic_listening_survey_responses as r', 'a.response_id', '=', 'r.id')
+            ->select('a.question_id')
+            ->where('r.survey_id', $survey->id)
+            ->when($this->category === 'tutor' && $this->tutorId, fn($q) => $q->where('r.tutor_id', $this->tutorId))
+            ->when($this->category === 'supervisor' && $this->supervisorId, fn($q) => $q->where('r.supervisor_id', $this->supervisorId))
+            ->whereNotNull('a.likert_value')
+            ->groupBy('a.question_id')
+            ->havingRaw('AVG(a.likert_value) < 3.5')
+            ->get()
+            ->count();
+
+        $totalQuestions = $survey->questions()->count();
+
         return [
-            'avg'         => $avg ? number_format((float) $avg, 2) : null,
-            'respondents' => $respQuery->count(),
+            'avg'               => $avg ? number_format((float) $avg, 2) : null,
+            'respondents'       => $respQuery->count(),
+            'likertDistribution'=> $distribution,
+            'lowScoreCount'     => $lowScoreQuestions,
+            'totalQuestions'    => $totalQuestions,
         ];
     }
 
-    /** Jika belum ada widget header khusus, kembalikan array kosong */
+    /** State untuk modal detail Likert */
+    public bool $showLikertModal = false;
+    public ?int $selectedLikertValue = null;
+    public array $likertRespondents = [];
+    public int $likertLimit = 20;
+    public int $likertTotal = 0;
+
+    /** Tampilkan modal dengan daftar responden berdasarkan nilai Likert */
+    public function showLikertDetail(int $likertValue): void
+    {
+        $survey = BasicListeningSurvey::query()
+            ->where('category', $this->category)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $survey) {
+            $this->likertRespondents = [];
+            return;
+        }
+
+        // Query untuk mendapatkan responden yang memberikan nilai tertentu
+        $query = BasicListeningSurveyAnswer::query()
+            ->join('basic_listening_survey_responses as r', 'basic_listening_survey_answers.response_id', '=', 'r.id')
+            ->join('users as u', 'r.user_id', '=', 'u.id')
+            ->join('basic_listening_survey_questions as q', 'basic_listening_survey_answers.question_id', '=', 'q.id')
+            ->where('r.survey_id', $survey->id)
+            ->where('basic_listening_survey_answers.likert_value', $likertValue);
+
+        if ($this->category === 'tutor' && $this->tutorId) {
+            $query->where('r.tutor_id', $this->tutorId);
+        }
+
+        if ($this->category === 'supervisor' && $this->supervisorId) {
+            $query->where('r.supervisor_id', $this->supervisorId);
+        }
+
+        // Hitung total dulu
+        $this->likertTotal = (clone $query)->count();
+
+        $this->likertRespondents = $query
+            ->select([
+                'u.name as respondent_name',
+                'q.question as question_text',
+                'basic_listening_survey_answers.likert_value',
+            ])
+            ->orderBy('u.name')
+            ->limit($this->likertLimit)
+            ->get()
+            ->toArray();
+
+        $this->selectedLikertValue = $likertValue;
+        $this->showLikertModal = true;
+    }
+
+    /** Load more data */
+    public function loadMoreLikert(): void
+    {
+        $this->likertLimit += 20;
+        if ($this->selectedLikertValue) {
+            $this->showLikertDetail($this->selectedLikertValue);
+        }
+    }
+
+    /** Tutup modal */
+    public function closeLikertModal(): void
+    {
+        $this->showLikertModal = false;
+        $this->selectedLikertValue = null;
+        $this->likertRespondents = [];
+        $this->likertLimit = 20;
+        $this->likertTotal = 0;
+    }
+
+    /** Widget header - kosongkan karena stats dirender inline di blade */
     public function getHeaderWidgets(): array
     {
         return [];

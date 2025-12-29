@@ -24,6 +24,7 @@ use App\Http\Controllers\BasicListeningHistoryController;
 use App\Http\Controllers\BasicListeningProfileController;
 use App\Http\Controllers\BasicListeningScheduleController;
 use App\Http\Controllers\BlSurveyController;
+use App\Http\Controllers\ManualCertificateController;
 
 // Middleware
 use App\Http\Middleware\CountPostView;
@@ -271,6 +272,29 @@ Route::get('/verification/{code}/basic-listening.pdf', [CertificateController::c
     ->where('code', '[A-Za-z0-9\-_]+')
     ->middleware('throttle:30,1')
     ->name('bl.certificate.bycode');
+
+/*
+|--------------------------------------------------------------------------
+| Manual Certificate Download (Admin Only)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth')->group(function () {
+    Route::get('/manual-certificate/{certificate}/download', [ManualCertificateController::class, 'download'])
+        ->name('manual-certificate.download');
+});
+
+// Public download by verification code (tanpa login)
+Route::get('/verification/{code}/manual-certificate.pdf', [ManualCertificateController::class, 'downloadByCode'])
+    ->where('code', '[A-Za-z0-9\-_]+')
+    ->middleware('throttle:30,1')
+    ->name('manual-certificate.public-download');
+
+// Public download by certificate ID (untuk individual semester)
+Route::get('/manual-certificate/{id}/pdf', [ManualCertificateController::class, 'downloadById'])
+    ->whereNumber('id')
+    ->middleware('throttle:30,1')
+    ->name('manual-certificate.download-by-id');
 
 /*
 |--------------------------------------------------------------------------
