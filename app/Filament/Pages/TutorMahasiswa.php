@@ -160,6 +160,31 @@ class TutorMahasiswa extends Page implements HasTable
             ])
             ->paginationPageOptions([5, 10, 25, 50])
             ->filters([
+                Filter::make('angkatan')
+                    ->label('Angkatan (Prefix NPM)')
+                    ->form([
+                        Forms\Components\TextInput::make('prefix')
+                            ->placeholder('mis. 25')
+                            ->default(\App\Models\SiteSetting::get('bl_active_batch', now()->format('y')))
+                            ->maxLength(20)
+                            ->helperText('Diambil dari Pengaturan Situs. Pisahkan dengan koma untuk multiple angkatan (contoh: 25,26)'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        $prefix = trim((string) ($data['prefix'] ?? ''));
+                        if ($prefix !== '') {
+                            $batches = array_map('trim', explode(',', $prefix));
+                            $query->where(function ($q) use ($batches) {
+                                foreach ($batches as $batch) {
+                                    $q->orWhere('srn', 'like', $batch . '%');
+                                }
+                            });
+                        }
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        $prefix = trim((string) ($data['prefix'] ?? ''));
+                        return $prefix !== '' ? 'Angkatan: ' . $prefix : null;
+                    }),
+
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
                     ->options(fn() => $this->getProdyOptions($user))
@@ -576,25 +601,18 @@ class TutorMahasiswa extends Page implements HasTable
             ])
             ->whereNotNull('srn');
 
-        if ($user?->hasRole('Admin')) return $query;
+        // Admin: tampilkan semua tapi tidak ada limitasi prody
+        if ($user?->hasRole('Admin')) {
+            return $query;
+        }
 
+        // Tutor: batasi berdasarkan prody yang ditugaskan
         if ($user?->hasRole('tutor')) {
             $ids = method_exists($user, 'assignedProdyIds') ? $user->assignedProdyIds() : [];
             if (empty($ids)) return $query->whereRaw('1=0');
-            $query = $query->whereIn('prody_id', $ids);
-            if ($limitYear) {
-                // Gunakan setting bl_active_batch dari Site Settings (support multiple: "25,26")
-                $activeBatch = \App\Models\SiteSetting::get('bl_active_batch', now()->format('y'));
-                $batches = array_map('trim', explode(',', $activeBatch));
-                
-                $query = $query->where(function ($q) use ($batches) {
-                    foreach ($batches as $batch) {
-                        $q->orWhere('srn', 'like', $batch.'%');
-                    }
-                });
-            }
-            return $query;
+            return $query->whereIn('prody_id', $ids);
         }
+
         return $query->whereRaw('1=0');
     }
 
