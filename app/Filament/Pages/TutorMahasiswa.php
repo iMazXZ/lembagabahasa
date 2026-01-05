@@ -160,22 +160,6 @@ class TutorMahasiswa extends Page implements HasTable
             ])
             ->paginationPageOptions([5, 10, 25, 50])
             ->filters([
-                Filter::make('angkatan')
-                    ->label('Angkatan (Prefix NPM)')
-                    ->form([
-                        Forms\Components\TextInput::make('prefix')
-                            ->placeholder('mis. 25')
-                            ->default(now()->format('y'))
-                            ->maxLength(4),
-                    ])
-                    ->query(function (Builder $query, array $data) {
-                        $prefix = trim((string) ($data['prefix'] ?? ''));
-                        if ($prefix !== '') {
-                            $query->where('srn', 'like', $prefix . '%');
-                        }
-                    })
-                    ->visible(fn () => auth()->user()?->hasRole('Admin')), // Hanya Admin yang bisa filter angkatan
-
                 Tables\Filters\SelectFilter::make('prody_id')
                     ->label('Prodi')
                     ->options(fn() => $this->getProdyOptions($user))
