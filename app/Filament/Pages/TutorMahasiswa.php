@@ -167,7 +167,8 @@ class TutorMahasiswa extends Page implements HasTable
                             ->placeholder('mis. 25')
                             ->default(\App\Models\SiteSetting::get('bl_active_batch', now()->format('y')))
                             ->maxLength(20)
-                            ->helperText('Diambil dari Pengaturan Situs. Pisahkan dengan koma untuk multiple angkatan (contoh: 25,26)'),
+                            ->helperText('Diambil dari Pengaturan Situs.')
+                            ->disabled(fn () => auth()->user()?->hasRole('tutor') && !auth()->user()?->hasRole('Admin')),
                     ])
                     ->query(function (Builder $query, array $data) {
                         $prefix = trim((string) ($data['prefix'] ?? ''));

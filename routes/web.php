@@ -700,3 +700,26 @@ Route::post('/admin/ept-group/{group}/send-wa/{registration}', function (
         return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
     }
 })->middleware(['auth', 'can:view_any_ept::group'])->name('admin.ept-group.send-wa-single');
+
+/*
+|--------------------------------------------------------------------------
+| Admin: Crop Bukti Pembayaran Penerjemahan
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->prefix('admin')->group(function () {
+    Route::get('/crop-bukti/{penerjemahan}', [\App\Http\Controllers\Admin\CropBuktiController::class, 'show'])
+        ->name('admin.crop-bukti.show');
+    
+    Route::post('/crop-bukti/{penerjemahan}', [\App\Http\Controllers\Admin\CropBuktiController::class, 'save'])
+        ->name('admin.crop-bukti.save');
+    
+    Route::post('/crop-bukti/{penerjemahan}/restore', [\App\Http\Controllers\Admin\CropBuktiController::class, 'restore'])
+        ->name('admin.crop-bukti.restore');
+    
+    // Export Bukti Preview & Generate
+    Route::get('/export-bukti-preview', [\App\Http\Controllers\Admin\ExportBuktiController::class, 'preview'])
+        ->name('admin.export-bukti.preview');
+    
+    Route::post('/export-bukti-generate', [\App\Http\Controllers\Admin\ExportBuktiController::class, 'generate'])
+        ->name('admin.export-bukti.generate');
+});

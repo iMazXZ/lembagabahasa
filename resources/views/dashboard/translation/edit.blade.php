@@ -80,7 +80,7 @@
             {{-- Upload Ulang Pembayaran --}}
             <div>
                 <label class="block text-sm font-bold text-slate-800 mb-2">
-                    Bukti Pembayaran
+                    Bukti Pembayaran @if(!$penerjemahan->bukti_pembayaran)<span class="text-red-500">* (Wajib Upload Ulang)</span>@endif
                 </label>
                 
                 @if($penerjemahan->bukti_pembayaran)
@@ -111,11 +111,20 @@
                             </div>
                         </div>
                     </div>
+                @else
+                    {{-- Warning: Bukti pembayaran sudah dihapus --}}
+                    <div class="flex items-center gap-3 mb-3 p-3 bg-red-50 border border-red-200 rounded-lg max-w-md">
+                        <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+                        <div>
+                            <p class="text-xs text-red-800 font-bold">Bukti Pembayaran Sebelumnya Dihapus</p>
+                            <p class="text-[11px] text-red-600">Anda wajib mengunggah bukti pembayaran baru.</p>
+                        </div>
+                    </div>
                 @endif
 
                 <div class="relative group">
                     <div id="payment-dropzone-edit"
-                        class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center
+                        class="border-2 border-dashed {{ $penerjemahan->bukti_pembayaran ? 'border-slate-300' : 'border-red-300' }} rounded-xl p-6 text-center
                                 hover:border-um-blue hover:bg-blue-50/50 transition-colors
                                 flex flex-col items-center justify-center gap-2 cursor-pointer">
                         
@@ -125,7 +134,7 @@
                         </div>
 
                         <p class="text-sm text-slate-600">
-                            Klik untuk ganti file (Opsional)
+                            {{ $penerjemahan->bukti_pembayaran ? 'Klik untuk ganti file (Opsional)' : 'Klik untuk upload bukti pembayaran baru' }}
                         </p>
                         <p class="text-xs text-slate-400">
                             JPG, PNG (Maks. 8MB)
@@ -154,6 +163,7 @@
                             type="file"
                             name="bukti_pembayaran"
                             accept="image/*"
+                            {{ $penerjemahan->bukti_pembayaran ? '' : 'required' }}
                             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         >
                     </div>

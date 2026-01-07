@@ -222,7 +222,14 @@ class EptRegistrationResource extends Resource
 
                         // Send WhatsApp notification
                         $user = $record->user;
-                        if ($user->whatsapp && $user->whatsapp_verified_at) {
+                        $waSent = false;
+                        $waReason = '';
+                        
+                        if (!$user->whatsapp) {
+                            $waReason = 'Nomor WA belum diisi';
+                        } elseif (!$user->whatsapp_verified_at) {
+                            $waReason = 'Nomor WA belum diverifikasi';
+                        } else {
                             try {
                                 $dashboardUrl = route('dashboard.ept-registration.index');
 
@@ -233,17 +240,37 @@ class EptRegistrationResource extends Resource
                                 $message .= "Silakan upload ulang bukti pembayaran yang valid melalui link berikut:\n{$dashboardUrl}\n\n";
                                 $message .= "_Terima kasih atas pengertiannya._";
 
-                                app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+                                $result = app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+                                $waSent = $result;
+                                if (!$result) {
+                                    $waReason = 'Gagal mengirim (API error)';
+                                    \Illuminate\Support\Facades\Log::warning('EPT Rejection WA failed', [
+                                        'user_id' => $user->id,
+                                        'whatsapp' => $user->whatsapp,
+                                    ]);
+                                }
                             } catch (\Exception $e) {
-                                // Log error but don't fail
+                                $waReason = 'Exception: ' . $e->getMessage();
+                                \Illuminate\Support\Facades\Log::error('EPT Rejection WA exception', [
+                                    'user_id' => $user->id,
+                                    'error' => $e->getMessage(),
+                                ]);
                             }
                         }
 
-                        Notification::make()
-                            ->warning()
-                            ->title('Pendaftaran Ditolak')
-                            ->body('Notifikasi penolakan terkirim via WA.')
-                            ->send();
+                        if ($waSent) {
+                            Notification::make()
+                                ->warning()
+                                ->title('Pendaftaran Ditolak')
+                                ->body('Notifikasi penolakan terkirim via WA.')
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->danger()
+                                ->title('Pendaftaran Ditolak')
+                                ->body("WA tidak terkirim: {$waReason}")
+                                ->send();
+                        }
                     }),
             ])
             ->bulkActions([

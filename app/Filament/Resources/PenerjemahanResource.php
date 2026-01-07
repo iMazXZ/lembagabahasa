@@ -398,6 +398,52 @@ class PenerjemahanResource extends Resource
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make(),
+                    
+                    // Crop Bukti Pembayaran
+                    Tables\Actions\Action::make('crop_bukti')
+                        ->label('Crop Bukti')
+                        ->icon('heroicon-o-scissors')
+                        ->color('warning')
+                        ->visible(fn ($record) => 
+                            auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
+                            filled($record->bukti_pembayaran) &&
+                            Storage::disk('public')->exists($record->bukti_pembayaran)
+                        )
+                        ->url(fn (Penerjemahan $record) => route('admin.crop-bukti.show', $record))
+                        ->openUrlInNewTab(),
+                    
+                    // Restore Bukti Pembayaran (dari backup)
+                    Tables\Actions\Action::make('restore_bukti')
+                        ->label('Restore Bukti')
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Restore Gambar Original')
+                        ->modalDescription('Yakin ingin mengembalikan gambar ke versi sebelum di-crop? Backup akan dihapus setelah restore.')
+                        ->visible(function ($record) {
+                            if (!auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
+                                return false;
+                            }
+                            if (!filled($record->bukti_pembayaran)) {
+                                return false;
+                            }
+                            // Check if backup exists
+                            $pathInfo = pathinfo($record->bukti_pembayaran);
+                            $backupPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_backup.' . ($pathInfo['extension'] ?? 'webp');
+                            return Storage::disk('public')->exists($backupPath);
+                        })
+                        ->action(function (Penerjemahan $record) {
+                            $pathInfo = pathinfo($record->bukti_pembayaran);
+                            $backupPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_backup.' . ($pathInfo['extension'] ?? 'webp');
+                            
+                            if (Storage::disk('public')->exists($backupPath)) {
+                                Storage::disk('public')->copy($backupPath, $record->bukti_pembayaran);
+                                Storage::disk('public')->delete($backupPath);
+                                Notification::make()->success()->title('Gambar berhasil di-restore!')->send();
+                            } else {
+                                Notification::make()->danger()->title('Backup tidak ditemukan')->send();
+                            }
+                        }),
 
                     Tables\Actions\Action::make('approve_pembayaran')
                         ->label('Approve')
@@ -456,18 +502,24 @@ class PenerjemahanResource extends Resource
                         ->color('danger')
                         ->requiresConfirmation()
                         ->modalHeading('Tolak Pengajuan (Pembayaran Tidak Valid)')
-                        ->modalDescription('Yakin menolak karena pembayaran tidak valid?')
+                        ->modalDescription('Yakin menolak karena pembayaran tidak valid? Bukti pembayaran akan dihapus dan pemohon wajib upload ulang.')
                         ->visible(fn ($record) =>
                             auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
                             !in_array($record->status, ['Disetujui', 'Diproses', 'Selesai'], true)
                         )
                         ->action(function ($record) {
+                            // Hapus file bukti pembayaran dari storage
+                            if ($record->bukti_pembayaran && Storage::disk('public')->exists($record->bukti_pembayaran)) {
+                                Storage::disk('public')->delete($record->bukti_pembayaran);
+                            }
+                            
                             $record->update([
-                                'status'        => 'Ditolak - Pembayaran Tidak Valid',
-                                'translator_id' => null,
+                                'status'            => 'Ditolak - Pembayaran Tidak Valid',
+                                'translator_id'     => null,
+                                'bukti_pembayaran'  => null, // Clear the path in database
                             ]);
                             $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Ditolak - Pembayaran Tidak Valid'));
-                            Notification::make()->title("Ditolak & notifikasi terkirim ke {$record->users?->email}")->danger()->send();
+                            Notification::make()->title("Ditolak & bukti pembayaran dihapus. Notifikasi terkirim ke {$record->users?->email}")->danger()->send();
                         }),
 
                     Tables\Actions\Action::make('tolak_dokumen')
@@ -546,6 +598,30 @@ class PenerjemahanResource extends Resource
                         Tables\Actions\BulkActionGroup::make([
                             Tables\Actions\DeleteBulkAction::make(),
                         ]),
+                        
+                        // Export PDF Bukti Pembayaran (dengan Preview)
+                        Tables\Actions\BulkAction::make('export_pdf_bukti')
+                            ->label('Export PDF Bukti')
+                            ->icon('heroicon-o-document-arrow-down')
+                            ->color('info')
+                            ->deselectRecordsAfterCompletion()
+                            ->action(function (\Illuminate\Support\Collection $records) {
+                                // Filter hanya yang punya bukti pembayaran
+                                $filtered = $records->filter(fn ($r) => filled($r->bukti_pembayaran));
+                                
+                                if ($filtered->isEmpty()) {
+                                    Notification::make()
+                                        ->warning()
+                                        ->title('Tidak ada bukti pembayaran')
+                                        ->body('Tidak ada record yang memiliki bukti pembayaran untuk diekspor.')
+                                        ->send();
+                                    return;
+                                }
+                                
+                                // Redirect to preview page with selected IDs
+                                $ids = $filtered->pluck('id')->implode(',');
+                                return redirect()->to(route('admin.export-bukti.preview', ['ids' => $ids]));
+                            }),
                     ]
                     : []
             );
@@ -606,6 +682,7 @@ class PenerjemahanResource extends Resource
             'index'  => Pages\ListPenerjemahans::route('/'),
             'create' => Pages\CreatePenerjemahan::route('/create'),
             'edit'   => Pages\EditPenerjemahan::route('/{record}/edit'),
+            'crop'   => Pages\CropBukti::route('/{record}/crop'),
         ];
     }
 }

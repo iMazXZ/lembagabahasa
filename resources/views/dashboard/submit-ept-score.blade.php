@@ -16,9 +16,9 @@
             </p>
         </div>
 
-        <div class="shrink-0">
+        <div class="w-full sm:w-auto">
             <a href="{{ route('dashboard') }}"
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition">
+               class="w-full sm:w-auto inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition">
                 <i class="fa-solid fa-arrow-left"></i>
                 <span>Kembali ke Dashboard</span>
             </a>

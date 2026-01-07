@@ -64,45 +64,103 @@
                 </h2>
             </div>
             <div class="p-6 sm:p-8">
-                <form action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                <form action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                     @csrf
-                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <p class="text-sm text-blue-800">
-                            <i class="fa-solid fa-info-circle text-blue-500 mr-2"></i>
-                            Lakukan pembayaran terlebih dahulu, kemudian unggah bukti pembayaran di bawah ini.
+                    
+                    {{-- Label Bukti Pembayaran --}}
+                    <label class="block text-sm font-bold text-slate-800 mb-3">
+                        Bukti Pembayaran <span class="text-red-500">*</span>
+                    </label>
+
+                    {{-- Info Box Biru --}}
+                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-100 -mt-1">
+                        <p class="text-sm text-blue-800 flex items-start gap-2">
+                            <i class="fa-solid fa-info-circle text-blue-500 mt-0.5"></i>
+                            <span>Lakukan pembayaran terlebih dahulu, kemudian unggah bukti pembayaran di bawah ini.</span>
                         </p>
                     </div>
+
+                    {{-- Warning Box Kuning --}}
                     <div class="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                        <p class="text-sm font-semibold text-amber-800 mb-2">
-                            <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-2"></i>
+                        <p class="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
                             Perhatian! Pastikan foto bukti pembayaran:
                         </p>
                         <ul class="text-sm text-amber-700 space-y-1 ml-6 list-disc">
-                            <li>Nama pengirim/penerima <strong>terlihat jelas</strong></li>
-                            <li>Foto <strong>tidak blur</strong> atau buram</li>
-                            <li>Diambil di <strong>tempat yang terang</strong></li>
+                            <li>Pastikan foto jelas, <strong>tidak buram</strong> atau ada bayangan</li>
+                            <li>NPM dan jumlah pembayaran harus <strong>terlihat dengan jelas</strong></li>
+                            <li>Gunakan hasil scan (CamScanner/scanner dokumen) atau <strong>screenshot langsung dari aplikasi bank</strong></li>
                         </ul>
                     </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">
-                            Bukti Pembayaran <span class="text-red-500">*</span>
-                        </label>
-                        <input type="file" name="bukti_pembayaran" accept="image/*" required
-                               class="block w-full text-sm text-slate-600
-                                      file:mr-4 file:py-3 file:px-5
-                                      file:rounded-lg file:border-0
-                                      file:text-sm file:font-semibold
-                                      file:bg-um-blue file:text-white
-                                      hover:file:bg-um-dark-blue cursor-pointer border-2 border-slate-200 rounded-xl py-2 px-3 bg-white shadow-sm">
-                        <p class="mt-2 text-xs text-slate-500">Format: JPG, PNG, WebP. Maksimal 8MB.</p>
-                        @error('bukti_pembayaran') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div class="pt-4 border-t border-slate-100">
-                        <button type="submit"
-                                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
-                            <i class="fa-solid fa-paper-plane"></i>
-                            Daftar EPT
+
+                    {{-- Tombol Mengerti --}}
+                    <div id="understand-button-wrapper-ept" class="flex justify-center">
+                        <button type="button" id="btn-understand-ept"
+                                class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-um-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 hover:bg-um-dark-blue transition-all hover:scale-[1.02]">
+                            <i class="fa-solid fa-circle-check"></i>
+                            Mengerti dan Unggah Bukti
                         </button>
+                    </div>
+
+                    {{-- Upload Area (hidden initially) --}}
+                    <div id="upload-wrapper-ept" class="hidden space-y-6">
+                        <div>
+                            <div class="relative group">
+                                <div id="payment-dropzone-ept"
+                                    class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center
+                                            hover:border-um-blue hover:bg-blue-50/50 transition-colors
+                                            flex flex-col items-center justify-center gap-2 cursor-pointer">
+                                    
+                                    <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-1
+                                                text-slate-400 group-hover:text-um-blue group-hover:bg-blue-100 transition-colors">
+                                        <i class="fa-solid fa-upload"></i>
+                                    </div>
+
+                                    <p class="text-sm text-slate-600">
+                                        Klik atau seret file ke sini
+                                    </p>
+                                    <p class="text-xs text-slate-400">
+                                        JPG, PNG, WebP (Maks. 8MB)
+                                    </p>
+
+                                    {{-- Preview --}}
+                                    <div id="payment-preview-wrapper-ept" class="mt-3 hidden">
+                                        <div class="flex items-center gap-3 justify-center">
+                                            <img id="payment-preview-ept"
+                                                src=""
+                                                alt="Preview bukti pembayaran"
+                                                class="h-12 w-12 rounded-lg object-cover border border-slate-200 shadow-sm">
+                                            <div class="text-left">
+                                                <p id="payment-filename-ept"
+                                                class="text-xs font-semibold text-slate-700 truncate max-w-[180px]"></p>
+                                                <p class="text-[11px] text-emerald-600">
+                                                    <i class="fa-solid fa-check mr-1"></i>File siap diunggah
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <input
+                                        id="bukti_pembayaran_input_ept"
+                                        type="file"
+                                        name="bukti_pembayaran"
+                                        accept="image/*"
+                                        required
+                                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    >
+                                </div>
+                            </div>
+                            @error('bukti_pembayaran') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- Submit Button --}}
+                        <div class="pt-4 border-t border-slate-100">
+                            <button type="submit"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                Daftar EPT
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -110,33 +168,65 @@
 
     {{-- KONDISI 2: Pending --}}
     @elseif($registration->status === 'pending')
-        <div class="bg-amber-50 rounded-2xl border-2 border-amber-200 shadow-lg p-8 sm:p-12 flex flex-col items-center text-center">
-            <div class="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mb-6">
-                <i class="fa-solid fa-clock text-4xl"></i>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+            {{-- Header with gradient --}}
+            <div class="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-center">
+                <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-clock text-white text-3xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Menunggu Verifikasi</h2>
+                <p class="text-amber-100 text-sm mt-1">Pendaftaran Anda sedang diproses</p>
             </div>
-            <h2 class="text-2xl font-bold text-slate-900 mb-3">Menunggu Verifikasi</h2>
-            <p class="text-slate-500 max-w-lg mx-auto mb-4 leading-relaxed">
-                Pendaftaran Anda sedang dalam proses verifikasi oleh admin.
-                <br>Anda akan menerima notifikasi WhatsApp setelah diverifikasi.
-            </p>
-            <p class="text-xs text-slate-400">Diajukan pada: {{ $registration->created_at->translatedFormat('d F Y, H:i') }}</p>
+
+            {{-- Info Cards --}}
+            <div class="p-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    {{-- Tanggal Daftar --}}
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                <i class="fa-solid fa-calendar text-amber-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 font-medium">Tanggal Daftar</p>
+                                <p class="text-sm font-bold text-slate-800">{{ $registration->created_at->translatedFormat('d M Y') }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Status --}}
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                <i class="fa-solid fa-hourglass-half text-amber-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 font-medium">Status</p>
+                                <p class="text-sm font-bold text-amber-600">Menunggu</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Info Box --}}
+                <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <p class="text-sm text-blue-800 flex items-start gap-2">
+                        <i class="fa-solid fa-info-circle text-blue-500 mt-0.5"></i>
+                        <span>Anda akan menerima notifikasi WhatsApp setelah pendaftaran diverifikasi oleh admin.</span>
+                    </p>
+                </div>
+            </div>
         </div>
 
     {{-- KONDISI 3: Approved --}}
     @elseif($registration->status === 'approved')
         {{-- Success Banner --}}
-        <div class="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-6 text-white shadow-lg">
-            <div class="flex items-center gap-4">
-                <div class="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="text-xl font-bold">Pendaftaran Disetujui</h2>
-                    <p class="text-emerald-100 text-sm">Berikut adalah jadwal tes EPT yang telah ditetapkan untuk Anda</p>
-                </div>
+        <div class="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-6 text-white shadow-lg text-center">
+            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-circle-check text-3xl"></i>
             </div>
+            <h2 class="text-xl font-bold">Pendaftaran Disetujui</h2>
+            <p class="text-emerald-100 text-sm mt-1">Berikut adalah jadwal tes EPT yang telah ditetapkan untuk Anda</p>
         </div>
 
         {{-- Schedule Cards --}}
@@ -305,4 +395,75 @@
         </template>
     @endif
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // === Button "Mengerti dan Unggah Bukti" ===
+        const btnUnderstand = document.getElementById('btn-understand-ept');
+        const buttonWrapper = document.getElementById('understand-button-wrapper-ept');
+        const uploadWrapper = document.getElementById('upload-wrapper-ept');
+
+        if (btnUnderstand && buttonWrapper && uploadWrapper) {
+            btnUnderstand.addEventListener('click', function () {
+                buttonWrapper.classList.add('hidden');
+                uploadWrapper.classList.remove('hidden');
+            });
+        }
+
+        // === Preview Bukti Pembayaran ===
+        const dropzone   = document.getElementById('payment-dropzone-ept');
+        const input      = document.getElementById('bukti_pembayaran_input_ept');
+        const previewBox = document.getElementById('payment-preview-wrapper-ept');
+        const previewImg = document.getElementById('payment-preview-ept');
+        const fileNameEl = document.getElementById('payment-filename-ept');
+
+        if (dropzone && input && previewBox && previewImg && fileNameEl) {
+            function handleFile(file) {
+                if (!file) return;
+                fileNameEl.textContent = file.name;
+
+                if (!file.type.startsWith('image/')) {
+                    previewImg.src = '';
+                    previewBox.classList.remove('hidden');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    previewImg.src = e.target.result;
+                    previewBox.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+
+            input.addEventListener('change', function (e) {
+                const file = e.target.files && e.target.files[0];
+                handleFile(file);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('border-um-blue', 'bg-blue-50/50');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('border-um-blue', 'bg-blue-50/50');
+                });
+            });
+
+            dropzone.addEventListener('drop', function (e) {
+                const dt = e.dataTransfer;
+                if (!dt || !dt.files || !dt.files[0]) return;
+                input.files = dt.files;
+                handleFile(dt.files[0]);
+            });
+        }
+    });
+</script>
 @endsection

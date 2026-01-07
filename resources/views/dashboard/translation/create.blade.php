@@ -64,6 +64,38 @@
                     Bukti Pembayaran <span class="text-red-500">*</span>
                 </label>
 
+                {{-- Info Box --}}
+                <div class="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                    <div class="flex items-start gap-2 text-sm text-blue-700">
+                        <i class="fa-solid fa-circle-info mt-0.5"></i>
+                        <span>Lakukan pembayaran terlebih dahulu, kemudian unggah bukti pembayaran di bawah ini.</span>
+                    </div>
+                </div>
+
+                {{-- Warning Box --}}
+                <div class="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                    <div class="flex items-start gap-2 text-sm text-orange-700 font-semibold mb-2">
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                        <span>Perhatian! Pastikan foto bukti pembayaran:</span>
+                    </div>
+                    <ul class="text-sm text-orange-600 space-y-1 ml-6 list-disc">
+                        <li>Pastikan foto jelas, tidak buram atau ada bayangan</li>
+                        <li>NPM dan jumlah pembayaran harus terlihat dengan jelas</li>
+                        <li>Gunakan hasil scan (CamScanner/scanner dokumen) atau screenshot langsung dari aplikasi bank</li>
+                    </ul>
+                </div>
+
+                {{-- Button to reveal upload --}}
+                <div id="understand-button-wrapper" class="mb-4 text-center">
+                    <button type="button" id="btn-understand"
+                        class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
+                        <i class="fa-solid fa-check-circle"></i>
+                        Mengerti dan Unggah Bukti
+                    </button>
+                </div>
+
+                {{-- Upload Dropzone (hidden initially) --}}
+                <div id="upload-wrapper" class="hidden">
                 <div class="relative group">
                     <div id="payment-dropzone"
                         class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center
@@ -107,14 +139,15 @@
                         >
                     </div>
                 </div>
+                </div> {{-- End upload-wrapper --}}
 
                 @error('bukti_pembayaran')
                     <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                 @enderror
             </div>
 
-            {{-- Input Abstrak --}}
-            <div>
+            {{-- Input Abstrak (hidden until file uploaded) --}}
+            <div id="abstrak-wrapper" class="hidden">
                 <div class="flex items-center justify-between mb-2">
                     <label class="block text-sm font-bold text-slate-800">
                         Teks Abstrak <span class="text-red-500">*</span>
@@ -151,42 +184,63 @@
                 @enderror
             </div>
 
-            {{-- Info Tambahan (Readonly) --}}
-            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                <div>
-                    <span class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tanggal</span>
-                    <div class="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
-                        {{ now()->translatedFormat('d F Y') }}
+            {{-- Info Tambahan dan Footer (hidden until upload area shown) --}}
+            <div id="info-footer-wrapper" class="hidden">
+                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                    <div>
+                        <span class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tanggal</span>
+                        <div class="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                            {{ now()->translatedFormat('d F Y') }}
+                        </div>
                     </div>
-                </div>
-                <div>
-                    <span class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Status Awal</span>
-                    <div class="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
-                        Menunggu
+                    <div>
+                        <span class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Status Awal</span>
+                        <div class="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                            Menunggu
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- Footer Actions --}}
-        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-            <button type="submit"
-                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
-                <i class="fa-solid fa-paper-plane"></i>
-                Kirim Permohonan
-            </button>
+        {{-- Footer Actions (hidden until upload area shown) --}}
+        <div id="submit-footer-wrapper" class="hidden">
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <button type="submit"
+                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Kirim Permohonan
+                </button>
+            </div>
         </div>
     </form>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // === Button "Mengerti dan Unggah Foto" ===
+        const btnUnderstand = document.getElementById('btn-understand');
+        const buttonWrapper = document.getElementById('understand-button-wrapper');
+        const uploadWrapper = document.getElementById('upload-wrapper');
+        const infoFooterWrapper = document.getElementById('info-footer-wrapper');
+        const submitFooterWrapper = document.getElementById('submit-footer-wrapper');
+
+        if (btnUnderstand && buttonWrapper && uploadWrapper) {
+            btnUnderstand.addEventListener('click', function () {
+                buttonWrapper.classList.add('hidden');
+                uploadWrapper.classList.remove('hidden');
+                if (infoFooterWrapper) infoFooterWrapper.classList.remove('hidden');
+                if (submitFooterWrapper) submitFooterWrapper.classList.remove('hidden');
+            });
+        }
+
         // === Preview Bukti Pembayaran ===
         const dropzone   = document.getElementById('payment-dropzone');
         const input      = document.getElementById('bukti_pembayaran_input');
         const previewBox = document.getElementById('payment-preview-wrapper');
         const previewImg = document.getElementById('payment-preview');
         const fileNameEl = document.getElementById('payment-filename');
+        const abstrakWrapper = document.getElementById('abstrak-wrapper');
 
         if (dropzone && input && previewBox && previewImg && fileNameEl) {
 
@@ -195,6 +249,11 @@
 
                 // Tampilkan nama file
                 fileNameEl.textContent = file.name;
+
+                // Tampilkan section Teks Abstrak
+                if (abstrakWrapper) {
+                    abstrakWrapper.classList.remove('hidden');
+                }
 
                 // Kalau bukan image, jangan paksa preview
                 if (!file.type.startsWith('image/')) {
@@ -241,6 +300,22 @@
                 input.files = dt.files; // set ke input asli
                 handleFile(dt.files[0]);
             });
+        }
+
+        // === Word Count untuk Trix Editor ===
+        const wordCountEl = document.getElementById('word-count');
+        const trixEditor = document.querySelector('trix-editor');
+
+        if (wordCountEl && trixEditor) {
+            function updateWordCount() {
+                const text = trixEditor.editor.getDocument().toString().trim();
+                const words = text ? text.split(/\s+/).filter(word => word.length > 0).length : 0;
+                wordCountEl.textContent = words;
+            }
+
+            trixEditor.addEventListener('trix-change', updateWordCount);
+            // Initial count
+            updateWordCount();
         }
     });
 </script>
