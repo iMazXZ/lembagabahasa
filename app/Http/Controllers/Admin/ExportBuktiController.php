@@ -66,11 +66,11 @@ class ExportBuktiController extends Controller
             return response()->json(['error' => 'Tidak ada data'], 400);
         }
         
-        // Count total items and limit to prevent memory issues (max 8 for 128MB server with high quality)
+        // Count total items and limit to prevent memory issues (max 6 for 128MB server with max quality)
         $totalItems = collect($rowsData)->sum(fn($r) => count($r['items'] ?? []));
-        if ($totalItems > 8) {
+        if ($totalItems > 6) {
             return response()->json([
-                'error' => "Terlalu banyak gambar ($totalItems). Maksimum 8 gambar per export dengan kualitas tinggi. Silakan export dalam batch lebih kecil."
+                'error' => "Terlalu banyak gambar ($totalItems). Maksimum 6 gambar per export dengan kualitas maksimal. Silakan export dalam batch lebih kecil."
             ], 400);
         }
         
@@ -144,18 +144,18 @@ class ExportBuktiController extends Controller
     private function processImage(ImageManager $manager, string $filePath, int $columns): ?string
     {
         try {
-            // High quality: readable but with reasonable resize
+            // Maximum quality: larger size, minimal compression
             $maxWidth = match($columns) {
-                1 => 700,
-                2 => 500,
-                3 => 380,
-                default => 500,
+                1 => 900,
+                2 => 650,
+                3 => 480,
+                default => 650,
             };
             $maxHeight = match($columns) {
-                1 => 600,
-                2 => 450,
-                3 => 350,
-                default => 450,
+                1 => 800,
+                2 => 580,
+                3 => 450,
+                default => 580,
             };
             
             // Read image
@@ -164,8 +164,8 @@ class ExportBuktiController extends Controller
             // Resize to fit within bounds (maintain aspect ratio)
             $image->scaleDown($maxWidth, $maxHeight);
             
-            // Encode as JPEG - HIGH quality 85%
-            $encoded = $image->toJpeg(85);
+            // Encode as JPEG - MAXIMUM quality 95%
+            $encoded = $image->toJpeg(95);
             
             // Convert to base64
             $base64 = base64_encode($encoded->toString());
