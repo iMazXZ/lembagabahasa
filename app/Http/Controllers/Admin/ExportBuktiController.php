@@ -7,6 +7,8 @@ use App\Models\Penerjemahan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 
 class ExportBuktiController extends Controller
 {
@@ -48,8 +50,12 @@ class ExportBuktiController extends Controller
             403
         );
         
+        // Increase memory limit for large exports
+        ini_set('memory_limit', '512M');
+        set_time_limit(120);
+        
         $request->validate([
-            'rows' => 'required|string', // JSON string of rows
+            'rows' => 'required|string',
             'rows_per_page' => 'nullable|integer|min:1|max:10',
         ]);
         
@@ -60,29 +66,65 @@ class ExportBuktiController extends Controller
             return response()->json(['error' => 'Tidak ada data'], 400);
         }
         
-        // Process rows - fetch records and build structure
+        // Count total items and limit to prevent memory issues (max 20 for 128MB server)
+        $totalItems = collect($rowsData)->sum(fn($r) => count($r['items'] ?? []));
+        if ($totalItems > 20) {
+            return response()->json([
+                'error' => "Terlalu banyak gambar ($totalItems). Maksimum 20 gambar per export untuk mencegah error memory. Silakan export dalam batch lebih kecil."
+            ], 400);
+        }
+        
+        // Process rows - fetch records and pre-process images
         $processedRows = [];
+        $manager = new ImageManager(new Driver());
+        
         foreach ($rowsData as $row) {
             $columns = (int) ($row['columns'] ?? 2);
             $itemIds = $row['items'] ?? [];
             
-            // Fetch records in order
-            $records = collect($itemIds)->map(fn ($id) => Penerjemahan::with(['users', 'users.prody'])->find($id))
-                ->filter(fn ($r) => $r && filled($r->bukti_pembayaran) && Storage::disk('public')->exists($r->bukti_pembayaran));
-            
-            if ($records->isNotEmpty()) {
-                $processedRows[] = [
-                    'columns' => $columns,
-                    'records' => $records,
+            // Fetch records and process images
+            $processedRecords = [];
+            foreach ($itemIds as $id) {
+                $record = Penerjemahan::with(['users', 'users.prody'])->find($id);
+                
+                if (!$record || !filled($record->bukti_pembayaran)) {
+                    continue;
+                }
+                
+                if (!Storage::disk('public')->exists($record->bukti_pembayaran)) {
+                    continue;
+                }
+                
+                // Process and compress image
+                $imageData = $this->processImage(
+                    $manager,
+                    Storage::disk('public')->path($record->bukti_pembayaran),
+                    $columns
+                );
+                
+                $processedRecords[] = [
+                    'name' => $record->users?->name ?? '-',
+                    'srn' => $record->users?->srn ?? '-',
+                    'imageData' => $imageData,
                 ];
             }
+            
+            if (!empty($processedRecords)) {
+                $processedRows[] = [
+                    'columns' => $columns,
+                    'items' => $processedRecords,
+                ];
+            }
+            
+            // Clear memory after each row
+            gc_collect_cycles();
         }
         
         if (empty($processedRows)) {
             return response()->json(['error' => 'Tidak ada data valid'], 400);
         }
         
-        // Split rows into pages based on rows_per_page setting
+        // Split rows into pages
         $pages = array_chunk($processedRows, $rowsPerPage);
         
         $pdf = Pdf::loadView('exports.penerjemahan-bukti-rows-pdf', [
@@ -93,7 +135,48 @@ class ExportBuktiController extends Controller
         
         $filename = 'Bukti_Pembayaran_' . now()->format('Ymd_His') . '.pdf';
         
-        // Stream = inline preview in browser (not download)
         return $pdf->stream($filename);
+    }
+    
+    /**
+     * Process and compress image for PDF embedding - balanced optimization
+     */
+    private function processImage(ImageManager $manager, string $filePath, int $columns): ?string
+    {
+        try {
+            // Balanced: readable quality while saving memory
+            $maxWidth = match($columns) {
+                1 => 500,
+                2 => 350,
+                3 => 250,
+                default => 350,
+            };
+            $maxHeight = match($columns) {
+                1 => 450,
+                2 => 320,
+                3 => 230,
+                default => 320,
+            };
+            
+            // Read image
+            $image = $manager->read($filePath);
+            
+            // Resize to fit within bounds (maintain aspect ratio)
+            $image->scaleDown($maxWidth, $maxHeight);
+            
+            // Encode as JPEG - quality 55% (balance between size & readability)
+            $encoded = $image->toJpeg(55);
+            
+            // Convert to base64
+            $base64 = base64_encode($encoded->toString());
+            
+            // Free memory immediately
+            unset($image, $encoded);
+            
+            return 'data:image/jpeg;base64,' . $base64;
+            
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }

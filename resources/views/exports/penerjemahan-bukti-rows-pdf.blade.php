@@ -57,7 +57,7 @@
         }
         
         .item-label strong {
-            font-size: 8pt;
+            font-size: 7pt;
         }
         
         .item-image {
@@ -86,43 +86,26 @@
             @foreach($pageRows as $rowData)
                 @php
                     $columns = $rowData['columns'];
-                    $records = $rowData['records'];
+                    $items = $rowData['items'];
                 @endphp
                 
                 <div class="row cols-{{ $columns }}">
-                    @foreach($records as $record)
+                    @foreach($items as $item)
                         <div class="cell">
                             <div class="item">
                                 <div class="item-label">
-                                    <strong>{{ Str::limit($record->users?->name ?? '-', 30) }}</strong> — {{ $record->users?->srn ?? '-' }}
+                                    <strong>{{ Str::limit($item['name'], 30) }}</strong> — {{ $item['srn'] }}
                                 </div>
                                 <div class="item-image">
-                                    @php
-                                        $imagePath = $record->bukti_pembayaran;
-                                        $hasImage = $imagePath && Storage::disk('public')->exists($imagePath);
-                                        $imageData = null;
-                                        
-                                        if ($hasImage) {
-                                            try {
-                                                $fullPath = Storage::disk('public')->path($imagePath);
-                                                $imageContent = file_get_contents($fullPath);
-                                                $mimeType = mime_content_type($fullPath) ?: 'image/jpeg';
-                                                $imageData = 'data:' . $mimeType . ';base64,' . base64_encode($imageContent);
-                                            } catch (\Exception $e) {
-                                                $hasImage = false;
-                                            }
-                                        }
-                                    @endphp
-                                    
-                                    @if($hasImage && $imageData)
-                                        <img src="{{ $imageData }}" alt="Bukti">
+                                    @if($item['imageData'])
+                                        <img src="{{ $item['imageData'] }}" alt="Bukti">
                                     @endif
                                 </div>
                             </div>
                         </div>
                     @endforeach
                     
-                    @for($i = $records->count(); $i < $columns; $i++)
+                    @for($i = count($items); $i < $columns; $i++)
                         <div class="cell"></div>
                     @endfor
                 </div>
