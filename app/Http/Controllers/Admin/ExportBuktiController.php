@@ -66,11 +66,11 @@ class ExportBuktiController extends Controller
             return response()->json(['error' => 'Tidak ada data'], 400);
         }
         
-        // Count total items and limit to prevent memory issues (max 6 for 128MB server with max quality)
+        // Count total items and limit to prevent memory issues (max 8 for 128MB server with max quality)
         $totalItems = collect($rowsData)->sum(fn($r) => count($r['items'] ?? []));
-        if ($totalItems > 6) {
+        if ($totalItems > 8) {
             return response()->json([
-                'error' => "Terlalu banyak gambar ($totalItems). Maksimum 6 gambar per export dengan kualitas maksimal. Silakan export dalam batch lebih kecil."
+                'error' => "Terlalu banyak gambar ($totalItems). Maksimum 8 gambar per export dengan kualitas maksimal. Silakan export dalam batch lebih kecil."
             ], 400);
         }
         

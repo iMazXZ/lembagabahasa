@@ -409,8 +409,7 @@ class PenerjemahanResource extends Resource
                             filled($record->bukti_pembayaran) &&
                             Storage::disk('public')->exists($record->bukti_pembayaran)
                         )
-                        ->url(fn (Penerjemahan $record) => route('admin.crop-bukti.show', $record))
-                        ->openUrlInNewTab(),
+                        ->url(fn (Penerjemahan $record) => route('admin.crop-bukti.show', $record)),
                     
                     // Restore Bukti Pembayaran (dari backup)
                     Tables\Actions\Action::make('restore_bukti')
