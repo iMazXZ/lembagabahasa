@@ -722,4 +722,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     
     Route::post('/export-bukti-generate', [\App\Http\Controllers\Admin\ExportBuktiController::class, 'generate'])
         ->name('admin.export-bukti.generate');
+    
+    Route::post('/export-bukti-crop-save', [\App\Http\Controllers\Admin\ExportBuktiController::class, 'cropSave'])
+        ->name('admin.export-bukti.crop-save');
 });

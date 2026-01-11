@@ -398,51 +398,6 @@ class PenerjemahanResource extends Resource
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make(),
-                    
-                    // Crop Bukti Pembayaran
-                    Tables\Actions\Action::make('crop_bukti')
-                        ->label('Crop Bukti')
-                        ->icon('heroicon-o-scissors')
-                        ->color('warning')
-                        ->visible(fn ($record) => 
-                            auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
-                            filled($record->bukti_pembayaran) &&
-                            Storage::disk('public')->exists($record->bukti_pembayaran)
-                        )
-                        ->url(fn (Penerjemahan $record) => route('admin.crop-bukti.show', $record)),
-                    
-                    // Restore Bukti Pembayaran (dari backup)
-                    Tables\Actions\Action::make('restore_bukti')
-                        ->label('Restore Bukti')
-                        ->icon('heroicon-o-arrow-uturn-left')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalHeading('Restore Gambar Original')
-                        ->modalDescription('Yakin ingin mengembalikan gambar ke versi sebelum di-crop? Backup akan dihapus setelah restore.')
-                        ->visible(function ($record) {
-                            if (!auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
-                                return false;
-                            }
-                            if (!filled($record->bukti_pembayaran)) {
-                                return false;
-                            }
-                            // Check if backup exists
-                            $pathInfo = pathinfo($record->bukti_pembayaran);
-                            $backupPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_backup.' . ($pathInfo['extension'] ?? 'webp');
-                            return Storage::disk('public')->exists($backupPath);
-                        })
-                        ->action(function (Penerjemahan $record) {
-                            $pathInfo = pathinfo($record->bukti_pembayaran);
-                            $backupPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_backup.' . ($pathInfo['extension'] ?? 'webp');
-                            
-                            if (Storage::disk('public')->exists($backupPath)) {
-                                Storage::disk('public')->copy($backupPath, $record->bukti_pembayaran);
-                                Storage::disk('public')->delete($backupPath);
-                                Notification::make()->success()->title('Gambar berhasil di-restore!')->send();
-                            } else {
-                                Notification::make()->danger()->title('Backup tidak ditemukan')->send();
-                            }
-                        }),
 
                     Tables\Actions\Action::make('approve_pembayaran')
                         ->label('Approve')

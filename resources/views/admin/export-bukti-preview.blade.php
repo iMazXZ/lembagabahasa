@@ -8,10 +8,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <style>
         .row-container { min-height: 80px; }
-        .item-card { transition: all 0.15s; }
+        .item-card { transition: all 0.15s; position: relative; }
         .item-card:hover { transform: scale(1.02); }
+        .item-card:hover .edit-btn { opacity: 1; }
+        .edit-btn { opacity: 0; transition: opacity 0.15s; }
+        .cropper-container { max-height: 70vh; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -21,7 +26,7 @@
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 class="text-xl font-bold text-gray-900">Layout Designer - Export Bukti</h1>
-                    <p class="text-sm text-gray-500">Drag gambar ke baris • Atur kolom per baris • {{ $records->count() }} gambar</p>
+                    <p class="text-sm text-gray-500">Klik gambar untuk crop/rotate • Drag untuk atur urutan • {{ $records->count() }} gambar</p>
                 </div>
                 <a href="{{ url('/admin/penerjemahan') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
                     <i class="fa-solid fa-arrow-left mr-1"></i> Kembali
@@ -43,14 +48,22 @@
                          data-id="{{ $record->id }}" 
                          data-name="{{ $record->users?->name ?? '-' }}"
                          data-srn="{{ $record->users?->srn ?? '-' }}"
-                         data-date="{{ $record->created_at?->format('d/m/Y') ?? '-' }}">
+                         data-image="{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}">
                         @if(Storage::disk('public')->exists($record->bukti_pembayaran))
-                            <img src="{{ Storage::disk('public')->url($record->bukti_pembayaran) }}" class="w-12 h-12 object-cover rounded">
+                            <div class="relative">
+                                <img src="{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}" 
+                                     class="w-14 h-14 object-cover rounded item-thumb"
+                                     onclick="openCropModal({{ $record->id }}, '{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}', '{{ addslashes($record->users?->name ?? '-') }}')">
+                                <button type="button" 
+                                        class="edit-btn absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-yellow-600"
+                                        onclick="openCropModal({{ $record->id }}, '{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}', '{{ addslashes($record->users?->name ?? '-') }}')">
+                                    <i class="fa-solid fa-pen text-[8px]"></i>
+                                </button>
+                            </div>
                         @endif
                         <div class="text-xs">
-                            <div class="font-medium truncate max-w-[150px]">{{ Str::limit($record->users?->name ?? '-', 20) }}</div>
+                            <div class="font-medium truncate max-w-[120px]">{{ Str::limit($record->users?->name ?? '-', 18) }}</div>
                             <div class="text-gray-500">{{ $record->users?->srn ?? '-' }}</div>
-                            <div class="text-gray-400 text-[10px]">{{ $record->created_at?->format('d/m/Y') ?? '-' }}</div>
                         </div>
                     </div>
                 @endforeach
@@ -58,9 +71,7 @@
         </div>
 
         {{-- Rows Layout --}}
-        <div id="rows-container" class="space-y-4 mb-6">
-            {{-- Rows will be added dynamically --}}
-        </div>
+        <div id="rows-container" class="space-y-4 mb-6"></div>
 
         {{-- Add Row Button --}}
         <div class="flex justify-center mb-6">
@@ -91,7 +102,52 @@
         <div id="loading" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
             <div class="bg-white rounded-lg p-6 text-center">
                 <div class="animate-spin w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p class="text-gray-700">Membuat PDF...</p>
+                <p class="text-gray-700" id="loading-text">Memproses...</p>
+            </div>
+        </div>
+
+        {{-- Crop Modal --}}
+        <div id="crop-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden">
+                <div class="bg-gray-100 px-4 py-3 flex items-center justify-between">
+                    <h3 class="font-bold text-gray-800" id="crop-modal-title">Crop/Rotate Gambar</h3>
+                    <button onclick="closeCropModal()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa-solid fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-4">
+                    <div class="mb-4 flex justify-center gap-2 flex-wrap">
+                        <button onclick="rotateImage(-90)" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Rotate Kiri
+                        </button>
+                        <button onclick="rotateImage(90)" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> Rotate Kanan
+                        </button>
+                        <button onclick="flipImage('h')" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                            <i class="fa-solid fa-arrows-left-right mr-1"></i> Flip H
+                        </button>
+                        <button onclick="flipImage('v')" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                            <i class="fa-solid fa-arrows-up-down mr-1"></i> Flip V
+                        </button>
+                        <button onclick="setCropFull()" class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            <i class="fa-solid fa-expand mr-1"></i> Full
+                        </button>
+                        <button onclick="resetCrop()" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                            <i class="fa-solid fa-undo mr-1"></i> Reset
+                        </button>
+                    </div>
+                    <div class="bg-gray-900 rounded-lg overflow-hidden" style="max-height: 60vh;">
+                        <img id="crop-image" src="" class="max-w-full">
+                    </div>
+                </div>
+                <div class="bg-gray-100 px-4 py-3 flex justify-end gap-2">
+                    <button onclick="closeCropModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                        Batal
+                    </button>
+                    <button onclick="saveCrop()" id="save-crop-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <i class="fa-solid fa-check mr-1"></i> Simpan
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -100,16 +156,15 @@
         let rowId = 0;
         let sourceSortable;
         let rowSortables = {};
+        let cropper = null;
+        let currentCropId = null;
         
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize source sortable
             sourceSortable = new Sortable(document.getElementById('source-items'), {
                 group: 'items',
                 animation: 150,
                 ghostClass: 'opacity-50',
             });
-            
-            // Add initial row
             addRow();
         });
         
@@ -138,8 +193,6 @@
             `;
             
             container.insertAdjacentHTML('beforeend', rowHtml);
-            
-            // Initialize sortable for the new row
             rowSortables[id] = new Sortable(document.getElementById(`row-${id}`), {
                 group: 'items',
                 animation: 150,
@@ -150,13 +203,9 @@
         function setRowColumns(rowId, columns) {
             const rowEl = document.getElementById(`row-${rowId}`);
             const wrapper = rowEl.closest('.row-wrapper');
-            
-            // Update grid classes
             rowEl.classList.remove('grid-cols-1', 'grid-cols-2', 'grid-cols-3');
             rowEl.classList.add(`grid-cols-${columns}`);
             rowEl.dataset.columns = columns;
-            
-            // Update buttons
             wrapper.querySelectorAll('.col-btn').forEach(btn => {
                 if (parseInt(btn.dataset.col) === columns) {
                     btn.className = 'col-btn px-2 py-1 text-xs bg-blue-500 text-white';
@@ -169,13 +218,9 @@
         function removeRow(id) {
             const wrapper = document.querySelector(`[data-row-id="${id}"]`);
             const rowEl = document.getElementById(`row-${id}`);
-            
-            // Move items back to source
             const items = rowEl.querySelectorAll('.item-card');
             const source = document.getElementById('source-items');
             items.forEach(item => source.appendChild(item));
-            
-            // Remove row
             wrapper.remove();
             delete rowSortables[id];
         }
@@ -183,10 +228,8 @@
         function autoDistribute() {
             const source = document.getElementById('source-items');
             const items = Array.from(source.querySelectorAll('.item-card'));
-            
             if (items.length === 0) return;
             
-            // Clear existing rows
             document.querySelectorAll('.row-wrapper').forEach(row => {
                 const rowEl = row.querySelector('.row-container');
                 const rowItems = rowEl.querySelectorAll('.item-card');
@@ -196,7 +239,6 @@
             rowId = 0;
             rowSortables = {};
             
-            // Create rows with 2 items each (2 columns)
             const itemsPerRow = 2;
             for (let i = 0; i < items.length; i += itemsPerRow) {
                 addRow(2);
@@ -207,13 +249,153 @@
             }
         }
         
+        // Crop Modal Functions
+        function openCropModal(id, imageUrl, name) {
+            currentCropId = id;
+            document.getElementById('crop-modal-title').textContent = 'Crop/Rotate: ' + name;
+            document.getElementById('crop-image').src = imageUrl;
+            document.getElementById('crop-modal').classList.remove('hidden');
+            
+            setTimeout(() => {
+                const image = document.getElementById('crop-image');
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(image, {
+                    viewMode: 0,
+                    dragMode: 'move',
+                    autoCrop: true,
+                    autoCropArea: 1,    // Full area on init
+                    responsive: true,
+                    background: true,
+                    checkOrientation: false,
+                    rotatable: true,
+                    scalable: true,
+                    ready: function() {
+                        // Set crop box to cover full canvas on init
+                        setCropFull();
+                    }
+                });
+            }, 100);
+        }
+        
+        function closeCropModal() {
+            document.getElementById('crop-modal').classList.add('hidden');
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            currentCropId = null;
+        }
+        
+        function rotateImage(degree) {
+            if (!cropper) return;
+            cropper.rotate(degree);
+            // Reset crop box to cover full rotated image  
+            setTimeout(() => setCropFull(), 100);
+        }
+        
+        function flipImage(dir) {
+            if (!cropper) return;
+            const data = cropper.getData();
+            if (dir === 'h') {
+                cropper.scaleX(data.scaleX === 1 ? -1 : 1);
+            } else {
+                cropper.scaleY(data.scaleY === 1 ? -1 : 1);
+            }
+        }
+        
+        function resetCrop() {
+            if (!cropper) return;
+            cropper.reset();
+            setCropFull();
+        }
+        
+        function setCropFull() {
+            if (!cropper) return;
+            const canvasData = cropper.getCanvasData();
+            cropper.setCropBoxData({
+                left: canvasData.left,
+                top: canvasData.top,
+                width: canvasData.width,
+                height: canvasData.height
+            });
+        }
+        
+        function saveCrop() {
+            if (!cropper || !currentCropId) return;
+            
+            const canvas = cropper.getCroppedCanvas();
+            if (!canvas) {
+                alert('Tidak dapat memproses gambar');
+                return;
+            }
+            
+            showLoading('Menyimpan...');
+            document.getElementById('save-crop-btn').disabled = true;
+            
+            canvas.toBlob(function(blob) {
+                const formData = new FormData();
+                formData.append('image', blob, 'cropped.jpg');
+                formData.append('id', currentCropId);
+                formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+                
+                fetch('{{ route("admin.export-bukti.crop-save") }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    }
+                })
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error('Server error: ' + res.status);
+                    }
+                    const contentType = res.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error('Server tidak mengembalikan JSON. Mungkin session expired, coba refresh halaman.');
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    hideLoading();
+                    document.getElementById('save-crop-btn').disabled = false;
+                    
+                    if (data.success) {
+                        // Update thumbnail
+                        const newUrl = data.url + '?t=' + Date.now();
+                        const card = document.querySelector(`[data-id="${currentCropId}"]`);
+                        if (card) {
+                            const img = card.querySelector('.item-thumb');
+                            if (img) img.src = newUrl;
+                            card.dataset.image = newUrl;
+                        }
+                        closeCropModal();
+                    } else {
+                        alert(data.message || 'Gagal menyimpan');
+                    }
+                })
+                .catch(err => {
+                    hideLoading();
+                    document.getElementById('save-crop-btn').disabled = false;
+                    alert('Error: ' + err.message);
+                });
+            }, 'image/jpeg', 0.9);
+        }
+        
+        function showLoading(text = 'Memproses...') {
+            document.getElementById('loading-text').textContent = text;
+            document.getElementById('loading').classList.remove('hidden');
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+        
         function previewPdf() {
             const rows = [];
-            
             document.querySelectorAll('.row-container').forEach(rowEl => {
                 const columns = parseInt(rowEl.dataset.columns);
                 const items = Array.from(rowEl.querySelectorAll('.item-card')).map(item => item.dataset.id);
-                
                 if (items.length > 0) {
                     rows.push({ columns, items });
                 }
@@ -225,34 +407,27 @@
             }
             
             const rowsPerPage = document.getElementById('rowsPerPage').value;
-            const downloadBtn = document.getElementById('downloadBtn');
-            const loading = document.getElementById('loading');
+            showLoading('Membuat PDF...');
+            document.getElementById('downloadBtn').disabled = true;
             
-            downloadBtn.disabled = true;
-            loading.classList.remove('hidden');
-            
-            // Create form and submit in new tab
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '{{ route("admin.export-bukti.generate") }}';
-            form.target = '_blank'; // Open in new tab
+            form.target = '_blank';
             form.style.display = 'none';
             
-            // CSRF token
             const csrfInput = document.createElement('input');
             csrfInput.type = 'hidden';
             csrfInput.name = '_token';
             csrfInput.value = document.querySelector('meta[name="csrf-token"]').content;
             form.appendChild(csrfInput);
             
-            // Rows data as JSON
             const rowsInput = document.createElement('input');
             rowsInput.type = 'hidden';
             rowsInput.name = 'rows';
             rowsInput.value = JSON.stringify(rows);
             form.appendChild(rowsInput);
             
-            // Rows per page
             const rppInput = document.createElement('input');
             rppInput.type = 'hidden';
             rppInput.name = 'rows_per_page';
@@ -263,8 +438,8 @@
             form.submit();
             
             setTimeout(() => {
-                loading.classList.add('hidden');
-                downloadBtn.disabled = false;
+                hideLoading();
+                document.getElementById('downloadBtn').disabled = false;
             }, 1500);
         }
     </script>

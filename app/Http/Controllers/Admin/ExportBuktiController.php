@@ -179,4 +179,63 @@ class ExportBuktiController extends Controller
             return null;
         }
     }
+    
+    /**
+     * Save cropped image from preview page
+     */
+    public function cropSave(Request $request)
+    {
+        abort_unless(
+            auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']),
+            403
+        );
+        
+        $request->validate([
+            'id' => 'required|integer',
+            'image' => 'required|file|mimes:jpeg,jpg,png,webp',
+        ]);
+        
+        $record = Penerjemahan::find($request->input('id'));
+        
+        if (!$record) {
+            return response()->json(['success' => false, 'message' => 'Data tidak ditemukan']);
+        }
+        
+        if (!filled($record->bukti_pembayaran)) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada bukti pembayaran']);
+        }
+        
+        try {
+            $originalPath = $record->bukti_pembayaran;
+            $backupPath = preg_replace('/(\.[^.]+)$/', '_backup$1', $originalPath);
+            
+            // Backup original if not exists
+            if (!Storage::disk('public')->exists($backupPath)) {
+                Storage::disk('public')->copy($originalPath, $backupPath);
+            }
+            
+            // Save new image
+            $uploadedFile = $request->file('image');
+            $manager = new ImageManager(new Driver());
+            $image = $manager->read($uploadedFile->getPathname());
+            
+            // Convert to WebP for consistency
+            $encoded = $image->toWebp(90);
+            
+            // Get full path and save
+            $fullPath = Storage::disk('public')->path($originalPath);
+            file_put_contents($fullPath, $encoded->toString());
+            
+            unset($image, $encoded);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Gambar berhasil disimpan',
+                'url' => Storage::disk('public')->url($originalPath),
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
 }
