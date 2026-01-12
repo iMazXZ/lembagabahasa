@@ -23,11 +23,27 @@ class SubmitEptScoreController extends Controller
         $hasBasicInfo = !empty($user->prody_id) && !empty($user->srn) && !empty($user->year);
         $year         = (int) $user->year;
         $isS2         = $user->prody && str_starts_with($user->prody->name ?? '', 'S2');
-        $needManual   = $year <= 2024 && !$isS2; // S2 tidak perlu BL
+        $isPBI        = $user->prody && $user->prody->name === 'Pendidikan Bahasa Inggris';
+        $prodiIslam   = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
+        $isProdiIslam = $user->prody && in_array($user->prody->name, $prodiIslam);
+        $needsNilai   = $year <= 2024 && !$isS2;
 
-        $biodataComplete = $hasBasicInfo && (
-            ! $needManual || is_numeric($user->nilaibasiclistening)
-        );
+        // Check nilai completeness based on prodi type
+        $hasNilai = false;
+        if (!$needsNilai) {
+            $hasNilai = true; // S2 atau angkatan >= 2025 tidak perlu nilai
+        } elseif ($isPBI) {
+            // PBI: perlu interactive_class_1 sampai 6
+            $hasNilai = is_numeric($user->interactive_class_1 ?? null) && is_numeric($user->interactive_class_6 ?? null);
+        } elseif ($isProdiIslam) {
+            // Prodi Islam: perlu interactive_bahasa_arab_1 dan 2
+            $hasNilai = is_numeric($user->interactive_bahasa_arab_1 ?? null) && is_numeric($user->interactive_bahasa_arab_2 ?? null);
+        } else {
+            // Prodi lain: perlu nilaibasiclistening
+            $hasNilai = is_numeric($user->nilaibasiclistening ?? null);
+        }
+
+        $biodataComplete = $hasBasicInfo && $hasNilai;
 
         // ==== Cek keikutsertaan Basic Listening (angkatan ≥ 2025) ====
         $completedBL = true;

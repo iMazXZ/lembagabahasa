@@ -5,8 +5,27 @@
     // Check biodata status for badge
     $hasBasicInfo = $u && $u->prody_id && $u->srn && $u->year;
     $isS2 = $u && $u->prody && str_starts_with($u->prody->name ?? '', 'S2');
+    $isPBI = $u && $u->prody && $u->prody->name === 'Pendidikan Bahasa Inggris';
+    $prodiIslam = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
+    $isProdiIslam = $u && $u->prody && in_array($u->prody->name, $prodiIslam);
     $needsBL = $u && $u->year && (int)$u->year <= 2024 && !$isS2;
-    $biodataComplete = $hasBasicInfo && (!$needsBL || is_numeric($u->nilaibasiclistening ?? null));
+    
+    // Check nilai completeness based on prodi type
+    $hasNilai = false;
+    if (!$needsBL) {
+        $hasNilai = true; // S2 atau angkatan >= 2025 tidak perlu nilai
+    } elseif ($isPBI) {
+        // PBI: perlu interactive_class_1 sampai 6
+        $hasNilai = is_numeric($u->interactive_class_1 ?? null) && is_numeric($u->interactive_class_6 ?? null);
+    } elseif ($isProdiIslam) {
+        // Prodi Islam: perlu interactive_bahasa_arab_1 dan 2
+        $hasNilai = is_numeric($u->interactive_bahasa_arab_1 ?? null) && is_numeric($u->interactive_bahasa_arab_2 ?? null);
+    } else {
+        // Prodi lain: perlu nilaibasiclistening
+        $hasNilai = is_numeric($u->nilaibasiclistening ?? null);
+    }
+    
+    $biodataComplete = $hasBasicInfo && $hasNilai;
     $waVerified = $u && !empty($u->whatsapp_verified_at);
     $biodataNeedsBadge = !$biodataComplete || !$waVerified;
 @endphp

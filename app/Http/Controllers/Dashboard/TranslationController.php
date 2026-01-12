@@ -19,26 +19,38 @@ class TranslationController extends Controller
         $u = Auth::user();
         if (! $u) return false;
 
-        // catatan: di ListPenerjemahans pakai $u->prody (relasi),
-        // di dashboard kita aman pakai prody_id juga
         $hasBasicInfo = !empty($u->prody) && !empty($u->srn) && !empty($u->year);
         if (! $hasBasicInfo) return false;
 
         $year = (int) $u->year;
         $isS2 = $u->prody && str_starts_with($u->prody->name ?? '', 'S2');
+        $isPBI = $u->prody && $u->prody->name === 'Pendidikan Bahasa Inggris';
+        $prodiIslam = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
+        $isProdiIslam = $u->prody && in_array($u->prody->name, $prodiIslam);
+        $needsNilai = $year <= 2024 && !$isS2;
 
-        // S2 tidak perlu nilai BL
+        // S2 tidak perlu nilai
         if ($isS2) {
             return true;
         }
 
-        if ($year <= 2024) {
-            // angkatan lama: wajib nilai BL manual
-            return is_numeric($u->nilaibasiclistening);
+        // Check nilai completeness based on prodi type
+        if (!$needsNilai) {
+            return true; // angkatan >= 2025 tidak perlu nilai manual
         }
 
-        // 2025+ biodata dasar saja sudah cukup (cek BL di helper lain)
-        return true;
+        if ($isPBI) {
+            // PBI: perlu interactive_class_1 sampai 6
+            return is_numeric($u->interactive_class_1 ?? null) && is_numeric($u->interactive_class_6 ?? null);
+        }
+
+        if ($isProdiIslam) {
+            // Prodi Islam: perlu interactive_bahasa_arab_1 dan 2
+            return is_numeric($u->interactive_bahasa_arab_1 ?? null) && is_numeric($u->interactive_bahasa_arab_2 ?? null);
+        }
+
+        // Prodi lain: perlu nilaibasiclistening
+        return is_numeric($u->nilaibasiclistening);
     }
 
     protected function userHasCompletedBasicListening(): bool
