@@ -256,7 +256,7 @@
                 @if ($biodataLengkap)
                     Akun Anda siap digunakan untuk mengajukan layanan.
                 @else
-                    Mohon lengkapi biodata {{ $needsManual ? 'dan nilai Basic Listening' : '' }} agar dapat mengakses layanan.
+                    Mohon lengkapi biodata {{ $needsNilai ? 'dan nilai yang diperlukan' : '' }} agar dapat mengakses layanan.
                 @endif
             </p>
 
