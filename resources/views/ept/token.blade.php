@@ -55,9 +55,13 @@
                             {{ $registration->cbt_token }}
                         </p>
                     </div>
-                    <p class="text-xs text-emerald-200">
+                    <p class="text-xs text-emerald-200 mb-4">
                         Dirilis pada: {{ $registration->token_released_at->translatedFormat('d M Y, H:i') }}
                     </p>
+                    
+                    <a href="{{ route('ept.launcher') }}" class="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-700 rounded-xl font-bold hover:bg-emerald-50 transition-colors shadow-lg">
+                        <i class="fa-solid fa-play"></i> Masuk Launcher
+                    </a>
                 @else
                     <p class="text-lg font-semibold mb-2">Token Belum Tersedia</p>
                     <p class="text-sm text-emerald-100 max-w-xs mx-auto">

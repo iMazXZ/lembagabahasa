@@ -13,6 +13,7 @@ class EptQuiz extends Model
     protected $fillable = [
         'name',
         'description',
+        'listening_audio_url',
         'listening_duration',
         'structure_duration',
         'reading_duration',

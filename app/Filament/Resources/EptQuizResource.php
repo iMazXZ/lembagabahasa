@@ -35,6 +35,14 @@ class EptQuizResource extends Resource
                         ->placeholder('Deskripsi paket soal...')
                         ->rows(3),
                     
+                    Forms\Components\FileUpload::make('listening_audio_url')
+                        ->label('Audio Listening (MP3)')
+                        ->disk('public')
+                        ->directory('ept/audio')
+                        ->acceptedFileTypes(['audio/mpeg', 'audio/mp3'])
+                        ->maxSize(102400) // 100MB
+                        ->helperText('Upload file audio listening (1 file untuk seluruh section)'),
+                    
                     Forms\Components\Toggle::make('is_active')
                         ->label('Aktif')
                         ->default(true),
@@ -143,6 +151,60 @@ class EptQuizResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make(),
+                
+                Tables\Actions\Action::make('import_soal')
+                    ->label('Import Soal')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('success')
+                    ->form([
+                        \Filament\Forms\Components\FileUpload::make('file')
+                            ->label('File Excel')
+                            ->disk('local')
+                            ->directory('temp')
+                            ->acceptedFileTypes([
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'application/vnd.ms-excel',
+                                'text/csv',
+                            ])
+                            ->required()
+                            ->helperText('Format: section, order, question, option_a, option_b, option_c, option_d, correct_answer, passage, passage_group'),
+                    ])
+                    ->action(function (array $data, $record) {
+                        $path = storage_path('app/' . $data['file']);
+                        
+                        try {
+                            \Maatwebsite\Excel\Facades\Excel::import(
+                                new \App\Imports\EptQuestionsImport($record->id),
+                                $path
+                            );
+                            
+                            // Cleanup
+                            if (file_exists($path)) unlink($path);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Import berhasil!')
+                                ->body('Soal berhasil diimport.')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Import gagal')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                
+                Tables\Actions\Action::make('download_template')
+                    ->label('Template Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->action(function () {
+                        return \Maatwebsite\Excel\Facades\Excel::download(
+                            new \App\Exports\EptQuestionsTemplateExport(),
+                            'ept_questions_template.xlsx'
+                        );
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),

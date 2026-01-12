@@ -303,12 +303,33 @@ Route::get('/manual-certificate/{id}/pdf', [ManualCertificateController::class, 
 */
 
 use App\Http\Controllers\Ept\EptController;
+use App\Http\Controllers\Ept\EptLauncherController;
+use App\Http\Controllers\Ept\EptQuizController;
+use App\Http\Controllers\Ept\EptHistoryController;
 
 Route::middleware(['auth', 'biodata.complete'])->prefix('ept')->group(function () {
     Route::get('/', [EptController::class, 'index'])->name('ept.index');
     Route::get('/schedule', [EptController::class, 'schedule'])->name('ept.schedule');
     Route::get('/token', [EptController::class, 'token'])->name('ept.token');
     Route::get('/diagnostic', [EptController::class, 'diagnostic'])->name('ept.diagnostic');
+    
+    // CBT Launcher
+    Route::get('/launcher', [EptLauncherController::class, 'index'])->name('ept.launcher');
+    Route::post('/launcher/start', [EptLauncherController::class, 'start'])->name('ept.launcher.start');
+    Route::post('/launcher/validate-token', [EptLauncherController::class, 'validateToken'])->name('ept.launcher.validate');
+    
+    // Quiz
+    Route::get('/quiz/{attempt}', [EptQuizController::class, 'show'])->name('ept.quiz.show');
+    Route::post('/quiz/{attempt}/answer', [EptQuizController::class, 'answer'])->name('ept.quiz.answer');
+    Route::post('/quiz/{attempt}/next-section', [EptQuizController::class, 'nextSection'])->name('ept.quiz.nextSection');
+    Route::post('/quiz/{attempt}/submit', [EptQuizController::class, 'submit'])->name('ept.quiz.submit');
+    Route::post('/quiz/{attempt}/ping', [EptQuizController::class, 'ping'])->name('ept.quiz.ping');
+    
+    // History & Certificate
+    Route::get('/history', [EptHistoryController::class, 'index'])->name('ept.history.index');
+    Route::get('/history/{attempt}', [EptHistoryController::class, 'show'])->name('ept.history.show');
+    Route::get('/history/{attempt}/certificate', [EptHistoryController::class, 'certificate'])->name('ept.history.certificate');
+    Route::get('/history/{attempt}/certificate/preview', [EptHistoryController::class, 'certificatePreview'])->name('ept.history.certificate.preview');
 });
 
 /*
