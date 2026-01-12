@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EptRegistration extends Model
 {
@@ -12,12 +13,20 @@ class EptRegistration extends Model
 
     protected $fillable = [
         'user_id',
+        'session_id',
         'bukti_pembayaran',
         'status',
         'rejection_reason',
         'grup_1_id',
         'grup_2_id',
         'grup_3_id',
+        'cbt_token',
+        'token_released_at',
+        'selfie_path',
+    ];
+
+    protected $casts = [
+        'token_released_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -38,6 +47,16 @@ class EptRegistration extends Model
     public function grup3(): BelongsTo
     {
         return $this->belongsTo(EptGroup::class, 'grup_3_id');
+    }
+
+    public function session(): BelongsTo
+    {
+        return $this->belongsTo(EptSession::class, 'session_id');
+    }
+
+    public function attempts(): HasMany
+    {
+        return $this->hasMany(EptAttempt::class, 'registration_id');
     }
 
     public function scopePending($query)
@@ -89,6 +108,25 @@ class EptRegistration extends Model
     public function hasAllSchedules(): bool
     {
         return $this->grup1?->jadwal && $this->grup2?->jadwal && $this->grup3?->jadwal;
+    }
+
+    /**
+     * Cek apakah token CBT sudah dirilis
+     */
+    public function hasToken(): bool
+    {
+        return !empty($this->cbt_token) && $this->token_released_at !== null;
+    }
+
+    /**
+     * Generate token CBT
+     */
+    public function generateToken(): string
+    {
+        $this->cbt_token = strtoupper(bin2hex(random_bytes(4))); // 8 karakter
+        $this->token_released_at = now();
+        $this->save();
+        return $this->cbt_token;
     }
 }
 

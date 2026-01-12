@@ -298,6 +298,21 @@ Route::get('/manual-certificate/{id}/pdf', [ManualCertificateController::class, 
 
 /*
 |--------------------------------------------------------------------------
+| EPT CBT System (Protected)
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\Ept\EptController;
+
+Route::middleware(['auth', 'biodata.complete'])->prefix('ept')->group(function () {
+    Route::get('/', [EptController::class, 'index'])->name('ept.index');
+    Route::get('/schedule', [EptController::class, 'schedule'])->name('ept.schedule');
+    Route::get('/token', [EptController::class, 'token'])->name('ept.token');
+    Route::get('/diagnostic', [EptController::class, 'diagnostic'])->name('ept.diagnostic');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Basic Listening – Survey (Protected)
 |--------------------------------------------------------------------------
 */
