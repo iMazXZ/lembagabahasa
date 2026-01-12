@@ -219,7 +219,7 @@ class TutorMahasiswa extends Page implements HasTable
                         ->form([
                             Forms\Components\Select::make('nomor_grup_bl')
                                 ->label('Pilih Grup')
-                                ->options(range(1, 4)) // Bisa diganti query jika dinamis
+                                ->options(array_combine(range(1, 4), range(1, 4)))
                                 ->searchable()
                                 ->required(),
                         ])
@@ -335,7 +335,7 @@ class TutorMahasiswa extends Page implements HasTable
                     ->form([
                         Forms\Components\Select::make('nomor_grup_bl')
                             ->label('Pilih Grup')
-                            ->options(range(1, 20))
+                            ->options(array_combine(range(1, 4), range(1, 4)))
                             ->searchable()
                             ->required(),
                         Forms\Components\Toggle::make('only_empty')
