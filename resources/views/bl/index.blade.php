@@ -236,7 +236,8 @@
                 </div>
             </div>
 
-            {{-- CARD 2: LIVE SCHEDULE / STATUS --}}
+            {{-- CARD 2: LIVE SCHEDULE / STATUS (Only show if there are active schedules) --}}
+            @if($hasActiveSchedules)
             <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden flex flex-col relative">
                 <div class="p-5 border-b border-slate-100 flex justify-between items-center">
                     <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -246,55 +247,45 @@
                 </div>
 
                 <div class="p-5 flex-1 overflow-y-auto max-h-[200px] space-y-3">
-                    @if($hasActiveSchedules)
-                        {{-- Live Items --}}
-                        @foreach($liveSchedules as $schedule)
-                            <div class="relative bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
-                                <div class="absolute top-3 right-3 flex h-2.5 w-2.5">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                                </div>
-                                <div class="mt-1 w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                                    <i class="fa-solid fa-video"></i>
-                                </div>
-                                <div>
-                                    <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-0.5">Sedang Berlangsung</div>
-                                    <h4 class="text-sm font-bold text-emerald-900">{{ $schedule->prody?->name ?? 'General Class' }}</h4>
-                                    <p class="text-xs text-emerald-700 mt-1">
-                                        {{ substr($schedule->jam_mulai, 0, 5) }} - {{ substr($schedule->jam_selesai, 0, 5) }} WIB
-                                    </p>
-                                </div>
+                    {{-- Live Items --}}
+                    @foreach($liveSchedules as $schedule)
+                        <div class="relative bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
+                            <div class="absolute top-3 right-3 flex h-2.5 w-2.5">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                             </div>
-                        @endforeach
-
-                        {{-- Upcoming Items --}}
-                        @foreach($upcomingSchedules as $item)
-                            @php $sch = $item['schedule']; $mins = $item['minutes']; @endphp
-                            <div class="relative bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
-                                <div class="mt-1 w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-                                    <i class="fa-solid fa-hourglass-half"></i>
-                                </div>
-                                <div>
-                                    <div class="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-0.5">Mulai {{ $mins }} Menit Lagi</div>
-                                    <h4 class="text-sm font-bold text-amber-900">{{ $sch->prody?->name }}</h4>
-                                    <p class="text-xs text-amber-700 mt-1">
-                                        {{ substr($sch->jam_mulai, 0, 5) }} WIB
-                                    </p>
-                                </div>
+                            <div class="mt-1 w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-video"></i>
                             </div>
-                        @endforeach
-                    @else
-                        {{-- Empty State --}}
-                        <div class="flex flex-col items-center justify-center h-full py-4 text-center text-slate-400">
-                            <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-2">
-                                <i class="fa-solid fa-mug-hot text-slate-300"></i>
+                            <div>
+                                <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-0.5">Sedang Berlangsung</div>
+                                <h4 class="text-sm font-bold text-emerald-900">{{ $schedule->prody?->name ?? 'General Class' }}</h4>
+                                <p class="text-xs text-emerald-700 mt-1">
+                                    {{ substr($schedule->jam_mulai, 0, 5) }} - {{ substr($schedule->jam_selesai, 0, 5) }} WIB
+                                </p>
                             </div>
-                            <p class="text-sm font-medium text-slate-600">Tidak ada kelas aktif.</p>
-                            <p class="text-xs text-slate-400">Cek jadwal lengkap untuk minggu ini.</p>
                         </div>
-                    @endif
+                    @endforeach
+
+                    {{-- Upcoming Items --}}
+                    @foreach($upcomingSchedules as $item)
+                        @php $sch = $item['schedule']; $mins = $item['minutes']; @endphp
+                        <div class="relative bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+                            <div class="mt-1 w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-hourglass-half"></i>
+                            </div>
+                            <div>
+                                <div class="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-0.5">Mulai {{ $mins }} Menit Lagi</div>
+                                <h4 class="text-sm font-bold text-amber-900">{{ $sch->prody?->name }}</h4>
+                                <p class="text-xs text-amber-700 mt-1">
+                                    {{ substr($sch->jam_mulai, 0, 5) }} WIB
+                                </p>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
+            @endif
 
             {{-- CARD 3: GRADES & CERTIFICATE (Conditional) --}}
             @if($showPanel)
@@ -306,54 +297,62 @@
                     </div>
                     
                     <div class="p-5 space-y-4">
-                        {{-- Scores Grid --}}
-                        <div class="grid grid-cols-3 gap-2 text-center">
-                            <div class="p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                <div class="text-[10px] text-slate-400 uppercase font-semibold">Daily</div>
-                                <div class="text-sm font-bold text-slate-700">{{ is_numeric($daily) ? number_format($daily, 1) : '-' }}</div>
-                            </div>
-                            <div class="p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                <div class="text-[10px] text-slate-400 uppercase font-semibold">Final</div>
-                                <div class="text-sm font-bold text-slate-700">{{ is_numeric($finalTest) ? number_format($finalTest, 0) : '-' }}</div>
-                            </div>
-                            <div class="p-2 bg-blue-600 rounded-lg shadow-md shadow-blue-200">
-                                <div class="text-[10px] text-blue-200 uppercase font-semibold">Total</div>
-                                <div class="text-lg font-black text-white">
-                                    {{ is_numeric($finalNumeric) ? number_format($finalNumeric, 0) : '-' }}
-                                    <span class="text-xs font-normal opacity-80">{{ $finalLetter }}</span>
+                        @if(($surveyRequired ?? false) && !($surveyDone ?? false))
+                            {{-- Kuesioner belum diisi: Sembunyikan nilai, tampilkan CTA untuk isi kuesioner --}}
+                            <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 text-center">
+                                <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fa-solid fa-clipboard-list text-amber-600 text-xl"></i>
                                 </div>
-                            </div>
-                        </div>
-
-                        {{-- Action Buttons / Survey --}}
-                        <div class="pt-2">
-                             @if($canDownload && !empty($downloadUrl))
-                                <a href="{{ $downloadUrl }}" class="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
-                                    <i class="fa-solid fa-file-pdf"></i> Unduh Sertifikat
+                                <h4 class="text-sm font-bold text-amber-900 mb-1">Selamat! Pembelajaran Sudah Selesai</h4>
+                                <p class="text-xs text-amber-700 mb-3">Silakan isi kuesioner terlebih dahulu untuk melihat nilai akhir Anda.</p>
+                                <a href="{{ $surveyUrl }}" class="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-all shadow-md shadow-amber-200">
+                                    <i class="fa-solid fa-pen-to-square"></i> Isi Kuesioner
                                 </a>
-                            @elseif(($surveyRequired ?? false) && !($surveyDone ?? false))
-                               <div class="bg-amber-50 p-3 rounded-lg border border-amber-100 text-center">
-                                   <p class="text-xs text-amber-800 mb-2">Selamat!! Pembelajaran Sudah Selesai</p>
-                                   <a href="{{ $surveyUrl }}" class="inline-block w-full py-2 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600">
-                                       Isi Kuesioner
-                                   </a>
-                               </div>
-                            @else
-                               <div class="text-center py-2 bg-slate-50 rounded-lg border border-slate-100 border-dashed">
-                                    @if(!$baseEligible)
-                                        <p class="text-xs text-slate-400 italic">Menunggu input nilai final.</p>
-                                    @elseif(!$meetsPassing)
-                                        <div class="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
-                                            <p class="text-sm font-semibold text-rose-700 mb-1 flex items-center justify-center gap-2">
-                                                <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
-                                                Anda Belum Lulus
-                                            </p>
-                                            <p class="text-[11px] text-rose-600">Nilai akhir belum mencapai 55 untuk sertifikat.</p>
-                                        </div>
-                                    @endif
+                            </div>
+                        @else
+                            {{-- Kuesioner sudah diisi atau tidak wajib: Tampilkan nilai --}}
+                            {{-- Scores Grid --}}
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Daily</div>
+                                    <div class="text-sm font-bold text-slate-700">{{ is_numeric($daily) ? number_format($daily, 1) : '-' }}</div>
                                 </div>
-                             @endif
-                        </div>
+                                <div class="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Final</div>
+                                    <div class="text-sm font-bold text-slate-700">{{ is_numeric($finalTest) ? number_format($finalTest, 0) : '-' }}</div>
+                                </div>
+                                <div class="p-2 bg-blue-600 rounded-lg shadow-md shadow-blue-200">
+                                    <div class="text-[10px] text-blue-200 uppercase font-semibold">Total</div>
+                                    <div class="text-lg font-black text-white">
+                                        {{ is_numeric($finalNumeric) ? number_format($finalNumeric, 0) : '-' }}
+                                        <span class="text-xs font-normal opacity-80">{{ $finalLetter }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Action Buttons --}}
+                            <div class="pt-2">
+                                 @if($canDownload && !empty($downloadUrl))
+                                    <a href="{{ $downloadUrl }}" class="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-emerald-200">
+                                        <i class="fa-solid fa-file-pdf"></i> Unduh Sertifikat
+                                    </a>
+                                @else
+                                   <div class="text-center py-2 bg-slate-50 rounded-lg border border-slate-100 border-dashed">
+                                        @if(!$baseEligible)
+                                            <p class="text-xs text-slate-400 italic">Menunggu input nilai final.</p>
+                                        @elseif(!$meetsPassing)
+                                            <div class="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
+                                                <p class="text-sm font-semibold text-rose-700 mb-1 flex items-center justify-center gap-2">
+                                                    <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+                                                    Anda Belum Lulus
+                                                </p>
+                                                <p class="text-[11px] text-rose-600">Nilai akhir belum mencapai 55 untuk sertifikat.</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                 @endif
+                            </div>
+                        @endif
                     </div>
                 </div>
             @else

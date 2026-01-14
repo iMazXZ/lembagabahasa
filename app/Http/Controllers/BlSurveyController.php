@@ -22,7 +22,32 @@ class BlSurveyController extends Controller
      */
     public function start(Request $request)
     {
-        $tutors = User::query()->role('tutor')->orderBy('name')->get(['id', 'name']);
+        $user = auth()->user();
+        $userPrody = $user?->prody_id;
+
+        // Filter tutor berdasarkan prody user melalui pivot tutor_prody
+        if ($userPrody) {
+            // Ambil tutor yang di-assign ke prody yang sama dengan user
+            $tutorIds = \DB::table('tutor_prody')
+                ->where('prody_id', $userPrody)
+                ->pluck('user_id')
+                ->toArray();
+
+            if (!empty($tutorIds)) {
+                $tutors = User::query()
+                    ->role('tutor')
+                    ->whereIn('id', $tutorIds)
+                    ->orderBy('name')
+                    ->get(['id', 'name']);
+            } else {
+                // Fallback: jika tidak ada tutor untuk prody ini, tampilkan semua
+                $tutors = User::query()->role('tutor')->orderBy('name')->get(['id', 'name']);
+            }
+        } else {
+            // Jika user belum punya prody, tampilkan semua tutor
+            $tutors = User::query()->role('tutor')->orderBy('name')->get(['id', 'name']);
+        }
+
         $supervisors = BasicListeningSupervisor::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -316,6 +341,14 @@ class BlSurveyController extends Controller
         $year = (int) ($user->year ?? 0);
         $canDownloadCertificate = false;
         $meetsPassing = false;
+        
+        // Initialize grade variables
+        $daily = null;
+        $finalTest = null;
+        $finalNumeric = null;
+        $finalLetter = null;
+        $attendance = null;
+        
         if ($year >= 2025) {
             $grade = BasicListeningGrade::query()
                 ->where('user_id', $userId)
@@ -327,12 +360,15 @@ class BlSurveyController extends Controller
             $daily      = is_numeric($daily) ? (float) $daily : null;
 
             $finalNumeric = $grade?->final_numeric_cached;
+            $finalLetter  = $grade?->final_letter_cached;
+            
             if ($finalNumeric === null && is_numeric($attendance) && is_numeric($daily) && is_numeric($finalTest)) {
                 $finalNumeric = BlGrading::computeFinalNumeric([
                     'attendance' => $attendance,
                     'daily'      => $daily,
                     'final_test' => $finalTest,
                 ]);
+                $finalLetter = $finalNumeric !== null ? BlGrading::toLetter($finalNumeric) : null;
             }
 
             $baseEligible   = is_numeric($attendance) && is_numeric($finalTest);
@@ -348,7 +384,11 @@ class BlSurveyController extends Controller
             'tutor',
             'supervisor',
             'canDownloadCertificate',
-            'meetsPassing'
+            'meetsPassing',
+            'daily',
+            'finalTest',
+            'finalNumeric',
+            'finalLetter'
         ));
     }
 
@@ -358,7 +398,29 @@ class BlSurveyController extends Controller
      */
     public function editChoice(Request $request)
     {
-        $tutors = User::query()->role('tutor')->orderBy('name')->get(['id', 'name']);
+        $user = auth()->user();
+        $userPrody = $user?->prody_id;
+
+        // Filter tutor berdasarkan prody user melalui pivot tutor_prody
+        if ($userPrody) {
+            $tutorIds = \DB::table('tutor_prody')
+                ->where('prody_id', $userPrody)
+                ->pluck('user_id')
+                ->toArray();
+
+            if (!empty($tutorIds)) {
+                $tutors = User::query()
+                    ->role('tutor')
+                    ->whereIn('id', $tutorIds)
+                    ->orderBy('name')
+                    ->get(['id', 'name']);
+            } else {
+                $tutors = User::query()->role('tutor')->orderBy('name')->get(['id', 'name']);
+            }
+        } else {
+            $tutors = User::query()->role('tutor')->orderBy('name')->get(['id', 'name']);
+        }
+
         $supervisors = BasicListeningSupervisor::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
         $currentTutorId = (int) $request->session()->get('bl_selected_tutor_id');
