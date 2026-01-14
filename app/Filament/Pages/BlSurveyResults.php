@@ -89,6 +89,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                         $set('supervisorId', null);
                         $this->tutorId = null;
                         $this->supervisorId = null;
+                        $this->feedbackLimit = 10; // Reset feedback pagination
                         if (method_exists($this, 'resetTable')) {
                             $this->resetTable();
                         }
@@ -136,6 +137,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->live()
                     ->afterStateUpdated(function ($state) {
                         $this->tutorId = $state ? (int) $state : null;
+                        $this->feedbackLimit = 10; // Reset feedback pagination
                         if (method_exists($this, 'resetTable')) $this->resetTable();
                     })
                     ->columnSpan(6),
@@ -181,6 +183,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->live()
                     ->afterStateUpdated(function ($state) {
                         $this->supervisorId = $state ? (int) $state : null;
+                        $this->feedbackLimit = 10; // Reset feedback pagination
                         if (method_exists($this, 'resetTable')) $this->resetTable();
                     })
                     ->columnSpan(6),
@@ -382,6 +385,10 @@ class BlSurveyResults extends Page implements HasForms, HasTable
     public int $likertLimit = 20;
     public int $likertTotal = 0;
 
+    /** State untuk feedback (kritik & saran) */
+    public int $feedbackLimit = 10;
+    public int $feedbackTotal = 0;
+
     /** Tampilkan modal dengan daftar responden berdasarkan nilai Likert */
     public function showLikertDetail(int $likertValue): void
     {
@@ -448,6 +455,80 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         $this->likertRespondents = [];
         $this->likertLimit = 20;
         $this->likertTotal = 0;
+    }
+
+    /** Ambil daftar kritik & saran (pertanyaan tipe text) */
+    public function getTextFeedback(): array
+    {
+        $survey = BasicListeningSurvey::query()
+            ->where('category', $this->category)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $survey) {
+            $this->feedbackTotal = 0;
+            return [];
+        }
+
+        // Ambil pertanyaan tipe text
+        $textQuestionIds = $survey->questions()
+            ->where('type', 'text')
+            ->pluck('id');
+
+        if ($textQuestionIds->isEmpty()) {
+            $this->feedbackTotal = 0;
+            return [];
+        }
+
+        $query = BasicListeningSurveyAnswer::query()
+            ->join('basic_listening_survey_responses as r', 'basic_listening_survey_answers.response_id', '=', 'r.id')
+            ->join('users as u', 'r.user_id', '=', 'u.id')
+            ->join('basic_listening_survey_questions as q', 'basic_listening_survey_answers.question_id', '=', 'q.id')
+            ->leftJoin('users as tutor', 'r.tutor_id', '=', 'tutor.id')
+            ->leftJoin('basic_listening_supervisors as supervisor', 'r.supervisor_id', '=', 'supervisor.id')
+            ->where('r.survey_id', $survey->id)
+            ->whereIn('basic_listening_survey_answers.question_id', $textQuestionIds)
+            ->whereNotNull('basic_listening_survey_answers.text_value')
+            ->where('basic_listening_survey_answers.text_value', '!=', '');
+
+        // Filter berdasarkan kategori
+        if ($this->category === 'tutor' && $this->tutorId) {
+            $query->where('r.tutor_id', $this->tutorId);
+        }
+        if ($this->category === 'supervisor' && $this->supervisorId) {
+            $query->where('r.supervisor_id', $this->supervisorId);
+        }
+
+        // Hitung total
+        $this->feedbackTotal = (clone $query)->count();
+
+        return $query
+            ->select([
+                'u.name as respondent_name',
+                'q.question as question_text',
+                'basic_listening_survey_answers.text_value as feedback',
+                'r.created_at',
+                'tutor.name as tutor_name',
+                'supervisor.name as supervisor_name',
+            ])
+            ->orderByDesc('r.created_at')
+            ->limit($this->feedbackLimit)
+            ->get()
+            ->toArray();
+    }
+
+    /** Load more feedback */
+    public function loadMoreFeedback(): void
+    {
+        $this->feedbackLimit += 10;
+    }
+
+    /** Reset feedback limit saat filter berubah */
+    public function resetFeedbackLimit(): void
+    {
+        $this->feedbackLimit = 10;
     }
 
     /** Widget header - kosongkan karena stats dirender inline di blade */

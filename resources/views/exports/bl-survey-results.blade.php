@@ -279,7 +279,7 @@
             <div class="sug-q">{{ $question }}</div>
             <ul class="sug-list">
               @foreach($answers as $s)
-                <li class="sug-item">"{{ Str::limit($s['text'], 200) }}"</li>
+                <li class="sug-item">"{{ $s['text'] }}"</li>
               @endforeach
             </ul>
           </div>

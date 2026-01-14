@@ -169,5 +169,79 @@
         <x-filament::section heading="Ringkasan Hasil Kuesioner">
             {{ $this->table }}
         </x-filament::section>
+
+        {{-- Kritik dan Saran (Text Feedback) --}}
+        @php
+            $feedbackList = $this->getTextFeedback();
+            $hasFeedback = count($feedbackList) > 0;
+        @endphp
+
+        <x-filament::section heading="Kritik dan Saran" description="Respon teks dari responden">
+            @if($hasFeedback)
+            <div style="margin-bottom: 0.5rem;">
+                <span style="font-size: 0.75rem; color: #6b7280;">
+                    Menampilkan {{ count($feedbackList) }} dari {{ $this->feedbackTotal }} feedback
+                </span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
+                    <thead>
+                        <tr style="background: #f9fafb;">
+                            <th style="padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: 600; white-space: nowrap;">Responden</th>
+                            @if($this->category === 'tutor')
+                            <th style="padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: 600; white-space: nowrap;">Untuk Tutor</th>
+                            @elseif($this->category === 'supervisor')
+                            <th style="padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: 600; white-space: nowrap;">Untuk Supervisor</th>
+                            @endif
+                            <th style="padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Kritik/Saran</th>
+                            <th style="padding: 0.5rem 0.75rem; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; white-space: nowrap;">Tanggal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($feedbackList as $item)
+                        <tr style="border-bottom: 1px solid #f3f4f6;">
+                            <td style="padding: 0.5rem 0.75rem; vertical-align: top; white-space: nowrap;">
+                                <span style="font-weight: 500; color: #111827;">{{ $item['respondent_name'] }}</span>
+                            </td>
+                            @if($this->category === 'tutor')
+                            <td style="padding: 0.5rem 0.75rem; vertical-align: top; white-space: nowrap;">
+                                <span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background: #dbeafe; color: #1d4ed8; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                                    {{ $item['tutor_name'] ?? '-' }}
+                                </span>
+                            </td>
+                            @elseif($this->category === 'supervisor')
+                            <td style="padding: 0.5rem 0.75rem; vertical-align: top; white-space: nowrap;">
+                                <span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background: #fef3c7; color: #b45309; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                                    {{ $item['supervisor_name'] ?? '-' }}
+                                </span>
+                            </td>
+                            @endif
+                            <td style="padding: 0.5rem 0.75rem; color: #374151; line-height: 1.4;">{{ $item['feedback'] }}</td>
+                            <td style="padding: 0.5rem 0.75rem; vertical-align: top; text-align: right; white-space: nowrap; color: #9ca3af; font-size: 0.75rem;">{{ \Carbon\Carbon::parse($item['created_at'])->format('d M Y') }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Load More Button --}}
+            @if(count($feedbackList) < $this->feedbackTotal)
+            <div style="text-align: center; margin-top: 1rem;">
+                <button type="button" 
+                        wire:click="loadMoreFeedback"
+                        style="padding: 0.5rem 1.5rem; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 0.375rem; cursor: pointer; font-size: 0.8125rem; font-weight: 500; transition: background 0.2s;"
+                        onmouseover="this.style.background='#e5e7eb'" 
+                        onmouseout="this.style.background='#f3f4f6'">
+                    Muat Lebih Banyak ({{ $this->feedbackTotal - count($feedbackList) }} lagi)
+                </button>
+            </div>
+            @endif
+            @else
+            <div style="text-align: center; padding: 2rem; color: #9ca3af;">
+                <x-heroicon-o-chat-bubble-bottom-center-text style="width: 2rem; height: 2rem; margin: 0 auto 0.5rem; color: #d1d5db;" />
+                <p style="margin: 0; font-size: 0.8125rem;">Belum ada kritik dan saran</p>
+            </div>
+            @endif
+        </x-filament::section>
     </div>
 </x-filament-panels::page>
