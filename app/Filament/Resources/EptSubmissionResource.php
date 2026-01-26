@@ -139,6 +139,13 @@ class EptSubmissionResource extends Resource
                         $suggest= "{$seq}/II.3.AU/F/KET/LB_UMM/{$year}";
 
                         return [
+                            Forms\Components\Placeholder::make('warning')
+                                ->label('')
+                                ->content(new \Illuminate\Support\HtmlString(
+                                    '<div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; color: #92400e; font-weight: 600;">
+                                        ⚠️ Pastikan Nomor Surat Sesuai dengan urutan di buku
+                                    </div>'
+                                )),
                             Forms\Components\TextInput::make('surat_nomor')
                                 ->label('Nomor Surat')
                                 ->default($record->surat_nomor ?: $suggest)
