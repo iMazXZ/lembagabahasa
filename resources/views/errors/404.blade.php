@@ -187,7 +187,7 @@
         <div class="suggestions">
             <p>Atau kunjungi halaman berikut:</p>
             <a href="{{ url('/') }}">Beranda</a>
-            <a href="{{ route('filament.admin.auth.login') }}">Login</a>
+            <a href="{{ route('login') }}">Login</a>
         </div>
         
         <div class="logo-section">

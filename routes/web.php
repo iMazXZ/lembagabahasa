@@ -118,8 +118,34 @@ Route::get('/post/{post:slug}', [PostController::class, 'show'])
     ->middleware(CountPostView::class)
     ->name('front.post.show');
 
-Route::get('/login', fn () => redirect()->route('filament.admin.auth.login'))
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
+
+Route::get('/login', [LoginController::class, 'showLoginForm'])
+    ->middleware('guest')
     ->name('login');
+Route::post('/login', [LoginController::class, 'login'])
+    ->middleware('guest');
+
+Route::get('/register', [RegisterController::class, 'showRegistrationForm'])
+    ->middleware('guest')
+    ->name('register');
+Route::post('/register', [RegisterController::class, 'register'])
+    ->middleware('guest');
+
+/*
+|--------------------------------------------------------------------------
+| Layanan (Service Info Pages)
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ServiceController;
+
+Route::get('/layanan', [ServiceController::class, 'index'])
+    ->name('layanan.index');
+
+Route::get('/layanan/{service:slug}', [ServiceController::class, 'show'])
+    ->name('layanan.show');
 
 /*
 |--------------------------------------------------------------------------

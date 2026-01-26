@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\EnsureBlProfileComplete;
 use App\Http\Middleware\CountPostView;
 use App\Http\Middleware\CheckMaintenanceMode;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -33,5 +34,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Handle "Method Not Allowed" error pada halaman login
+        // Ini terjadi ketika CSRF token/session expired dan user submit form
+        $exceptions->render(function (MethodNotAllowedHttpException $e, $request) {
+            // Cek apakah error terjadi di route admin/login
+            if (str_contains($request->path(), 'admin/login')) {
+                return redirect()->route('filament.admin.auth.login')
+                    ->with('status', 'Sesi Anda telah berakhir. Silakan login kembali.');
+            }
+        });
     })->create();

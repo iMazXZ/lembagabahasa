@@ -39,6 +39,9 @@
 
       {{-- DESKTOP MENU --}}
       <div class="hidden lg:flex items-center gap-8">
+        <a href="{{ route('layanan.index') }}" class="{{ request()->routeIs('layanan.*') ? $activeLink : $baseLink }}">
+            Layanan
+        </a>
         <a href="{{ route('bl.index') }}" class="{{ request()->routeIs('bl.*') ? $activeLink : $baseLink }}">
             Basic Listening
         </a>
@@ -48,12 +51,10 @@
 
         @guest
           <div class="flex items-center gap-3 pl-4 border-l border-gray-200">
-            @if (Route::has('filament.admin.auth.register'))
-              <a href="{{ route('filament.admin.auth.register') }}" class="text-sm font-semibold text-um-blue hover:text-blue-800 transition">
-                Daftar
-              </a>
-            @endif
-            <a href="{{ route('filament.admin.auth.login') }}" class="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-um-gold to-orange-500 rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+            <a href="{{ route('register') }}" class="text-sm font-semibold text-um-blue hover:text-blue-800 transition">
+              Daftar
+            </a>
+            <a href="{{ route('login') }}" class="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-um-gold to-orange-500 rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
               <i class="fas fa-sign-in-alt mr-1"></i> Login
             </a>
           </div>
@@ -111,19 +112,18 @@
        x-cloak
        class="lg:hidden bg-white border-t border-gray-100 shadow-lg overflow-hidden">
     <div class="px-4 pt-2 pb-6 space-y-1">
+      <a href="{{ route('layanan.index') }}" class="block py-3 text-gray-600 hover:text-um-blue font-medium border-b border-gray-50">Layanan</a>
       <a href="{{ route('bl.index') }}" class="block py-3 text-gray-600 hover:text-um-blue font-medium border-b border-gray-50">Basic Listening</a>
       <a href="{{ route('verification.index') }}" class="block py-3 text-gray-600 hover:text-um-blue font-medium border-b border-gray-50">Verifikasi Dokumen</a>
       
       <div class="pt-4 flex flex-col gap-3">
         @guest
-            <a href="{{ route('filament.admin.auth.login') }}" class="w-full text-center py-3 bg-um-blue text-white rounded-lg font-bold shadow-md">
+            <a href="{{ route('login') }}" class="w-full text-center py-3 bg-um-blue text-white rounded-lg font-bold shadow-md">
                 Login Akun
             </a>
-            @if (Route::has('filament.admin.auth.register'))
-            <a href="{{ route('filament.admin.auth.register') }}" class="w-full text-center py-3 border border-gray-200 text-gray-600 rounded-lg font-semibold">
+            <a href="{{ route('register') }}" class="w-full text-center py-3 border border-gray-200 text-gray-600 rounded-lg font-semibold">
                 Daftar Baru
             </a>
-            @endif
         @else
             <div class="bg-gray-50 p-4 rounded-lg flex items-center gap-3 mb-2">
                 <div class="h-10 w-10 rounded-full bg-white border flex items-center justify-center text-um-blue font-bold text-lg">

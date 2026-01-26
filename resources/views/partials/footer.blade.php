@@ -1,9 +1,9 @@
 {{-- resources/views/partials/footer.blade.php --}}
-<footer class="relative overflow-hidden bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white">
-  {{-- Decorative gradient glow --}}
+<footer class="relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-900 text-white">
+  {{-- Decorative gradient glow (matching hero) --}}
   <div aria-hidden="true" class="pointer-events-none absolute inset-0 opacity-35">
-    <div class="absolute -top-24 -left-24 h-72 w-72 rounded-full blur-3xl bg-blue-500/30"></div>
-    <div class="absolute -bottom-28 -right-20 h-72 w-72 rounded-full blur-3xl bg-purple-500/30"></div>
+    <div class="absolute -top-24 -left-24 h-72 w-72 rounded-full blur-3xl bg-blue-400/30"></div>
+    <div class="absolute -bottom-28 -right-20 h-72 w-72 rounded-full blur-3xl bg-indigo-400/30"></div>
   </div>
 
   <div class="relative py-12 lg:py-16">

@@ -74,6 +74,12 @@ class VerificationController extends Controller
                 ? route('bl.certificate.bycode', ['code' => $code, 'inline' => 1]) // preview; hapus inline utk unduh
                 : null;
 
+            // Hitung Daily dari helper
+            $dailyAvg = null;
+            if (class_exists(\App\Support\BlCompute::class)) {
+                $dailyAvg = \App\Support\BlCompute::dailyAvgForUser($u->id, $rec->user_year);
+            }
+
             $vm = [
                 'type'              => 'basic_listening',
                 'title'             => 'Verifikasi Sertifikat Basic Listening',
@@ -85,7 +91,7 @@ class VerificationController extends Controller
                 'prody'             => $u->prody->name ?? '-',
 
                 'status_text'       => $status,
-                'done_at'           => now()->timezone(config('app.timezone', 'Asia/Jakarta')), // atau bisa kosongkan bila perlu
+                'done_at'           => now()->timezone(config('app.timezone', 'Asia/Jakarta')),
 
                 'verification_code' => $rec->verification_code ?? '-',
                 'verification_url'  => $rec->verification_url ?? route('verification.show', ['code' => $code], true),
@@ -96,13 +102,17 @@ class VerificationController extends Controller
                 'nomor_surat'       => null,
                 'tanggal_surat'     => null,
 
-                // Tampilkan ringkas nilai (opsional, view bisa menyesuaikan)
-                'scores'            => [
-                    ['label' => 'Attendance',  'tanggal' => null, 'nilai' => $rec->attendance],
-                    // Daily dihitung saat generate PDF; di sini opsional kalau ingin hitung lagi
-                    // ['label' => 'Daily (avg S1–S5)', 'tanggal' => null, 'nilai' => app(\App\Support\BlCompute::class)::dailyAvgForUser($u->id, $u->year) ],
-                    ['label' => 'Final Test',  'tanggal' => null, 'nilai' => $rec->final_test],
+                // Detail nilai BL lengkap
+                'bl_scores' => [
+                    'attendance'     => $rec->attendance,
+                    'daily'          => $dailyAvg,
+                    'final_test'     => $rec->final_test,
+                    'final_numeric'  => $rec->final_numeric_cached,
+                    'final_letter'   => $rec->final_letter_cached,
                 ],
+
+                // Konsistensi struktur
+                'scores'            => null,
             ];
 
             return view('verification.show', ['vm' => $vm]);

@@ -37,6 +37,7 @@ class Post extends Model
         'news'     => 'Berita',
         'schedule' => 'Jadwal Ujian',
         'scores'   => 'Nilai Ujian',
+        'service'  => 'Informasi Layanan',
     ];
 
     /**
@@ -111,6 +112,7 @@ class Post extends Model
         'news'     => 'images/covers/news.jpg',
         'schedule' => 'images/covers/schedule.jpg',
         'scores'   => 'images/covers/scores.jpg',
+        'service'  => 'images/covers/service.jpg',
     ];
 
     public function getCoverUrlAttribute(): string

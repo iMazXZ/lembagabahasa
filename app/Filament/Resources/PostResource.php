@@ -261,6 +261,7 @@ class PostResource extends Resource
                         $filename = match ($record->type) {
                             'schedule' => 'schedule.jpg',
                             'scores'   => 'scores.jpg',
+                            'service'  => 'service.jpg',
                             default    => 'news.jpg',
                         };
                         
@@ -282,8 +283,9 @@ class PostResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'news'         => 'info',
-                        'schedule'     => 'warning', // Asumsi jadwal warna kuning/oranye
-                        'scores'       => 'success', // Asumsi nilai warna hijau
+                        'schedule'     => 'warning',
+                        'scores'       => 'success',
+                        'service'      => 'primary',
                         'article'      => 'success',
                         'announcement' => 'danger',
                         default        => 'gray',
