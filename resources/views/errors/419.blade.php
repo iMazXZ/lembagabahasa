@@ -20,23 +20,38 @@
         }
     </script>
 </head>
-<body class="bg-gradient-to-r from-gray-700 via-gray-800 to-gray-900 flex items-center justify-center min-h-screen text-white">
+<body class="bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 flex items-center justify-center min-h-screen text-white">
 
-    <div class="text-center p-8">
-        <div class="w-24 h-24 text-yellow-300 mx-auto mb-6">
-            <i class="fas fa-hourglass-half fa-5x"></i>
+    <div class="text-center p-8 max-w-md">
+        <div class="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-clock-rotate-left text-4xl text-amber-400"></i>
         </div>
-        <h1 class="text-8xl lg:text-9xl font-bold text-gray-200 mb-4">419</h1>
-        <h2 class="text-2xl lg:text-4xl font-semibold mb-6">Halaman Kadaluwarsa</h2>
-        <p class="text-lg text-gray-300 mb-8 max-w-lg mx-auto">
-            Maaf, sesi Anda telah berakhir karena tidak ada aktivitas. Ini adalah langkah keamanan untuk melindungi data Anda.
+        <h1 class="text-7xl font-black text-white/90 mb-3">419</h1>
+        <h2 class="text-xl font-bold mb-4">Sesi Telah Berakhir</h2>
+        <p class="text-gray-400 text-sm mb-8 leading-relaxed">
+            Halaman ini kedaluwarsa karena tidak ada aktivitas. Silakan muat ulang halaman untuk melanjutkan.
         </p>
         
-        <button 
-           onclick="window.history.back();"
-           class="inline-block bg-um-gold hover:bg-yellow-500 text-white px-8 py-3 rounded-full font-bold text-lg transition-colors">
-            <i class="fas fa-arrow-left mr-2"></i>Kembali & Coba Lagi
-        </button>
+        <div class="flex flex-col gap-3">
+            {{-- Refresh halaman sebelumnya dengan token baru --}}
+            <a href="{{ url()->previous() }}" 
+               class="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-all shadow-lg">
+                <i class="fas fa-rotate-right"></i>
+                Muat Ulang Halaman
+            </a>
+            
+            {{-- Atau kembali ke beranda --}}
+            <a href="{{ url('/') }}" 
+               class="inline-flex items-center justify-center gap-2 text-gray-400 hover:text-white px-6 py-2 font-medium transition-colors text-sm">
+                <i class="fas fa-home"></i>
+                Kembali ke Beranda
+            </a>
+        </div>
+        
+        <p class="text-gray-500 text-xs mt-8">
+            <i class="fas fa-shield-halved mr-1"></i>
+            Ini adalah langkah keamanan untuk melindungi data Anda
+        </p>
     </div>
 
 </body>

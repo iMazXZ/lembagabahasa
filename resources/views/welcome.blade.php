@@ -109,36 +109,43 @@
 
 {{-- SECTION: Layanan --}}
 @if($services->isNotEmpty())
-<section id="layanan" class="py-12 lg:py-16 bg-slate-50">
-  <div class="max-w-4xl mx-auto px-4 lg:px-8">
+<section id="layanan" class="py-12 lg:py-16 bg-gradient-to-b from-white to-slate-50">
+  <div class="max-w-6xl mx-auto px-4 lg:px-8">
     {{-- Header --}}
-    <div class="text-center mb-8">
-      <h2 class="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Layanan Kami</h2>
-      <p class="text-gray-500 text-sm">Informasi lengkap tentang layanan yang tersedia</p>
+    <div class="text-center mb-10">
+      <h2 class="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Informasi Layanan</h2>
+      <p class="text-gray-500 text-sm">Panduan dan ketentuan layanan Lembaga Bahasa</p>
     </div>
     
-    {{-- Simple List --}}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-      @foreach($services as $service)
+    {{-- Icon Cards Grid --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      @php
+        $icons = ['fa-file-invoice-dollar', 'fa-book-open', 'fa-clipboard-list', 'fa-info-circle'];
+        $colors = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500'];
+      @endphp
+      @foreach($services->take(4) as $index => $service)
         <a href="{{ route('layanan.show', $service->slug) }}" 
-           class="flex items-center gap-4 p-4 hover:bg-gray-50 transition group">
-          <div class="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center text-teal-600 flex-shrink-0">
-            <i class="fas fa-file-alt"></i>
+           class="group bg-white rounded-xl p-5 border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all text-center">
+          {{-- Icon --}}
+          <div class="w-12 h-12 {{ $colors[$index % 4] }} rounded-xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg group-hover:scale-110 transition-transform">
+            <i class="fas {{ $icons[$index % 4] }} text-lg"></i>
           </div>
-          <div class="flex-1 min-w-0">
-            <h3 class="font-semibold text-gray-900 group-hover:text-teal-600 transition truncate">
-              {{ $service->title }}
-            </h3>
-            <p class="text-sm text-gray-500 truncate">{{ $service->excerpt ?: 'Lihat detail layanan' }}</p>
-          </div>
-          <i class="fas fa-chevron-right text-gray-300 group-hover:text-teal-500 transition"></i>
+          {{-- Title --}}
+          <h3 class="font-bold text-gray-900 group-hover:text-blue-600 transition mb-2 line-clamp-2 text-sm">
+            {{ $service->title }}
+          </h3>
+          {{-- Arrow --}}
+          <span class="inline-flex items-center gap-1 text-blue-600 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+            Baca
+            <i class="fas fa-arrow-right text-[10px]"></i>
+          </span>
         </a>
       @endforeach
     </div>
     
     {{-- See All --}}
-    <div class="text-center mt-6">
-      <a href="{{ route('layanan.index') }}" class="inline-flex items-center gap-2 text-teal-600 font-semibold hover:text-teal-700 transition text-sm">
+    <div class="text-center mt-8">
+      <a href="{{ route('layanan.index') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 transition shadow-md text-sm">
         Lihat Semua Layanan
         <i class="fas fa-arrow-right"></i>
       </a>
