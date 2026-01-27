@@ -193,6 +193,11 @@ class EptSubmissionResource extends Resource
                                 
                                 // Add to history sebelum update
                                 $locked->addSuratNomorHistory($oldNomor, $newNomor, $data['alasan_perubahan']);
+                                
+                                // Update surat_nomor field
+                                $locked->update([
+                                    'surat_nomor' => $newNomor,
+                                ]);
                             });
 
                             Notification::make()
