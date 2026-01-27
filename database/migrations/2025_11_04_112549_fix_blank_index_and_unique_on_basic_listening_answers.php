@@ -10,13 +10,29 @@ return new class extends Migration {
         Schema::table('basic_listening_answers', function (Blueprint $table) {
             // ubah tipe blank_index -> unsigned smallint
             $table->unsignedSmallInteger('blank_index')->nullable(false)->change();
-
-            // hapus unique lama
-            $table->dropUnique('answers_attempt_question_blank_unique');
-
-            // buat unique baru lengkap
-            $table->unique(['attempt_id', 'question_id', 'blank_index'], 'bla_attempt_question_blank_unique');
         });
+
+        // Pastikan unique lama di-drop hanya jika ada
+        $indexes = collect(DB::select('SHOW INDEX FROM `basic_listening_answers`'))->groupBy('Key_name');
+        $hasOld = $indexes->has('answers_attempt_question_blank_unique');
+        if ($hasOld) {
+            Schema::table('basic_listening_answers', function (Blueprint $table) {
+                try { $table->dropUnique('answers_attempt_question_blank_unique'); } catch (\Throwable $e) {}
+            });
+        }
+
+        // Buat unique baru jika belum ada
+        $hasNew = $indexes->first(function ($grp, $name) {
+            $isUnique = intval($grp->first()->Non_unique ?? 1) === 0;
+            $cols = $grp->sortBy('Seq_in_index')->pluck('Column_name')->values()->all();
+            return $isUnique && $cols === ['attempt_id','question_id','blank_index'];
+        });
+
+        if (! $hasNew) {
+            Schema::table('basic_listening_answers', function (Blueprint $table) {
+                $table->unique(['attempt_id', 'question_id', 'blank_index'], 'bla_attempt_question_blank_unique');
+            });
+        }
     }
 
     public function down(): void

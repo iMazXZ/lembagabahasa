@@ -51,6 +51,12 @@ return new class extends Migration {
             });
 
         if ($hasOldUnique) {
+            // Pastikan ada index individual agar FK tidak kehilangan index ketika unique di-drop
+            Schema::table('basic_listening_answers', function (Blueprint $table) {
+                try { $table->index('attempt_id'); } catch (\Throwable $e) {}
+                try { $table->index('question_id'); } catch (\Throwable $e) {}
+            });
+
             $oldName = $indexes
                 ->groupBy('Key_name')
                 ->first(function ($grp, $keyName) use ($hasOldUnique) {
@@ -60,15 +66,25 @@ return new class extends Migration {
                 })
                 ->first()->Key_name ?? null;
 
+            // Drop unique lama; jika MySQL masih mengeluh karena FK, kita fallback disable FK sementara
+            $dropped = false;
             if ($oldName) {
-                Schema::table('basic_listening_answers', function (Blueprint $table) use ($oldName) {
-                    $table->dropUnique($oldName);
-                });
-            } else {
-                // fallback: coba drop pakai array kolom
+                try {
+                    Schema::table('basic_listening_answers', function (Blueprint $table) use ($oldName) {
+                        $table->dropUnique($oldName);
+                    });
+                    $dropped = true;
+                } catch (\Throwable $e) {
+                    // fallback hard drop dengan FK check off
+                }
+            }
+
+            if (! $dropped) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=0;');
                 Schema::table('basic_listening_answers', function (Blueprint $table) {
                     $table->dropUnique(['attempt_id','question_id']);
                 });
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
             }
         }
 

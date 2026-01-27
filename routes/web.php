@@ -39,6 +39,7 @@ use App\Http\Controllers\DashboardPasswordController;
 use App\Http\Controllers\Dashboard\SubmitEptScoreController;
 use App\Http\Controllers\Dashboard\TranslationController;
 use App\Http\Controllers\TutorMahasiswaBulkExportController;
+use App\Http\Controllers\Api\WhatsAppController;
 
 /*
 |--------------------------------------------------------------------------
@@ -393,239 +394,30 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/ept-registration/kartu', [\App\Http\Controllers\Dashboard\EptRegistrationController::class, 'kartuPeserta'])
         ->name('dashboard.ept-registration.kartu');
 
-    // API untuk update nomor WhatsApp via AJAX (tanpa OTP - legacy)
-    Route::post('/api/whatsapp/update', function (\Illuminate\Http\Request $request) {
-        $request->validate([
-            'whatsapp' => ['required', 'string', 'max:20'],
-        ]);
+    // API WhatsApp & biodata
+    Route::middleware('throttle:5,1')->group(function () {
+        Route::post('/api/whatsapp/update', [WhatsAppController::class, 'update'])
+            ->name('api.whatsapp.update');
 
-        $normalized = \App\Support\NormalizeWhatsAppNumber::normalize($request->whatsapp);
+        Route::post('/api/whatsapp/send-otp', [WhatsAppController::class, 'sendOtp'])
+            ->name('api.whatsapp.send-otp');
 
-        if (!$normalized) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Format nomor WhatsApp tidak valid',
-            ], 422);
-        }
+        Route::post('/api/whatsapp/verify-otp', [WhatsAppController::class, 'verifyOtp'])
+            ->name('api.whatsapp.verify-otp');
+    });
 
-        $request->user()->update(['whatsapp' => $normalized]);
+    Route::post('/api/whatsapp/save-only', [WhatsAppController::class, 'saveOnly'])
+        ->middleware('throttle:10,1')
+        ->name('api.whatsapp.save-only');
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Nomor WhatsApp berhasil disimpan',
-        ]);
-    })->name('api.whatsapp.update');
+    Route::post('/delete-whatsapp', [WhatsAppController::class, 'delete'])
+        ->name('api.whatsapp.delete');
 
-    // API Kirim OTP WhatsApp (Cek setting dari database)
-    Route::post('/api/whatsapp/send-otp', function (\Illuminate\Http\Request $request) {
-        $request->validate([
-            'whatsapp' => ['required', 'string', 'max:20'],
-        ]);
+    Route::post('/reset-biodata', [WhatsAppController::class, 'resetBiodata'])
+        ->name('api.biodata.reset');
 
-        $normalized = \App\Support\NormalizeWhatsAppNumber::normalize($request->whatsapp);
-
-        if (!$normalized) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Format nomor WhatsApp tidak valid',
-            ], 422);
-        }
-
-        // Cek apakah nomor sudah dipakai user lain
-        $existingUser = \App\Models\User::where('whatsapp', $normalized)
-            ->where('id', '!=', $request->user()->id)
-            ->first();
-
-        if ($existingUser) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
-            ], 422);
-        }
-
-        $user = $request->user();
-
-        // Cek apakah OTP diaktifkan dari pengaturan situs
-        if (\App\Models\SiteSetting::isOtpEnabled()) {
-            // OTP AKTIF: Generate dan kirim OTP
-            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $expiresAt = now()->addMinutes(5);
-
-            $user->update([
-                'whatsapp' => $normalized,
-                'whatsapp_otp' => $otp,
-                'whatsapp_otp_expires_at' => $expiresAt,
-                'whatsapp_verified_at' => null,
-            ]);
-
-            // Kirim OTP via WhatsApp
-            $waService = app(\App\Services\WhatsAppService::class);
-
-            if (!$waService->isEnabled()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Layanan WhatsApp tidak tersedia',
-                ], 503);
-            }
-
-            $sent = $waService->sendOtp($normalized, $otp);
-
-            if ($sent) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Kode OTP telah dikirim ke WhatsApp Anda',
-                    'skip_otp' => false,
-                ]);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal mengirim OTP. Pastikan nomor WhatsApp aktif.',
-            ], 500);
-        }
-
-        // OTP NONAKTIF: Langsung simpan dan verifikasi
-        $user->update([
-            'whatsapp' => $normalized,
-            'whatsapp_otp' => null,
-            'whatsapp_otp_expires_at' => null,
-            'whatsapp_verified_at' => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Nomor WhatsApp berhasil disimpan!',
-            'skip_otp' => true,
-        ]);
-    })->name('api.whatsapp.send-otp');
-
-    // API Verifikasi OTP WhatsApp
-    Route::post('/api/whatsapp/verify-otp', function (\Illuminate\Http\Request $request) {
-        $request->validate([
-            'otp' => ['required', 'string', 'size:6'],
-        ]);
-
-        $user = $request->user();
-        $inputOtp = $request->input('otp');
-
-        // Cek apakah ada OTP yang pending
-        if (!$user->whatsapp_otp || !$user->whatsapp_otp_expires_at) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak ada OTP yang pending. Silakan kirim ulang OTP.',
-            ], 400);
-        }
-
-        // Cek expired
-        if (now()->isAfter($user->whatsapp_otp_expires_at)) {
-            $user->update([
-                'whatsapp_otp' => null,
-                'whatsapp_otp_expires_at' => null,
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Kode OTP sudah kadaluarsa. Silakan kirim ulang.',
-            ], 400);
-        }
-
-        // Verifikasi OTP
-        if ($user->whatsapp_otp !== $inputOtp) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kode OTP tidak valid.',
-            ], 400);
-        }
-
-        // Sukses - tandai sebagai verified
-        $user->update([
-            'whatsapp_verified_at' => now(),
-            'whatsapp_otp' => null,
-            'whatsapp_otp_expires_at' => null,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Nomor WhatsApp berhasil diverifikasi!',
-        ]);
-    })->name('api.whatsapp.verify-otp');
-
-    // API Simpan WhatsApp tanpa OTP (untuk saat OTP disabled)
-    Route::post('/api/whatsapp/save-only', function (Request $request) {
-        $request->validate([
-            'whatsapp' => ['required', 'string', 'min:10', 'max:20'],
-        ]);
-
-        $user = $request->user();
-        $whatsapp = preg_replace('/[^0-9]/', '', $request->input('whatsapp'));
-
-        // Cek apakah nomor sudah digunakan user lain
-        $exists = \App\Models\User::where('whatsapp', $whatsapp)
-            ->where('id', '!=', $user->id)
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
-            ], 422);
-        }
-
-        // Simpan nomor tanpa verifikasi
-        $user->update([
-            'whatsapp' => $whatsapp,
-            'whatsapp_otp' => null,
-            'whatsapp_otp_expires_at' => null,
-            // Tidak set whatsapp_verified_at karena tidak diverifikasi
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Nomor WhatsApp berhasil disimpan!',
-        ]);
-    })->name('api.whatsapp.save-only');
-
-    // Dismiss Welcome Modal
-    Route::post('/dismiss-welcome', function (Request $request) {
-        $user = $request->user();
-        $user->has_seen_welcome = true;
-        $user->save();
-
-        return response()->json(['success' => true]);
-    })->name('api.dismiss-welcome');
-
-    // Delete WhatsApp Number
-    Route::post('/delete-whatsapp', function (Request $request) {
-        $user = $request->user();
-        
-        $user->update([
-            'whatsapp' => null,
-            'whatsapp_verified_at' => null,
-            'whatsapp_otp' => null,
-            'whatsapp_otp_expires_at' => null,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Nomor WhatsApp berhasil dihapus.',
-        ]);
-    })->name('api.whatsapp.delete');
-
-    // Reset Biodata (SRN, Prodi, Year, Nilai BL)
-    Route::post('/reset-biodata', function (Request $request) {
-        $user = $request->user();
-        
-        $user->update([
-            'srn' => null,
-            'prody_id' => null,
-            'year' => null,
-            'nilaibasiclistening' => null,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Biodata berhasil direset.',
-        ]);
-    })->name('api.biodata.reset');
+    Route::post('/dismiss-welcome', [WhatsAppController::class, 'dismissWelcome'])
+        ->name('api.dismiss-welcome');
 });
 
 /*

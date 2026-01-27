@@ -9,8 +9,12 @@ return new class extends Migration {
     {
         Schema::table('users', function (Blueprint $table) {
             // integer kecil sudah cukup, nullable karena awalnya belum diisi
-            $table->unsignedSmallInteger('nomor_grup_bl')->nullable()->after('prody_id')
-                  ->comment('Nomor grup Basic Listening (diisi mahasiswa berdasarkan pembagian kelas kampus)');
+            $position = Schema::hasColumn('users', 'prody_id') ? 'prody_id' : 'prody';
+
+            $table->unsignedSmallInteger('nomor_grup_bl')
+                ->nullable()
+                ->after($position)
+                ->comment('Nomor grup Basic Listening (diisi mahasiswa berdasarkan pembagian kelas kampus)');
         });
     }
 
