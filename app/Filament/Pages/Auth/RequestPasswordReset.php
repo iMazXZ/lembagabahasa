@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Pages\Auth\PasswordReset\RequestPasswordReset as BaseRequestPasswordReset;
+use App\Jobs\SendWhatsAppResetLink;
 
 class RequestPasswordReset extends BaseRequestPasswordReset
 {
@@ -132,24 +133,20 @@ class RequestPasswordReset extends BaseRequestPasswordReset
                 return;
             }
 
-            $sent = $whatsAppService->sendResetLink($user->whatsapp, $resetUrl, $user->name);
+            // Antrikan dengan rate limit wa-notif (1 pesan/15 detik)
+            SendWhatsAppResetLink::dispatch(
+                phone: $user->whatsapp,
+                resetUrl: $resetUrl,
+                userName: $user->name
+            );
 
-            if ($sent) {
-                Notification::make()
-                    ->title('Tautan Reset Terkirim')
-                    ->body('Silakan cek WhatsApp Anda untuk link reset password.')
-                    ->success()
-                    ->send();
-                $this->form->fill();
-                return;
-            } else {
-                Notification::make()
-                    ->title('Gagal Mengirim')
-                    ->body('Gagal mengirim pesan WhatsApp. Silakan coba lagi atau gunakan email.')
-                    ->danger()
-                    ->send();
-                return;
-            }
+            Notification::make()
+                ->title('Tautan Reset Dalam Proses')
+                ->body('Permintaan reset dikirim via WhatsApp. Jika belum masuk, coba lagi atau gunakan email.')
+                ->success()
+                ->send();
+            $this->form->fill();
+            return;
 
         } else {
             // Method: email

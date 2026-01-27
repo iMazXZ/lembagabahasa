@@ -61,7 +61,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Rate limit global untuk pengiriman WA agar tidak diblokir.
-        RateLimiter::for('wa-notif', fn () => Limit::perMinute(8)->by('wa-notif'));
+        // Batasi notifikasi WA agar tidak memicu limit akun
+        // wa-notif: notifikasi status & reset password (4 pesan/menit ≈ 1 per 15 detik)
+        RateLimiter::for('wa-notif', fn () => Limit::perMinute(4)->by('wa-notif'));
+        // wa-otp: lebih longgar untuk OTP
         RateLimiter::for('wa-otp', fn () => Limit::perMinute(15)->by('wa-otp'));
     }
 }
