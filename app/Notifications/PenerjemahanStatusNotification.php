@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
+use App\Jobs\SendWhatsAppNotification;
 
 class PenerjemahanStatusNotification extends Notification implements ShouldQueue
 {
@@ -33,8 +34,6 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
      */
     public function toWhatsApp(object $notifiable): bool
     {
-        $waService = app(WhatsAppService::class);
-        
         $details = match (true) {
             $this->status === 'Diproses' => 'Dokumen Anda sedang dalam proses diterjemahkan oleh Tim Penerjemah.',
             $this->status === 'Selesai' => 'Dokumen sudah siap didownload di Menu Penerjemahan Dokumen Abstrak.',
@@ -45,8 +44,8 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
         $actionUrl = ($this->status === 'Selesai' && $this->verificationUrl) 
             ? $this->verificationUrl 
             : route('dashboard.translation');
-        
-        return $waService->sendNotification(
+
+        SendWhatsAppNotification::dispatch(
             phone: $notifiable->whatsapp,
             type: 'penerjemahan_status',
             status: $this->status,
@@ -54,6 +53,8 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
             details: $details,
             actionUrl: $actionUrl
         );
+
+        return true;
     }
 
     public function toMail(object $notifiable): MailMessage

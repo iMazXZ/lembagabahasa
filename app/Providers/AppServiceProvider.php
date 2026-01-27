@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Cache\RateLimiting\Limit;
 
 use Filament\Http\Responses\Auth\Contracts\LogoutResponse;
 use App\Http\Responses\LogoutResponse as CustomLogoutResponse;
@@ -57,5 +59,9 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\Notification::extend('whatsapp', function ($app) {
             return new \App\Channels\WhatsAppChannel();
         });
+
+        // Rate limit global untuk pengiriman WA agar tidak diblokir.
+        RateLimiter::for('wa-notif', fn () => Limit::perMinute(8)->by('wa-notif'));
+        RateLimiter::for('wa-otp', fn () => Limit::perMinute(15)->by('wa-otp'));
     }
 }

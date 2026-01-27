@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Queue\Middleware\RateLimited;
 
 class SendWhatsAppOtp implements ShouldQueue
 {
@@ -18,6 +19,11 @@ class SendWhatsAppOtp implements ShouldQueue
         public string $phone,
         public string $otp,
     ) {}
+
+    public function middleware(): array
+    {
+        return [new RateLimited('wa-otp')];
+    }
 
     public function handle(WhatsAppService $waService): void
     {

@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use App\Jobs\SendWhatsAppNotification;
 
 class EptSubmissionStatusNotification extends Notification implements ShouldQueue
 {
@@ -35,8 +36,6 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
      */
     public function toWhatsApp(object $notifiable): bool
     {
-        $waService = app(WhatsAppService::class);
-        
         $details = match ($this->status) {
             'approved' => "Pengajuan Anda telah DISETUJUI dan Berhasil Dibuat.",
             'rejected' => "Pengajuan Anda DITOLAK.",
@@ -59,8 +58,9 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
         }
         
         $actionUrl = $this->verificationUrl ?? route('dashboard.ept');
-        
-        return $waService->sendNotification(
+
+        // Kirim via job dengan rate limit (lihat SendWhatsAppNotification)
+        SendWhatsAppNotification::dispatch(
             phone: $notifiable->whatsapp,
             type: 'ept_status',
             status: $this->status,
@@ -68,6 +68,9 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
             details: $details,
             actionUrl: $actionUrl
         );
+
+        // Return true supaya notification dianggap terkirim; jika WA disabled, fallback mail tetap ada.
+        return true;
     }
 
     public function toMail(object $notifiable): MailMessage
