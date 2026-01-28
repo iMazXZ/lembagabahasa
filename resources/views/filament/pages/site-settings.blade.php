@@ -16,7 +16,11 @@
         </x-slot>
         
         <x-slot name="description">
-            wa-api.lembagabahasa.site
+            @php
+                $waUrl = $waBaseUrl ?? config('whatsapp.url', 'https://wa-api.lembagabahasa.site');
+                $waHost = parse_url($waUrl, PHP_URL_HOST) ?? $waUrl;
+            @endphp
+            {{ $waHost }}
         </x-slot>
         
         <x-slot name="headerEnd">
@@ -41,6 +45,14 @@
                 @elseif($waStatus['status'] === 'disconnected')
                     <x-filament::badge color="danger" icon="heroicon-o-x-circle">
                         Terputus
+                    </x-filament::badge>
+                @elseif($waStatus['status'] === 'error')
+                    <x-filament::badge color="danger" icon="heroicon-o-exclamation-triangle">
+                        Error
+                    </x-filament::badge>
+                @elseif($waStatus['status'] === 'disabled')
+                    <x-filament::badge color="gray" icon="heroicon-o-minus-circle">
+                        Nonaktif
                     </x-filament::badge>
                 @else
                     <x-filament::badge color="warning" icon="heroicon-o-exclamation-triangle">

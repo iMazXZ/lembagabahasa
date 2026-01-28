@@ -70,6 +70,13 @@ class UserResource extends Resource
                     ->validationMessages([
                         'unique' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
                     ]),
+                Forms\Components\Toggle::make('whatsapp_verified_at')
+                    ->label('Tandai WhatsApp Terverifikasi (manual)')
+                    ->helperText('Centang jika nomor sudah dipastikan milik pengguna. Otomatis isi tanggal/verifikasi.')
+                    ->default(false)
+                    ->dehydrateStateUsing(fn (bool $state) => $state ? now() : null)
+                    ->afterStateHydrated(fn (callable $set, $record) => $set('whatsapp_verified_at', filled($record?->whatsapp_verified_at)))
+                    ->inline(false),
                 Forms\Components\Select::make('prody_id')
                     ->label('Program Studi')
                     ->relationship('prody', 'name')

@@ -137,6 +137,47 @@ class EptSubmissionResource extends Resource
                         ->url(fn (EptSubmission $record) => route('ept-submissions.pdf', [$record, 'dl' => 1]))
                         ->openUrlInNewTab(),
 
+                    Action::make('resendWa')
+                        ->label('Kirim Ulang WA (Approved)')
+                        ->icon('heroicon-s-arrow-path')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->visible(fn (EptSubmission $record): bool =>
+                            $record->status === 'approved' && auth()->user()?->hasRole('Admin')
+                        )
+                        ->action(function (EptSubmission $record) {
+                            $pemohon = $record->user;
+                            if (! $pemohon) {
+                                Notification::make()->title('User tidak ditemukan.')->danger()->send();
+                                return;
+                            }
+
+                            if (! $pemohon->whatsapp || ! $pemohon->whatsapp_verified_at) {
+                                Notification::make()
+                                    ->title('Nomor WA belum terverifikasi')
+                                    ->body('Tidak bisa kirim ulang. Pastikan nomor sudah diverifikasi atau gunakan email.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $verificationUrl = $record->verification_url;
+                            $pdfUrl = route('ept-submissions.pdf', $record);
+
+                            $pemohon->notify(new EptSubmissionStatusNotification(
+                                'approved',
+                                $verificationUrl,
+                                $pdfUrl,
+                                $record->catatan_admin
+                            ));
+
+                            Notification::make()
+                                ->title('WA dikirim ulang')
+                                ->body('Notifikasi approved telah dikirim ke WhatsApp pemohon.')
+                                ->success()
+                                ->send();
+                        }),
+
                     Action::make('editSuratNomor')
                         ->label('Edit Nomor Surat')
                         ->icon('heroicon-s-pencil')

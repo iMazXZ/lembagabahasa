@@ -51,30 +51,6 @@ class PdfExportController extends Controller
     }
 
     /**
-     * REGENERATE PDF (Admin/Staf/Kepala)
-     * - Menaikkan kolom 'version'
-     * - Menulis ulang PDF, path & hash.
-     */
-    public function regenerate(Penerjemahan $penerjemahan)
-    {
-        $user = auth()->user();
-        abort_unless($user && $user->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga']), 403, 'Tidak diizinkan.');
-        abort_if(blank($penerjemahan->translated_text), 422, 'Belum ada hasil terjemahan.');
-
-        // Pastikan verifikasi ada
-        $this->ensureVerification($penerjemahan);
-
-        // Naikkan versi dokumen
-        $penerjemahan->version = max(1, (int) $penerjemahan->version) + 1;
-        $penerjemahan->save();
-
-        // Tulis ulang PDF (bumpVersion false karena sudah dinaikkan di atas)
-        $this->generateAndPersist($penerjemahan, /* bumpVersion */ false);
-
-        return back()->with('status', 'PDF resmi berhasil diregenerasi.');
-    }
-
-    /**
      * Generate + simpan PDF ke storage/public, isi path & hash.
      *
      * @param  Penerjemahan $m

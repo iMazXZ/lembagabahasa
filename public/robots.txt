@@ -18,7 +18,6 @@ Disallow: /password/
 Disallow: /laporan/
 Disallow: /export/
 Disallow: /penerjemahan/*/pdf
-Disallow: /penerjemahan/*/pdf/regenerate
 Disallow: /ept-submissions/
 
 # ===== Block halaman verifikasi berbasis kode (bersifat utilitas) =====

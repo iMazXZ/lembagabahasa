@@ -35,9 +35,11 @@ class SiteSettings extends Page implements HasForms
     public ?array $data = [];
     public ?array $waStatus = null;
     public ?array $waLogs = [];
+    public ?string $waBaseUrl = null;
 
     public function mount(): void
     {
+        $this->waBaseUrl = rtrim(config('whatsapp.url', 'https://wa-api.lembagabahasa.site'), '/');
         $this->loadWaStatus();
         $this->loadWaLogs();
         
@@ -149,12 +151,52 @@ class SiteSettings extends Page implements HasForms
 
     public function loadWaStatus(): void
     {
+        $this->waBaseUrl = rtrim(config('whatsapp.url', 'https://wa-api.lembagabahasa.site'), '/');
+        $apiKey = (string) config('whatsapp.api_key', '');
+        $enabled = (bool) config('whatsapp.enabled', false);
+        $timeout = (int) config('whatsapp.timeout', 30);
+
+        if (! $enabled) {
+            $this->waStatus = [
+                'status' => 'disabled',
+                'message' => 'WhatsApp service nonaktif di konfigurasi',
+            ];
+            return;
+        }
+
+        if (blank($apiKey)) {
+            $this->waStatus = [
+                'status' => 'error',
+                'message' => 'API key WhatsApp belum diatur',
+            ];
+            return;
+        }
+
         try {
-            $response = Http::timeout(5)->get('https://wa-api.lembagabahasa.site/status');
+            $response = Http::timeout($timeout)
+                ->withHeaders(['x-api-key' => $apiKey])
+                ->get("{$this->waBaseUrl}/status");
             if ($response->successful()) {
-                $this->waStatus = $response->json();
+                $data = $response->json();
+                if (! is_array($data)) {
+                    $this->waStatus = ['status' => 'error', 'message' => 'Format respons tidak valid'];
+                    return;
+                }
+
+                if (! isset($data['status']) && array_key_exists('connected', $data)) {
+                    $data['status'] = $data['connected'] ? 'connected' : 'disconnected';
+                }
+
+                $this->waStatus = $data;
             } else {
-                $this->waStatus = ['status' => 'error', 'message' => 'Gagal terhubung ke API'];
+                $this->waStatus = [
+                    'status' => 'error',
+                    'message' => match ($response->status()) {
+                        401 => 'Unauthorized (cek API key)',
+                        404 => 'Endpoint status tidak ditemukan',
+                        default => 'Gagal terhubung ke API',
+                    },
+                ];
             }
         } catch (\Exception $e) {
             $this->waStatus = ['status' => 'error', 'message' => 'Timeout atau error: ' . $e->getMessage()];
@@ -174,10 +216,22 @@ class SiteSettings extends Page implements HasForms
 
     public function loadWaLogs(): void
     {
+        $this->waBaseUrl = rtrim(config('whatsapp.url', 'https://wa-api.lembagabahasa.site'), '/');
+        $apiKey = (string) config('whatsapp.api_key', '');
+        $enabled = (bool) config('whatsapp.enabled', false);
+        $timeout = (int) config('whatsapp.timeout', 30);
+
+        if (! $enabled || blank($apiKey)) {
+            $this->waLogs = [];
+            return;
+        }
+
         try {
-            $response = Http::timeout(5)->get('https://wa-api.lembagabahasa.site/logs');
+            $response = Http::timeout($timeout)
+                ->withHeaders(['x-api-key' => $apiKey])
+                ->get("{$this->waBaseUrl}/logs");
             if ($response->successful()) {
-                $this->waLogs = $response->json()['logs'] ?? [];
+                $this->waLogs = $response->json('logs') ?? [];
             } else {
                 $this->waLogs = [];
             }
