@@ -75,6 +75,16 @@ class Post extends Model
     }
 
     /**
+     * Relasi ke post nilai terkait (untuk post tipe schedule).
+     */
+    public function relatedScores()
+    {
+        return $this->hasMany(Post::class, 'related_post_id')
+            ->where('type', 'scores')
+            ->orderByDesc('published_at');
+    }
+
+    /**
      * Auto-generate slug saat menyimpan.
      * - Jika slug kosong, diisi dari title.
      * - Jika slug tabrakan, tambahkan suffix -2, -3, dst.

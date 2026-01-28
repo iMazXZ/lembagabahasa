@@ -4,12 +4,43 @@
 
 @section('content')
 
-  <!-- Hero -->
-  <div class="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white">
-    <div class="max-w-7xl mx-auto px-4 py-16">
+  {{-- Hero (match homepage style) --}}
+  @php
+    $heroCategory = $category ?? '';
+    $heroBadge = match ($heroCategory) {
+        'schedule' => 'Jadwal EPT',
+        'scores'   => 'Nilai EPT',
+        default    => 'Informasi Lembaga',
+    };
+    $heroSubtitle = match ($heroCategory) {
+        'schedule' => 'Pantau jadwal tes EPT terbaru dan informasi pelaksanaan.',
+        'scores'   => 'Cek pengumuman nilai EPT terbaru di sini.',
+        default    => 'Temukan berita dan informasi terbaru dari Lembaga Bahasa.',
+    };
+  @endphp
+  <div class="relative bg-slate-900 overflow-hidden">
+    <div class="absolute inset-0">
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-900 opacity-90"></div>
+      <div class="absolute inset-0" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 30px 30px; opacity: 0.1;"></div>
+      <div class="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-blue-400 rounded-full blur-3xl opacity-20"></div>
+      <div class="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-indigo-400 rounded-full blur-3xl opacity-20"></div>
+    </div>
+
+    <div class="relative max-w-7xl mx-auto px-4 pt-10 pb-10 md:pt-14 md:pb-14">
       <div class="max-w-3xl">
-        <h1 class="text-4xl md:text-5xl font-bold mb-4">{{ $title }}</h1>
-        <p class="text-blue-100 text-lg">Temukan berita dan informasi terbaru dari Lembaga Bahasa</p>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-blue-100 text-xs font-medium mb-4 backdrop-blur-md">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+          </span>
+          {{ $heroBadge }}
+        </div>
+        <h1 class="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-2 leading-tight">
+          {{ $title }}
+        </h1>
+        <p class="text-blue-100/90 text-lg md:text-xl font-medium">
+          {{ $heroSubtitle }}
+        </p>
       </div>
     </div>
   </div>

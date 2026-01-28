@@ -19,8 +19,30 @@ class PostController extends Controller
 
         $query = Post::published()
             ->type($type) // karena $type selalu salah satu dari tiga di atas
-            ->select(['id', 'title', 'slug', 'excerpt', 'cover_path', 'published_at', 'author_id', 'type', 'views'])
+            ->select([
+                'id',
+                'title',
+                'slug',
+                'excerpt',
+                'cover_path',
+                'published_at',
+                'author_id',
+                'type',
+                'views',
+                'event_date',
+                'event_time',
+                'event_location',
+                'related_post_id',
+            ])
             ->with(['author:id,name']);
+
+        if ($type === 'schedule') {
+            $query->with([
+                'relatedScores' => fn ($q) => $q
+                    ->published()
+                    ->select(['id', 'slug', 'related_post_id', 'published_at', 'title']),
+            ]);
+        }
 
         // Pencarian (opsional)
         if ($search = trim((string) $request->query('q'))) {
