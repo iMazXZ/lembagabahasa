@@ -181,6 +181,59 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         return \App\Models\SiteSetting::getBlPeriodStartDate();
     }
 
+    /** Ambil prefix angkatan aktif (bisa multi, dipisah koma) */
+    private function getActiveBatchPrefixes(): array
+    {
+        $activeBatch = \App\Models\SiteSetting::get('bl_active_batch', now()->format('y'));
+        $batches = array_map('trim', explode(',', (string) $activeBatch));
+        return array_values(array_filter($batches, fn ($v) => $v !== ''));
+    }
+
+    /** Subquery user eligible: pendaftar + angkatan aktif + nilai lengkap */
+    private function eligibleUsersSubquery(?int $tutorId = null): Builder
+    {
+        $startDate = $this->getBlPeriodStartDate();
+        $batches = $this->getActiveBatchPrefixes();
+
+        $q = User::query()
+            ->select('users.id')
+            ->join('basic_listening_grades as g', function ($join) {
+                $join->on('g.user_id', '=', 'users.id')
+                    ->on('g.user_year', '=', 'users.year');
+            })
+            ->whereNotNull('users.srn')
+            ->whereHas('roles', fn ($r) => $r->where('name', 'pendaftar'))
+            ->whereNotNull('g.attendance')
+            ->whereNotNull('g.final_test');
+
+        if ($startDate) {
+            $q->where('g.created_at', '>=', $startDate);
+        }
+
+        if (! empty($batches)) {
+            $q->where(function ($sub) use ($batches) {
+                foreach ($batches as $batch) {
+                    $sub->orWhere('users.srn', 'like', $batch . '%');
+                }
+            });
+        }
+
+        if ($tutorId) {
+            $prodyIds = DB::table('tutor_prody')
+                ->where('user_id', $tutorId)
+                ->pluck('prody_id')
+                ->all();
+
+            if (empty($prodyIds)) {
+                $q->whereRaw('1=0');
+            } else {
+                $q->whereIn('users.prody_id', $prodyIds);
+            }
+        }
+
+        return $q;
+    }
+
     /** Query agregasi rata-rata likert per pertanyaan */
     private function buildAggregateQuery(): Builder
     {
@@ -196,6 +249,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             // Query kosong agar tabel tidak error (tidak ada survey aktif)
             return BasicListeningSurveyAnswer::query()->whereRaw('1=0');
         }
+
+        $eligibleUsers = $this->eligibleUsersSubquery($this->category === 'tutor' ? $this->tutorId : null);
 
         $q = BasicListeningSurveyAnswer::query()
             ->select([
@@ -218,6 +273,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                 'basic_listening_survey_questions.id'
             )
             ->where('basic_listening_survey_responses.survey_id', $survey->id)
+            ->whereIn('basic_listening_survey_responses.user_id', $eligibleUsers)
+            ->whereNotNull('basic_listening_survey_responses.submitted_at')
             ->whereNotNull('basic_listening_survey_answers.likert_value')
             ->groupBy('basic_listening_survey_questions.id', 'basic_listening_survey_questions.question')
             ->orderBy('basic_listening_survey_questions.id');
@@ -262,12 +319,16 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         }
 
         $startDate = $this->getBlPeriodStartDate();
+        $eligibleUsers = $this->eligibleUsersSubquery($this->category === 'tutor' ? $this->tutorId : null);
 
         // Build base query untuk responses
-        $respQuery = BasicListeningSurveyResponse::query()->where('survey_id', $survey->id);
+        $respQuery = BasicListeningSurveyResponse::query()
+            ->where('survey_id', $survey->id)
+            ->whereNotNull('submitted_at');
         if ($startDate) {
             $respQuery->where('created_at', '>=', $startDate);
         }
+        $respQuery->whereIn('user_id', $eligibleUsers);
 
         if ($this->category === 'tutor' && $this->tutorId) {
             $respQuery->where('tutor_id', $this->tutorId);
@@ -287,6 +348,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             if ($startDate) {
                 $query->where('created_at', '>=', $startDate);
             }
+            $query->whereNotNull('submitted_at');
+            $query->whereIn('user_id', $this->eligibleUsersSubquery($this->category === 'tutor' ? $this->tutorId : null));
 
             if ($this->category === 'tutor' && $this->tutorId) {
                 $query->where('tutor_id', $this->tutorId);
@@ -322,6 +385,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->join('basic_listening_survey_responses as r', 'a.response_id', '=', 'r.id')
             ->select('a.question_id')
             ->where('r.survey_id', $survey->id)
+            ->whereNotNull('r.submitted_at')
+            ->whereIn('r.user_id', $eligibleUsers)
             ->when($this->category === 'tutor' && $this->tutorId, fn($q) => $q->where('r.tutor_id', $this->tutorId))
             ->when($this->category === 'supervisor' && $this->supervisorId, fn($q) => $q->where('r.supervisor_id', $this->supervisorId))
             ->when($startDate, fn ($q) => $q->where('r.created_at', '>=', $startDate))
@@ -394,17 +459,10 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             return null;
         }
 
-        $prodyIds = DB::table('tutor_prody')
-            ->where('user_id', $this->tutorId)
-            ->pluck('prody_id')
-            ->all();
-
-        if (empty($prodyIds)) {
-            return null;
-        }
-
         $startDate = $this->getBlPeriodStartDate();
         $sessionId = $survey->target === 'session' ? $survey->session_id : null;
+
+        $eligibleUsers = $this->eligibleUsersSubquery($this->tutorId);
 
         return User::query()
             ->leftJoin('prodies as p', 'users.prody_id', '=', 'p.id')
@@ -412,10 +470,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                 $join->on('g.user_id', '=', 'users.id')
                     ->on('g.user_year', '=', 'users.year');
             })
-            ->whereIn('users.prody_id', $prodyIds)
-            ->whereNotNull('users.srn')
-            ->whereNotNull('g.attendance')
-            ->whereNotNull('g.final_test')
+            ->whereIn('users.id', $eligibleUsers)
             ->whereNotExists(function ($q) use ($survey, $startDate, $sessionId) {
                 $q->select(DB::raw(1))
                     ->from('basic_listening_survey_responses as r')
@@ -516,11 +571,14 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         }
 
         $startDate = $this->getBlPeriodStartDate();
+        $eligibleUsers = $this->eligibleUsersSubquery($this->category === 'tutor' ? $this->tutorId : null);
         $responseBase = BasicListeningSurveyResponse::query()
-            ->where('survey_id', $survey->id);
+            ->where('survey_id', $survey->id)
+            ->whereNotNull('submitted_at');
         if ($startDate) {
             $responseBase->where('created_at', '>=', $startDate);
         }
+        $responseBase->whereIn('user_id', $eligibleUsers);
 
         if ($this->category === 'tutor' && $this->tutorId) {
             $responseBase->where('tutor_id', $this->tutorId);
@@ -536,7 +594,9 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->join('basic_listening_survey_responses as r', 'r.user_id', '=', 'users.id')
             ->leftJoin('prodies as p', 'users.prody_id', '=', 'p.id')
             ->where('r.survey_id', $survey->id)
+            ->whereNotNull('r.submitted_at')
             ->when($startDate, fn ($q) => $q->where('r.created_at', '>=', $startDate))
+            ->whereIn('r.user_id', $eligibleUsers)
             ->when($this->category === 'tutor' && $this->tutorId, fn ($q) => $q->where('r.tutor_id', $this->tutorId))
             ->when($this->category === 'supervisor' && $this->supervisorId, fn ($q) => $q->where('r.supervisor_id', $this->supervisorId))
             ->select([
@@ -610,7 +670,9 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->join('users as u', 'r.user_id', '=', 'u.id')
             ->join('basic_listening_survey_questions as q', 'basic_listening_survey_answers.question_id', '=', 'q.id')
             ->where('r.survey_id', $survey->id)
+            ->whereNotNull('r.submitted_at')
             ->where('basic_listening_survey_answers.likert_value', $likertValue);
+        $query->whereIn('r.user_id', $this->eligibleUsersSubquery($this->category === 'tutor' ? $this->tutorId : null));
         if ($startDate) {
             $query->where('r.created_at', '>=', $startDate);
         }
@@ -693,9 +755,11 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->leftJoin('users as tutor', 'r.tutor_id', '=', 'tutor.id')
             ->leftJoin('basic_listening_supervisors as supervisor', 'r.supervisor_id', '=', 'supervisor.id')
             ->where('r.survey_id', $survey->id)
+            ->whereNotNull('r.submitted_at')
             ->whereIn('basic_listening_survey_answers.question_id', $textQuestionIds)
             ->whereNotNull('basic_listening_survey_answers.text_value')
             ->where('basic_listening_survey_answers.text_value', '!=', '');
+        $query->whereIn('r.user_id', $this->eligibleUsersSubquery($this->category === 'tutor' ? $this->tutorId : null));
         if ($startDate) {
             $query->where('r.created_at', '>=', $startDate);
         }
@@ -759,6 +823,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ? BasicListeningSurveyResponse::query()
                 ->where('survey_id', $survey->id)
                 ->whereNotNull('tutor_id')
+                ->whereNotNull('submitted_at')
                 ->when($startDate, fn ($q) => $q->where('created_at', '>=', $startDate))
                 ->selectRaw('tutor_id, COUNT(*) as count')
                 ->groupBy('tutor_id')
@@ -793,6 +858,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ? BasicListeningSurveyResponse::query()
                 ->where('survey_id', $survey->id)
                 ->whereNotNull('supervisor_id')
+                ->whereNotNull('submitted_at')
                 ->when($startDate, fn ($q) => $q->where('created_at', '>=', $startDate))
                 ->selectRaw('supervisor_id, COUNT(*) as count')
                 ->groupBy('supervisor_id')
