@@ -50,50 +50,53 @@
     @endphp
 
     <div class="p-6">
-      <div class="min-w-0">
-        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 mb-2">
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold {{ $chipClass }}">
-            {{ strtoupper($chipLabel) }}
-          </span>
-          @if($eventDateTime)
-            <span class="text-slate-400">•</span>
-            <time datetime="{{ $eventDateTime->toDateString() }}">
-              {{ $eventDateTime->translatedFormat('d M Y') }}
-            </time>
-          @endif
-          <span class="ml-auto inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $statusClass }}">
-            {{ $statusLabel }}
-          </span>
-        </div>
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold {{ $chipClass }}">
+              {{ strtoupper($chipLabel) }}
+            </span>
+            @if($eventDateTime)
+              <span class="text-slate-400">•</span>
+              <time datetime="{{ $eventDateTime->toDateString() }}">
+                {{ $eventDateTime->translatedFormat('d M Y') }}
+              </time>
+            @endif
+          </div>
 
-        <a href="{{ route('front.post.show', $post->slug) }}"
-           class="block text-lg lg:text-xl font-extrabold text-slate-900 mb-3 line-clamp-2 sm:group-hover:text-blue-700 transition-colors"
-           aria-label="Baca {{ $post->title }}">
-          {{ preg_replace('/\s*\([^)]+\)\s*$/', '', $post->title) }}
-        </a>
+          <a href="{{ route('front.post.show', $post->slug) }}"
+             class="block text-lg lg:text-xl font-extrabold text-slate-900 mb-3 line-clamp-2 sm:group-hover:text-blue-700 transition-colors"
+             aria-label="Baca {{ $post->title }}">
+            {{ preg_replace('/\s*\([^)]+\)\s*$/', '', $post->title) }}
+          </a>
 
-        <div class="text-sm text-slate-600 space-y-1">
-          @if($eventDateTime)
-            <div class="flex items-center gap-2 flex-nowrap">
-              <span class="inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
-              <span class="min-w-0 flex-1 truncate" title="{{ $eventDateTime->translatedFormat('l, d F Y') }}">
-                {{ $eventDateTime->translatedFormat('l, d F Y') }}
-              </span>
-              @if($eventTime)
-                <span class="text-slate-300">|</span>
-                <span class="font-semibold text-slate-700 whitespace-nowrap shrink-0">
-                  {{ \Carbon\Carbon::parse($eventTime)->format('H:i') . ' WIB' }}
+          <div class="text-sm text-slate-600 space-y-1">
+            @if($eventDateTime)
+              <div class="flex items-center gap-2 flex-nowrap">
+                <span class="inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
+                <span class="min-w-0 flex-1 truncate" title="{{ $eventDateTime->translatedFormat('l, d F Y') }}">
+                  {{ $eventDateTime->translatedFormat('l, d F Y') }}
                 </span>
-              @endif
-            </div>
-          @endif
-          @if(!empty($post->event_location))
-            <div class="flex items-center gap-2 text-slate-500">
-              <span class="inline-flex h-2 w-2 rounded-full bg-slate-300"></span>
-              <span>{{ $post->event_location }}</span>
-            </div>
-          @endif
+                @if($eventTime)
+                  <span class="text-slate-300">|</span>
+                  <span class="font-semibold text-slate-700 whitespace-nowrap shrink-0">
+                    {{ \Carbon\Carbon::parse($eventTime)->format('H:i') . ' WIB' }}
+                  </span>
+                @endif
+              </div>
+            @endif
+            @if(!empty($post->event_location))
+              <div class="flex items-center gap-2 text-slate-500">
+                <span class="inline-flex h-2 w-2 rounded-full bg-slate-300"></span>
+                <span>{{ $post->event_location }}</span>
+              </div>
+            @endif
+          </div>
         </div>
+
+        <span class="shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $statusClass }}">
+          {{ $statusLabel }}
+        </span>
       </div>
 
       <div class="mt-5 flex flex-wrap gap-2">

@@ -19,6 +19,7 @@ class BlSurveyResultsExportController extends Controller
         $mode         = $request->query('mode', 'overall');
         $tutorId      = $request->query('tutor');
         $supervisorId = $request->query('supervisor');
+        $allSuggestions = $request->boolean('all_suggestions');
 
         $survey = BasicListeningSurvey::query()
             ->where('category', $category)
@@ -27,7 +28,7 @@ class BlSurveyResultsExportController extends Controller
             ->orderByDesc('id')
             ->firstOrFail();
 
-        $segments = $this->buildSegments($survey, $category, $mode, $tutorId, $supervisorId);
+        $segments = $this->buildSegments($survey, $category, $mode, $tutorId, $supervisorId, $allSuggestions);
 
         // Perbaikan: Nama view disesuaikan dengan file 'resources/views/exports/bl-survey-results.blade.php'
         $pdf = Pdf::loadView('exports.bl-survey-results', [
@@ -39,25 +40,26 @@ class BlSurveyResultsExportController extends Controller
         return $pdf->download($fileName);
     }
 
-    private function buildSegments(BasicListeningSurvey $survey, string $category, string $mode, ?int $tutorId, ?int $supervisorId): array
+    private function buildSegments(BasicListeningSurvey $survey, string $category, string $mode, ?int $tutorId, ?int $supervisorId, bool $allSuggestions): array
     {
         $mode = $mode ?: 'overall';
 
         if ($mode === 'per_entity') {
-            return $this->buildPerEntitySegments($survey, $category);
+            return $this->buildPerEntitySegments($survey, $category, $allSuggestions);
         }
 
         $singleSegment = $this->buildSingleSegment(
             $survey,
             $category,
             $mode === 'single' && $category === 'tutor' ? $tutorId : null,
-            $mode === 'single' && $category === 'supervisor' ? $supervisorId : null
+            $mode === 'single' && $category === 'supervisor' ? $supervisorId : null,
+            $allSuggestions
         );
 
         return [$singleSegment];
     }
 
-    private function buildPerEntitySegments(BasicListeningSurvey $survey, string $category): array
+    private function buildPerEntitySegments(BasicListeningSurvey $survey, string $category, bool $allSuggestions): array
     {
         if ($category === 'tutor') {
             $ids = BasicListeningSurveyResponse::query()
@@ -76,7 +78,7 @@ class BlSurveyResultsExportController extends Controller
                 ->filter()
                 ->all();
         } else {
-            return [$this->buildSingleSegment($survey, $category, null, null)];
+            return [$this->buildSingleSegment($survey, $category, null, null, $allSuggestions)];
         }
 
         $segments = [];
@@ -85,7 +87,8 @@ class BlSurveyResultsExportController extends Controller
                 $survey,
                 $category,
                 $category === 'tutor' ? $id : null,
-                $category === 'supervisor' ? $id : null
+                $category === 'supervisor' ? $id : null,
+                $allSuggestions
             );
 
             if ($segment['hasResponses']) {
@@ -93,10 +96,10 @@ class BlSurveyResultsExportController extends Controller
             }
         }
 
-        return $segments ?: [$this->buildSingleSegment($survey, $category, null, null)];
+        return $segments ?: [$this->buildSingleSegment($survey, $category, null, null, $allSuggestions)];
     }
 
-    private function buildSingleSegment(BasicListeningSurvey $survey, string $category, ?int $tutorId, ?int $supervisorId): array
+    private function buildSingleSegment(BasicListeningSurvey $survey, string $category, ?int $tutorId, ?int $supervisorId, bool $allSuggestions): array
     {
         // 1. Ambil Data Statistik Per Baris (Likert)
         $rows = BasicListeningSurveyAnswer::query()
@@ -122,7 +125,7 @@ class BlSurveyResultsExportController extends Controller
             ->get();
 
         // 2. Ambil Top 5 Saran Terpanjang (Text)
-        $suggestions = BasicListeningSurveyAnswer::query()
+        $suggestionsQuery = BasicListeningSurveyAnswer::query()
             ->select([
                 'basic_listening_survey_questions.question',
                 'basic_listening_survey_answers.text_value',
@@ -135,8 +138,13 @@ class BlSurveyResultsExportController extends Controller
             ->whereNotNull('basic_listening_survey_answers.text_value')
             ->when($category === 'tutor' && $tutorId, fn($q) => $q->where('basic_listening_survey_responses.tutor_id', $tutorId))
             ->when($category === 'supervisor' && $supervisorId, fn($q) => $q->where('basic_listening_survey_responses.supervisor_id', $supervisorId))
-            ->orderByDesc('len_text')
-            ->limit(10)
+            ->orderByDesc('len_text');
+
+        if (! $allSuggestions) {
+            $suggestionsQuery->limit(10);
+        }
+
+        $suggestions = $suggestionsQuery
             ->get()
             ->map(fn ($s) => [
                 'question' => $s->question,

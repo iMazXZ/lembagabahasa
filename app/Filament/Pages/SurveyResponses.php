@@ -23,14 +23,26 @@ class SurveyResponses extends Page implements HasTable
     protected static ?int $navigationSort = 1;
     protected static string $view = 'filament.pages.survey-responses';
 
+    /** Ambil tanggal mulai periode BL (jika diset) */
+    private function getBlPeriodStartDate(): ?string
+    {
+        return \App\Models\SiteSetting::getBlPeriodStartDate();
+    }
+
     public function table(Table $table): Table
     {
+        $query = BasicListeningSurveyResponse::query()
+            ->with(['survey', 'user', 'tutor', 'supervisor'])
+            ->withCount('answers')
+            ->withAvg('answers', 'likert_value');
+
+        $startDate = $this->getBlPeriodStartDate();
+        if ($startDate) {
+            $query->where('created_at', '>=', $startDate);
+        }
+
         return $table
-            ->query(BasicListeningSurveyResponse::query()
-                ->with(['survey', 'user', 'tutor', 'supervisor'])
-                ->withCount('answers')
-                ->withAvg('answers', 'likert_value')
-            )
+            ->query($query)
             ->columns([                
                 TextColumn::make('survey.title')->label('Survey')->sortable()->searchable(),
                 
@@ -122,20 +134,26 @@ class SurveyResponses extends Page implements HasTable
     /** Statistik untuk header widget */
     public function getStats(): array
     {
-        $totalResponses = BasicListeningSurveyResponse::whereNotNull('submitted_at')->count();
+        $startDate = $this->getBlPeriodStartDate();
+        $baseQuery = BasicListeningSurveyResponse::query();
+        if ($startDate) {
+            $baseQuery->where('created_at', '>=', $startDate);
+        }
+
+        $totalResponses = (clone $baseQuery)->whereNotNull('submitted_at')->count();
         
-        $avgScore = BasicListeningSurveyResponse::query()
+        $avgScore = (clone $baseQuery)
             ->whereNotNull('submitted_at')
             ->withAvg('answers', 'likert_value')
             ->get()
             ->avg('answers_avg_likert_value');
 
-        $todayResponses = BasicListeningSurveyResponse::query()
+        $todayResponses = (clone $baseQuery)
             ->whereNotNull('submitted_at')
             ->whereDate('submitted_at', today())
             ->count();
 
-        $pendingResponses = BasicListeningSurveyResponse::whereNull('submitted_at')->count();
+        $pendingResponses = (clone $baseQuery)->whereNull('submitted_at')->count();
 
         return [
             'total' => $totalResponses,
@@ -173,6 +191,11 @@ class SurveyResponses extends Page implements HasTable
         $query = BasicListeningSurveyResponse::query()
             ->whereNull('submitted_at')
             ->with(['user', 'survey']);
+
+        $startDate = $this->getBlPeriodStartDate();
+        if ($startDate) {
+            $query->where('created_at', '>=', $startDate);
+        }
 
         $this->pendingTotal = (clone $query)->count();
 

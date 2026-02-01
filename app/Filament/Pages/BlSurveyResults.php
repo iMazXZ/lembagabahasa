@@ -90,6 +90,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                         $this->tutorId = null;
                         $this->supervisorId = null;
                         $this->feedbackLimit = 10; // Reset feedback pagination
+                        $this->resetRespondentsModal();
+                        $this->resetMissingEligibleModal();
                         if (method_exists($this, 'resetTable')) {
                             $this->resetTable();
                         }
@@ -98,39 +100,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
 
                 Forms\Components\Select::make('tutorId')
                     ->label('Pilih Tutor')
-                    ->options(function () {
-                        // Ambil survey aktif untuk kategori tutor
-                        $survey = BasicListeningSurvey::query()
-                            ->where('category', 'tutor')
-                            ->where('is_active', true)
-                            ->orderBy('sort_order')
-                            ->orderByDesc('id')
-                            ->first();
-
-                        // Hitung jumlah response per tutor
-                        $responseCounts = $survey
-                            ? BasicListeningSurveyResponse::query()
-                                ->where('survey_id', $survey->id)
-                                ->whereNotNull('tutor_id')
-                                ->selectRaw('tutor_id, COUNT(*) as count')
-                                ->groupBy('tutor_id')
-                                ->pluck('count', 'tutor_id')
-                                ->all()
-                            : [];
-
-                        return User::query()
-                            ->role('tutor')
-                            ->orderBy('name')
-                            ->get()
-                            ->mapWithKeys(function ($user) use ($responseCounts) {
-                                $count = $responseCounts[$user->id] ?? 0;
-                                $label = $count > 0 
-                                    ? "{$user->name} ({$count})" 
-                                    : $user->name;
-                                return [$user->id => $label];
-                            })
-                            ->all();
-                    })
+                    ->options(fn () => $this->tutorOptionsWithCounts())
                     ->visible(fn (Get $get) => $get('category') === 'tutor')
                     ->searchable()
                     ->preload()
@@ -138,45 +108,15 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->afterStateUpdated(function ($state) {
                         $this->tutorId = $state ? (int) $state : null;
                         $this->feedbackLimit = 10; // Reset feedback pagination
+                        $this->resetRespondentsModal();
+                        $this->resetMissingEligibleModal();
                         if (method_exists($this, 'resetTable')) $this->resetTable();
                     })
                     ->columnSpan(6),
 
                 Forms\Components\Select::make('supervisorId')
                     ->label('Pilih Supervisor')
-                    ->options(function () {
-                        // Ambil survey aktif untuk kategori supervisor
-                        $survey = BasicListeningSurvey::query()
-                            ->where('category', 'supervisor')
-                            ->where('is_active', true)
-                            ->orderBy('sort_order')
-                            ->orderByDesc('id')
-                            ->first();
-
-                        // Hitung jumlah response per supervisor
-                        $responseCounts = $survey
-                            ? BasicListeningSurveyResponse::query()
-                                ->where('survey_id', $survey->id)
-                                ->whereNotNull('supervisor_id')
-                                ->selectRaw('supervisor_id, COUNT(*) as count')
-                                ->groupBy('supervisor_id')
-                                ->pluck('count', 'supervisor_id')
-                                ->all()
-                            : [];
-
-                        return BasicListeningSupervisor::query()
-                            ->where('is_active', true)
-                            ->orderBy('name')
-                            ->get()
-                            ->mapWithKeys(function ($supervisor) use ($responseCounts) {
-                                $count = $responseCounts[$supervisor->id] ?? 0;
-                                $label = $count > 0 
-                                    ? "{$supervisor->name} ({$count})" 
-                                    : $supervisor->name;
-                                return [$supervisor->id => $label];
-                            })
-                            ->all();
-                    })
+                    ->options(fn () => $this->supervisorOptionsWithCounts())
                     ->visible(fn (Get $get) => $get('category') === 'supervisor')
                     ->searchable()
                     ->preload()
@@ -184,6 +124,8 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     ->afterStateUpdated(function ($state) {
                         $this->supervisorId = $state ? (int) $state : null;
                         $this->feedbackLimit = 10; // Reset feedback pagination
+                        $this->resetRespondentsModal();
+                        $this->resetMissingEligibleModal();
                         if (method_exists($this, 'resetTable')) $this->resetTable();
                     })
                     ->columnSpan(6),
@@ -233,6 +175,12 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         return 'danger';
     }
 
+    /** Ambil tanggal mulai periode BL (jika diset) */
+    private function getBlPeriodStartDate(): ?string
+    {
+        return \App\Models\SiteSetting::getBlPeriodStartDate();
+    }
+
     /** Query agregasi rata-rata likert per pertanyaan */
     private function buildAggregateQuery(): Builder
     {
@@ -274,6 +222,11 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->groupBy('basic_listening_survey_questions.id', 'basic_listening_survey_questions.question')
             ->orderBy('basic_listening_survey_questions.id');
 
+        $startDate = $this->getBlPeriodStartDate();
+        if ($startDate) {
+            $q->where('basic_listening_survey_responses.created_at', '>=', $startDate);
+        }
+
         // Filter tambahan berdasarkan kategori terpilih
         if ($this->category === 'tutor') {
             if ($this->tutorId) {
@@ -308,8 +261,13 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ];
         }
 
+        $startDate = $this->getBlPeriodStartDate();
+
         // Build base query untuk responses
         $respQuery = BasicListeningSurveyResponse::query()->where('survey_id', $survey->id);
+        if ($startDate) {
+            $respQuery->where('created_at', '>=', $startDate);
+        }
 
         if ($this->category === 'tutor' && $this->tutorId) {
             $respQuery->where('tutor_id', $this->tutorId);
@@ -324,6 +282,11 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             $query->select('id')
                 ->from('basic_listening_survey_responses')
                 ->where('survey_id', $survey->id);
+
+            $startDate = $this->getBlPeriodStartDate();
+            if ($startDate) {
+                $query->where('created_at', '>=', $startDate);
+            }
 
             if ($this->category === 'tutor' && $this->tutorId) {
                 $query->where('tutor_id', $this->tutorId);
@@ -361,6 +324,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->where('r.survey_id', $survey->id)
             ->when($this->category === 'tutor' && $this->tutorId, fn($q) => $q->where('r.tutor_id', $this->tutorId))
             ->when($this->category === 'supervisor' && $this->supervisorId, fn($q) => $q->where('r.supervisor_id', $this->supervisorId))
+            ->when($startDate, fn ($q) => $q->where('r.created_at', '>=', $startDate))
             ->whereNotNull('a.likert_value')
             ->groupBy('a.question_id')
             ->havingRaw('AVG(a.likert_value) < 3.5')
@@ -371,12 +335,35 @@ class BlSurveyResults extends Page implements HasForms, HasTable
 
         return [
             'avg'               => $avg ? number_format((float) $avg, 2) : null,
-            'respondents'       => $respQuery->count(),
+            'respondents'       => (clone $respQuery)->distinct('user_id')->count('user_id'),
             'likertDistribution'=> $distribution,
             'lowScoreCount'     => $lowScoreQuestions,
             'totalQuestions'    => $totalQuestions,
         ];
     }
+
+    /** Total peserta eligible (nilai lengkap) yang belum submit kuesioner */
+    public function getMissingEligibleCount(): int
+    {
+        $query = $this->buildMissingEligibleQuery();
+        if (! $query) {
+            return 0;
+        }
+
+        return (clone $query)->distinct('users.id')->count('users.id');
+    }
+
+    /** State untuk modal daftar responden */
+    public bool $showRespondentsModal = false;
+    public array $respondents = [];
+    public int $respondentsLimit = 20;
+    public int $respondentsTotal = 0;
+
+    /** State untuk modal daftar belum isi (nilai lengkap) */
+    public bool $showMissingEligibleModal = false;
+    public array $missingEligibleUsers = [];
+    public int $missingEligibleLimit = 20;
+    public int $missingEligibleTotal = 0;
 
     /** State untuk modal detail Likert */
     public bool $showLikertModal = false;
@@ -388,6 +375,218 @@ class BlSurveyResults extends Page implements HasForms, HasTable
     /** State untuk feedback (kritik & saran) */
     public int $feedbackLimit = 10;
     public int $feedbackTotal = 0;
+
+    /** Query user eligible yang belum submit (khusus kategori tutor) */
+    private function buildMissingEligibleQuery(): ?Builder
+    {
+        if ($this->category !== 'tutor' || ! $this->tutorId) {
+            return null;
+        }
+
+        $survey = BasicListeningSurvey::query()
+            ->where('category', $this->category)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $survey) {
+            return null;
+        }
+
+        $prodyIds = DB::table('tutor_prody')
+            ->where('user_id', $this->tutorId)
+            ->pluck('prody_id')
+            ->all();
+
+        if (empty($prodyIds)) {
+            return null;
+        }
+
+        $startDate = $this->getBlPeriodStartDate();
+        $sessionId = $survey->target === 'session' ? $survey->session_id : null;
+
+        return User::query()
+            ->leftJoin('prodies as p', 'users.prody_id', '=', 'p.id')
+            ->join('basic_listening_grades as g', function ($join) {
+                $join->on('g.user_id', '=', 'users.id')
+                    ->on('g.user_year', '=', 'users.year');
+            })
+            ->whereIn('users.prody_id', $prodyIds)
+            ->whereNotNull('users.srn')
+            ->whereNotNull('g.attendance')
+            ->whereNotNull('g.final_test')
+            ->whereNotExists(function ($q) use ($survey, $startDate, $sessionId) {
+                $q->select(DB::raw(1))
+                    ->from('basic_listening_survey_responses as r')
+                    ->whereColumn('r.user_id', 'users.id')
+                    ->where('r.survey_id', $survey->id)
+                    ->whereNotNull('r.submitted_at')
+                    ->where('r.tutor_id', $this->tutorId)
+                    ->when($startDate, fn ($sub) => $sub->where('r.created_at', '>=', $startDate));
+
+                if ($sessionId) {
+                    $q->where('r.session_id', $sessionId);
+                } else {
+                    $q->whereNull('r.session_id');
+                }
+            })
+            ->select([
+                'users.id',
+                'users.name',
+                'users.email',
+                'users.whatsapp',
+                'users.srn',
+                'p.name as prody_name',
+                'g.attendance',
+                'g.final_test',
+                'g.final_numeric_cached',
+                'g.final_letter_cached',
+            ])
+            ->orderBy('users.name');
+    }
+
+    /** Tampilkan modal daftar belum isi (nilai lengkap) */
+    public function showMissingEligibleDetail(): void
+    {
+        $query = $this->buildMissingEligibleQuery();
+        if (! $query) {
+            $this->missingEligibleTotal = 0;
+            $this->missingEligibleUsers = [];
+            $this->showMissingEligibleModal = true;
+            return;
+        }
+
+        $this->missingEligibleTotal = (clone $query)->distinct('users.id')->count('users.id');
+        $this->missingEligibleUsers = (clone $query)
+            ->limit($this->missingEligibleLimit)
+            ->get()
+            ->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'srn' => $u->srn,
+                'prody_name' => $u->prody_name,
+                'whatsapp' => $u->whatsapp,
+                'email' => $u->email,
+                'final_numeric' => $u->final_numeric_cached,
+                'final_letter' => $u->final_letter_cached,
+            ])
+            ->toArray();
+
+        $this->showMissingEligibleModal = true;
+    }
+
+    /** Load more list belum isi */
+    public function loadMoreMissingEligible(): void
+    {
+        $this->missingEligibleLimit += 20;
+        $this->showMissingEligibleDetail();
+    }
+
+    /** Tutup modal belum isi */
+    public function closeMissingEligibleModal(): void
+    {
+        $this->resetMissingEligibleModal();
+    }
+
+    /** Reset state modal belum isi */
+    private function resetMissingEligibleModal(): void
+    {
+        $this->showMissingEligibleModal = false;
+        $this->missingEligibleUsers = [];
+        $this->missingEligibleLimit = 20;
+        $this->missingEligibleTotal = 0;
+    }
+
+    /** Tampilkan modal daftar responden */
+    public function showRespondentsDetail(): void
+    {
+        $survey = BasicListeningSurvey::query()
+            ->where('category', $this->category)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $survey) {
+            $this->respondents = [];
+            $this->respondentsTotal = 0;
+            $this->showRespondentsModal = true;
+            return;
+        }
+
+        $startDate = $this->getBlPeriodStartDate();
+        $responseBase = BasicListeningSurveyResponse::query()
+            ->where('survey_id', $survey->id);
+        if ($startDate) {
+            $responseBase->where('created_at', '>=', $startDate);
+        }
+
+        if ($this->category === 'tutor' && $this->tutorId) {
+            $responseBase->where('tutor_id', $this->tutorId);
+        }
+
+        if ($this->category === 'supervisor' && $this->supervisorId) {
+            $responseBase->where('supervisor_id', $this->supervisorId);
+        }
+
+        $this->respondentsTotal = (clone $responseBase)->distinct('user_id')->count('user_id');
+
+        $respondentsQuery = User::query()
+            ->join('basic_listening_survey_responses as r', 'r.user_id', '=', 'users.id')
+            ->leftJoin('prodies as p', 'users.prody_id', '=', 'p.id')
+            ->where('r.survey_id', $survey->id)
+            ->when($startDate, fn ($q) => $q->where('r.created_at', '>=', $startDate))
+            ->when($this->category === 'tutor' && $this->tutorId, fn ($q) => $q->where('r.tutor_id', $this->tutorId))
+            ->when($this->category === 'supervisor' && $this->supervisorId, fn ($q) => $q->where('r.supervisor_id', $this->supervisorId))
+            ->select([
+                'users.id',
+                'users.name',
+                'users.email',
+                'users.srn',
+                'users.whatsapp',
+                'p.name as prody_name',
+            ])
+            ->groupBy('users.id', 'users.name', 'users.email', 'users.srn', 'users.whatsapp', 'p.name')
+            ->orderBy('users.name')
+            ->limit($this->respondentsLimit);
+
+        $this->respondents = $respondentsQuery
+            ->get()
+            ->map(fn ($user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'srn' => $user->srn,
+                'whatsapp' => $user->whatsapp,
+                'prody_name' => $user->prody_name,
+            ])
+            ->toArray();
+
+        $this->showRespondentsModal = true;
+    }
+
+    /** Load more responden */
+    public function loadMoreRespondents(): void
+    {
+        $this->respondentsLimit += 20;
+        $this->showRespondentsDetail();
+    }
+
+    /** Tutup modal responden */
+    public function closeRespondentsModal(): void
+    {
+        $this->resetRespondentsModal();
+    }
+
+    /** Reset state modal responden */
+    private function resetRespondentsModal(): void
+    {
+        $this->showRespondentsModal = false;
+        $this->respondents = [];
+        $this->respondentsLimit = 20;
+        $this->respondentsTotal = 0;
+    }
 
     /** Tampilkan modal dengan daftar responden berdasarkan nilai Likert */
     public function showLikertDetail(int $likertValue): void
@@ -405,12 +604,16 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         }
 
         // Query untuk mendapatkan responden yang memberikan nilai tertentu
+        $startDate = $this->getBlPeriodStartDate();
         $query = BasicListeningSurveyAnswer::query()
             ->join('basic_listening_survey_responses as r', 'basic_listening_survey_answers.response_id', '=', 'r.id')
             ->join('users as u', 'r.user_id', '=', 'u.id')
             ->join('basic_listening_survey_questions as q', 'basic_listening_survey_answers.question_id', '=', 'q.id')
             ->where('r.survey_id', $survey->id)
             ->where('basic_listening_survey_answers.likert_value', $likertValue);
+        if ($startDate) {
+            $query->where('r.created_at', '>=', $startDate);
+        }
 
         if ($this->category === 'tutor' && $this->tutorId) {
             $query->where('r.tutor_id', $this->tutorId);
@@ -482,6 +685,7 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             return [];
         }
 
+        $startDate = $this->getBlPeriodStartDate();
         $query = BasicListeningSurveyAnswer::query()
             ->join('basic_listening_survey_responses as r', 'basic_listening_survey_answers.response_id', '=', 'r.id')
             ->join('users as u', 'r.user_id', '=', 'u.id')
@@ -492,6 +696,9 @@ class BlSurveyResults extends Page implements HasForms, HasTable
             ->whereIn('basic_listening_survey_answers.question_id', $textQuestionIds)
             ->whereNotNull('basic_listening_survey_answers.text_value')
             ->where('basic_listening_survey_answers.text_value', '!=', '');
+        if ($startDate) {
+            $query->where('r.created_at', '>=', $startDate);
+        }
 
         // Filter berdasarkan kategori
         if ($this->category === 'tutor' && $this->tutorId) {
@@ -537,6 +744,74 @@ class BlSurveyResults extends Page implements HasForms, HasTable
         return [];
     }
 
+    /** Opsi tutor dengan jumlah respon (ikut filter period) */
+    private function tutorOptionsWithCounts(): array
+    {
+        $startDate = $this->getBlPeriodStartDate();
+        $survey = BasicListeningSurvey::query()
+            ->where('category', 'tutor')
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->first();
+
+        $responseCounts = $survey
+            ? BasicListeningSurveyResponse::query()
+                ->where('survey_id', $survey->id)
+                ->whereNotNull('tutor_id')
+                ->when($startDate, fn ($q) => $q->where('created_at', '>=', $startDate))
+                ->selectRaw('tutor_id, COUNT(*) as count')
+                ->groupBy('tutor_id')
+                ->pluck('count', 'tutor_id')
+                ->all()
+            : [];
+
+        return User::query()
+            ->role('tutor')
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function ($user) use ($responseCounts) {
+                $count = $responseCounts[$user->id] ?? 0;
+                $label = $count > 0 ? "{$user->name} ({$count})" : $user->name;
+                return [$user->id => $label];
+            })
+            ->all();
+    }
+
+    /** Opsi supervisor dengan jumlah respon (ikut filter period) */
+    private function supervisorOptionsWithCounts(): array
+    {
+        $startDate = $this->getBlPeriodStartDate();
+        $survey = BasicListeningSurvey::query()
+            ->where('category', 'supervisor')
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->first();
+
+        $responseCounts = $survey
+            ? BasicListeningSurveyResponse::query()
+                ->where('survey_id', $survey->id)
+                ->whereNotNull('supervisor_id')
+                ->when($startDate, fn ($q) => $q->where('created_at', '>=', $startDate))
+                ->selectRaw('supervisor_id, COUNT(*) as count')
+                ->groupBy('supervisor_id')
+                ->pluck('count', 'supervisor_id')
+                ->all()
+            : [];
+
+        return BasicListeningSupervisor::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function ($supervisor) use ($responseCounts) {
+                $count = $responseCounts[$supervisor->id] ?? 0;
+                $label = $count > 0 ? "{$supervisor->name} ({$count})" : $supervisor->name;
+                return [$supervisor->id => $label];
+            })
+            ->all();
+    }
+
     /** Tombol header */
     protected function getHeaderActions(): array
     {
@@ -576,22 +851,21 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                         ->columnSpanFull()
                         ->helperText('Pilih “Per …” untuk satu file dengan halaman terpisah per entitas, atau pilih salah satu entitas saja.'),
 
+                    Forms\Components\Toggle::make('all_suggestions')
+                        ->label('Semua Saran')
+                        ->helperText('Jika aktif, tampilkan semua saran (bukan hanya Top 10).')
+                        ->default(false),
+
                     Select::make('tutor')
                         ->label('Tutor (opsional)')
-                        ->options(fn () => User::query()
-                            ->role('tutor')
-                            ->orderBy('name')
-                            ->pluck('name', 'id'))
+                        ->options(fn () => $this->tutorOptionsWithCounts())
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get) => $get('category') === 'tutor' && $get('mode') === 'single'),
 
                     Select::make('supervisor')
                         ->label('Supervisor (opsional)')
-                        ->options(fn () => BasicListeningSupervisor::query()
-                            ->where('is_active', true)
-                            ->orderBy('name')
-                            ->pluck('name', 'id'))
+                        ->options(fn () => $this->supervisorOptionsWithCounts())
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get) => $get('category') === 'supervisor' && $get('mode') === 'single'),
@@ -601,12 +875,14 @@ class BlSurveyResults extends Page implements HasForms, HasTable
                     $category = $data['category'] ?? 'tutor';
                     $tutor = $mode === 'single' && $category === 'tutor' ? ($data['tutor'] ?? null) : null;
                     $supervisor = $mode === 'single' && $category === 'supervisor' ? ($data['supervisor'] ?? null) : null;
+                    $allSuggestions = ! empty($data['all_suggestions']);
 
                     return redirect()->route('bl.survey-results.export', [
                         'category'   => $category,
                         'mode'       => $mode,
                         'tutor'      => $tutor,
                         'supervisor' => $supervisor,
+                        'all_suggestions' => $allSuggestions ? 1 : 0,
                     ]);
                 }),
         ];
