@@ -45,6 +45,12 @@
     // Logic untuk menampilkan Basic Listening menu
     // Tampilkan hanya jika: tahun 2025+, bukan S2, dan sudah isi biodata dasar
     $showBasicListening = $hasBasicInfo && $yearInt >= 2025 && !$isS2;
+
+    // EPT Registration eligibility (configurable via SiteSettings)
+    $eptEligibility = \App\Models\SiteSetting::checkEptEligibility($user);
+    $canRegisterEpt = $eptEligibility[0] ?? false;
+    $eptRegistration = \App\Models\EptRegistration::where('user_id', $user->id)->latest()->first();
+    $showEptWidget = $canRegisterEpt || $eptRegistration;
 @endphp
 
 <div class="space-y-6">
@@ -313,11 +319,8 @@
         </div>
     @endif
 
-    {{-- SECTION: EPT Registration Widget (S2 Only) - PROMINENT --}}
-    @php
-        $eptRegistration = $isS2 ? \App\Models\EptRegistration::where('user_id', $user->id)->latest()->first() : null;
-    @endphp
-    @if($isS2 && $biodataLengkap)
+    {{-- SECTION: EPT Registration Widget --}}
+    @if($showEptWidget)
         @if(!$eptRegistration)
             {{-- Belum Daftar - Banner Biru Mencolok --}}
             <div class="relative overflow-hidden bg-um-blue rounded-2xl shadow-lg p-6 lg:p-8 mb-6">

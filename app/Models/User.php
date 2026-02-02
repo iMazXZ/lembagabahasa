@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Support\Facades\DB;
+use App\Models\Penerjemahan;
 
 class User extends Authenticatable implements HasAvatar, FilamentUser
 {
@@ -204,6 +206,22 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         }
 
         return false;
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (self $user) {
+            // Hapus data yang tidak punya FK cascade.
+            $user->penerjemahans()->delete();
+            Penerjemahan::where('translator_id', $user->id)->update(['translator_id' => null]);
+
+            $user->tokens()->delete();
+            DatabaseNotification::where('notifiable_id', $user->id)
+                ->where('notifiable_type', self::class)
+                ->delete();
+
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        });
     }
 
 }

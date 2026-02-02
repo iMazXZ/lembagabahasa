@@ -33,6 +33,11 @@
     }
   </script>
 
+  @php($frontHeadScript = \App\Models\SiteSetting::get('front_head_script'))
+  @if(!empty($frontHeadScript))
+    {!! $frontHeadScript !!}
+  @endif
+
   @stack('styles')
   <style>
     [x-cloak] { display: none !important; } /* Untuk AlpineJS loading */
@@ -53,6 +58,10 @@
   </style>
 </head>
 <body class="bg-white text-gray-900 antialiased flex flex-col min-h-screen"> 
+  @php($frontBodyScript = \App\Models\SiteSetting::get('front_body_script'))
+  @if(!empty($frontBodyScript))
+    {!! $frontBodyScript !!}
+  @endif
 
   {{-- Navbar global --}}
   @include('partials.navbar')
@@ -81,5 +90,9 @@
   </script>
 
   @stack('scripts')
+  @php($frontFooterScript = \App\Models\SiteSetting::get('front_footer_script'))
+  @if(!empty($frontFooterScript))
+    {!! $frontFooterScript !!}
+  @endif
 </body>
 </html>

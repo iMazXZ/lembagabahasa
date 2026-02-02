@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\EptRegistration;
+use App\Models\SiteSetting;
 use App\Support\ImageTransformer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -15,16 +16,14 @@ class EptRegistrationController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
-        // Check S2 requirement
-        $isS2 = $user->prody && str_starts_with($user->prody->name ?? '', 'S2');
-        if (!$isS2) {
-            abort(403, 'Fitur ini hanya tersedia untuk mahasiswa S2.');
-        }
-        
+
         $registration = EptRegistration::where('user_id', $user->id)
             ->latest()
             ->first();
+
+        if (! $registration) {
+            $this->ensureEligibility($user);
+        }
         
         return view('dashboard.ept-registration.index', [
             'user' => $user,
@@ -35,11 +34,8 @@ class EptRegistrationController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        
-        $isS2 = $user->prody && str_starts_with($user->prody->name ?? '', 'S2');
-        if (!$isS2) {
-            abort(403, 'Fitur ini hanya tersedia untuk mahasiswa S2.');
-        }
+
+        $this->ensureEligibility($user);
         
         $existing = EptRegistration::where('user_id', $user->id)
             ->whereIn('status', ['pending', 'approved'])
@@ -118,5 +114,13 @@ class EptRegistrationController extends Controller
         $pdf->setPaper('a4', 'portrait');
         
         return $pdf->download('Kartu_Peserta_EPT_' . Str::slug($user->name) . '_Jadwal' . $jadwalNum . '.pdf');
+    }
+
+    private function ensureEligibility($user): void
+    {
+        [$allowed, $reason] = SiteSetting::checkEptEligibility($user);
+        if (! $allowed) {
+            abort(403, $reason ?? 'Anda tidak memenuhi syarat pendaftaran EPT.');
+        }
     }
 }

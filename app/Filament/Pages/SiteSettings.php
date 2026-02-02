@@ -3,11 +3,16 @@
 namespace App\Filament\Pages;
 
 use App\Models\SiteSetting;
+use App\Models\Prody;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
@@ -51,6 +56,15 @@ class SiteSettings extends Page implements HasForms
             'bl_quiz_enabled' => SiteSetting::isBlQuizEnabled(),
             'bl_period_start_date' => SiteSetting::getBlPeriodStartDate(),
             'bl_active_batch' => SiteSetting::get('bl_active_batch', now()->format('y')),
+            'ept_all_prody' => SiteSetting::get('ept_all_prody', false),
+            'ept_allowed_prody_ids' => SiteSetting::get('ept_allowed_prody_ids', []),
+            'ept_allowed_prody_prefixes' => SiteSetting::get('ept_allowed_prody_prefixes', ['S2']),
+            'ept_require_whatsapp' => SiteSetting::get('ept_require_whatsapp', false),
+            'ept_require_role_pendaftar' => SiteSetting::get('ept_require_role_pendaftar', false),
+            'ept_require_biodata' => SiteSetting::get('ept_require_biodata', false),
+            'front_head_script' => SiteSetting::get('front_head_script', ''),
+            'front_body_script' => SiteSetting::get('front_body_script', ''),
+            'front_footer_script' => SiteSetting::get('front_footer_script', ''),
         ]);
     }
 
@@ -119,6 +133,75 @@ class SiteSettings extends Page implements HasForms
                             ->required(),
                     ])
                     ->columns(1),
+
+                Section::make('EPT Registration')
+                    ->description('Atur syarat pendaftaran EPT dari dashboard pendaftar')
+                    ->icon('heroicon-o-clipboard-document-check')
+                    ->schema([
+                        Toggle::make('ept_all_prody')
+                            ->label('Semua Prodi Boleh Daftar')
+                            ->helperText('Jika aktif, semua prodi bisa mendaftar EPT.')
+                            ->onColor('success')
+                            ->offColor('gray'),
+
+                        Select::make('ept_allowed_prody_ids')
+                            ->label('Daftar Prodi yang Diizinkan')
+                            ->helperText('Jika diisi, hanya prodi ini yang boleh mendaftar. Jika kosong, akan pakai prefix.')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->options(fn () => Prody::query()->orderBy('name')->pluck('name', 'id'))
+                            ->disabled(fn (Get $get) => (bool) $get('ept_all_prody')),
+
+                        TagsInput::make('ept_allowed_prody_prefixes')
+                            ->label('Prefix Prodi yang Diizinkan')
+                            ->helperText('Contoh: S2, Profesi, Magister. Akan diabaikan jika daftar prodi diisi.')
+                            ->placeholder('Tambah prefix')
+                            ->disabled(fn (Get $get) => (bool) $get('ept_all_prody')),
+
+                        Toggle::make('ept_require_whatsapp')
+                            ->label('WhatsApp Wajib')
+                            ->helperText('Jika aktif, user wajib mengisi (dan verifikasi jika OTP aktif) nomor WhatsApp.')
+                            ->onColor('success')
+                            ->offColor('gray'),
+
+                        Toggle::make('ept_require_role_pendaftar')
+                            ->label('Role Pendaftar Saja')
+                            ->helperText('Jika aktif, hanya role pendaftar yang boleh mendaftar EPT.')
+                            ->onColor('success')
+                            ->offColor('gray'),
+
+                        Toggle::make('ept_require_biodata')
+                            ->label('Biodata Wajib')
+                            ->helperText('Jika aktif, biodata harus lengkap sebelum bisa mendaftar EPT.')
+                            ->onColor('success')
+                            ->offColor('gray'),
+                    ])
+                    ->columns(1),
+
+                Section::make('Script Front Site')
+                    ->description('Tambahkan script tracking untuk halaman front site.')
+                    ->icon('heroicon-o-code-bracket-square')
+                    ->schema([
+                        Textarea::make('front_head_script')
+                            ->label('Script Head')
+                            ->helperText('Akan disisipkan di <head> (contoh: tag <script> tracking).')
+                            ->rows(5)
+                            ->autosize(),
+
+                        Textarea::make('front_body_script')
+                            ->label('Script Body (Top)')
+                            ->helperText('Akan disisipkan tepat setelah <body>. Cocok untuk <noscript>.')
+                            ->rows(5)
+                            ->autosize(),
+
+                        Textarea::make('front_footer_script')
+                            ->label('Script Footer')
+                            ->helperText('Akan disisipkan sebelum </body>.')
+                            ->rows(5)
+                            ->autosize(),
+                    ])
+                    ->columns(1),
             ])
             ->statePath('data');
     }
@@ -134,6 +217,15 @@ class SiteSettings extends Page implements HasForms
         SiteSetting::set('bl_quiz_enabled', $data['bl_quiz_enabled'] ?? true);
         SiteSetting::set('bl_period_start_date', $data['bl_period_start_date'] ?? null);
         SiteSetting::set('bl_active_batch', $data['bl_active_batch'] ?? now()->format('y'));
+        SiteSetting::set('ept_all_prody', $data['ept_all_prody'] ?? false);
+        SiteSetting::set('ept_allowed_prody_ids', $data['ept_allowed_prody_ids'] ?? []);
+        SiteSetting::set('ept_allowed_prody_prefixes', $data['ept_allowed_prody_prefixes'] ?? []);
+        SiteSetting::set('ept_require_whatsapp', $data['ept_require_whatsapp'] ?? false);
+        SiteSetting::set('ept_require_role_pendaftar', $data['ept_require_role_pendaftar'] ?? false);
+        SiteSetting::set('ept_require_biodata', $data['ept_require_biodata'] ?? false);
+        SiteSetting::set('front_head_script', $data['front_head_script'] ?? '');
+        SiteSetting::set('front_body_script', $data['front_body_script'] ?? '');
+        SiteSetting::set('front_footer_script', $data['front_footer_script'] ?? '');
 
         // Clear all cache
         SiteSetting::clearCache();

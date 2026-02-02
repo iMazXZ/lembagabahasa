@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use App\Models\User;
 
 class SiteSetting extends Model
 {
@@ -39,6 +40,10 @@ class SiteSetting extends Model
 
         if (!$setting) {
             return false;
+        }
+
+        if (is_array($value)) {
+            $value = json_encode($value);
         }
 
         // Convert boolean to string for storage
@@ -136,5 +141,148 @@ class SiteSetting extends Model
     public static function getBlPeriodStartDate(): ?string
     {
         return static::get('bl_period_start_date', null);
+    }
+
+    // ============================================================
+    // EPT REGISTRATION SETTINGS
+    // ============================================================
+
+    public static function isEptAllProdyEnabled(): bool
+    {
+        return (bool) static::get('ept_all_prody', false);
+    }
+
+    public static function getEptAllowedProdyIds(): array
+    {
+        $ids = static::get('ept_allowed_prody_ids', []);
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('intval', $ids)));
+    }
+
+    public static function getEptAllowedProdyPrefixes(): array
+    {
+        $prefixes = static::get('ept_allowed_prody_prefixes', []);
+        if (is_string($prefixes)) {
+            $prefixes = array_map('trim', explode(',', $prefixes));
+        }
+        if (! is_array($prefixes)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($prefixes as $prefix) {
+            $prefix = trim((string) $prefix);
+            if ($prefix === '') {
+                continue;
+            }
+            $normalized[] = strtolower($prefix);
+        }
+
+        return array_values(array_unique($normalized));
+    }
+
+    public static function isEptRequireWhatsApp(): bool
+    {
+        return (bool) static::get('ept_require_whatsapp', false);
+    }
+
+    public static function isEptRequireRolePendaftar(): bool
+    {
+        return (bool) static::get('ept_require_role_pendaftar', false);
+    }
+
+    public static function isEptRequireBiodata(): bool
+    {
+        return (bool) static::get('ept_require_biodata', false);
+    }
+
+    public static function isEptBiodataComplete(User $user): bool
+    {
+        $hasBasicInfo = $user->prody_id && $user->srn && $user->year;
+        if (! $hasBasicInfo) {
+            return false;
+        }
+
+        $yearInt = (int) $user->year;
+        $prodyName = $user->prody?->name ?? '';
+        $isS2 = $prodyName !== '' && str_starts_with($prodyName, 'S2');
+        $isPBI = $prodyName === 'Pendidikan Bahasa Inggris';
+        $prodiIslam = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
+        $isProdiIslam = $prodyName !== '' && in_array($prodyName, $prodiIslam, true);
+        $needsNilai = $yearInt && $yearInt <= 2024 && ! $isS2;
+
+        if (! $needsNilai) {
+            return true;
+        }
+
+        if ($isPBI) {
+            return is_numeric($user->interactive_class_1 ?? null)
+                && is_numeric($user->interactive_class_6 ?? null);
+        }
+
+        if ($isProdiIslam) {
+            return is_numeric($user->interactive_bahasa_arab_1 ?? null)
+                && is_numeric($user->interactive_bahasa_arab_2 ?? null);
+        }
+
+        return is_numeric($user->nilaibasiclistening ?? null);
+    }
+
+    public static function checkEptEligibility(User $user): array
+    {
+        if (static::isEptRequireRolePendaftar() && ! $user->hasRole('pendaftar')) {
+            return [false, 'Fitur ini hanya untuk role pendaftar.'];
+        }
+
+        if (static::isEptRequireWhatsApp() && ! static::hasValidWhatsapp($user)) {
+            return [false, 'Nomor WhatsApp wajib diisi dan diverifikasi.'];
+        }
+
+        if (static::isEptRequireBiodata() && ! static::isEptBiodataComplete($user)) {
+            return [false, 'Biodata belum lengkap.'];
+        }
+
+        if (static::isEptAllProdyEnabled()) {
+            return [true, null];
+        }
+
+        if (! $user->prody_id || ! $user->prody?->name) {
+            return [false, 'Prodi belum diisi.'];
+        }
+
+        $allowedIds = static::getEptAllowedProdyIds();
+        if (! empty($allowedIds)) {
+            return [in_array((int) $user->prody_id, $allowedIds, true), 'Prodi belum diizinkan.'];
+        }
+
+        $prefixes = static::getEptAllowedProdyPrefixes();
+        if (! empty($prefixes)) {
+            $name = strtolower($user->prody->name ?? '');
+            foreach ($prefixes as $prefix) {
+                if ($prefix !== '' && str_starts_with($name, $prefix)) {
+                    return [true, null];
+                }
+            }
+            return [false, 'Prodi belum diizinkan.'];
+        }
+
+        return [false, 'Akses EPT belum dibuka untuk prodi manapun.'];
+    }
+
+    public static function canUserRegisterEpt(User $user): bool
+    {
+        return static::checkEptEligibility($user)[0] ?? false;
+    }
+
+    protected static function hasValidWhatsapp(User $user): bool
+    {
+        if (static::isOtpEnabled()) {
+            return ! empty($user->whatsapp_verified_at);
+        }
+
+        return ! empty($user->whatsapp);
     }
 }
