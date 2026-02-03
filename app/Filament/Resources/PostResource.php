@@ -15,8 +15,9 @@ use Filament\Forms\Components\{
     Section, Group, Textarea, Grid
 };
 use Filament\Tables\Columns\{TextColumn, ImageColumn, IconColumn, ToggleColumn};
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Forms\{Get, Set};
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use FilamentTiptapEditor\TiptapEditor;
 use Filament\Forms\Components\Actions\Action;
@@ -309,13 +310,67 @@ class PostResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('type')
-                    ->label('Kategori')
-                    ->options(\App\Models\Post::TYPES),
-
                 Tables\Filters\TernaryFilter::make('is_published')
-                    ->label('Status Publikasi'),
+                    ->label('Status Publikasi')
+                    ->placeholder('Semua')
+                    ->trueLabel('Tayang')
+                    ->falseLabel('Draft'),
+
+                Tables\Filters\Filter::make('published_range')
+                    ->label('Rentang Tayang')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')
+                            ->label('Dari Tanggal'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('Sampai Tanggal'),
+                    ])
+                    ->indicateUsing(function (array $data): ?string {
+                        $from = $data['from'] ?? null;
+                        $until = $data['until'] ?? null;
+
+                        if ($from && $until) {
+                            return "Tayang: {$from} s/d {$until}";
+                        }
+
+                        if ($from) {
+                            return "Tayang ≥ {$from}";
+                        }
+
+                        if ($until) {
+                            return "Tayang ≤ {$until}";
+                        }
+
+                        return null;
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        $from = $data['from'] ?? null;
+                        $until = $data['until'] ?? null;
+
+                        if ($from) {
+                            $query->whereDate('published_at', '>=', $from);
+                        }
+
+                        if ($until) {
+                            $query->whereDate('published_at', '<=', $until);
+                        }
+
+                        return $query;
+                    }),
+            ], layout: FiltersLayout::AboveContentCollapsible)
+            ->persistFiltersInSession()
+            ->groups([
+                Tables\Grouping\Group::make('type')
+                    ->label('Kategori')
+                    ->titlePrefixedWithLabel(false)
+                    ->getTitleFromRecordUsing(fn (Post $record): string => Post::TYPES[$record->type] ?? ucfirst((string) $record->type))
+                    ->collapsible(),
+
+                Tables\Grouping\Group::make('published_at')
+                    ->label('Tanggal Tayang')
+                    ->date()
+                    ->collapsible(),
             ])
+            ->defaultGroup('type')
             ->defaultSort('published_at', 'desc')
             ->actions([
                 Tables\Actions\Action::make('view_public')

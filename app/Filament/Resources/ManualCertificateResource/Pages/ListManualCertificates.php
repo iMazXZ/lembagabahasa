@@ -5,16 +5,42 @@ namespace App\Filament\Resources\ManualCertificateResource\Pages;
 use App\Filament\Resources\ManualCertificateResource;
 use App\Imports\ManualCertificateImport;
 use App\Models\CertificateCategory;
+use App\Models\ManualCertificate;
 use Filament\Actions;
+use Filament\Actions\CreateAction;
 use Filament\Forms;
-use Filament\Forms\Get;
+use Filament\Resources\Components\Tab;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables;
+use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ListManualCertificates extends ListRecords
 {
     protected static string $resource = ManualCertificateResource::class;
+
+    public function getTabs(): array
+    {
+        $tabs = [
+            'all' => Tab::make('Semua')
+                ->badge(ManualCertificate::query()->count()),
+        ];
+
+        $categories = CertificateCategory::query()
+            ->withCount('certificates')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (CertificateCategory $category): bool => $category->is_active || $category->certificates_count > 0);
+
+        foreach ($categories as $category) {
+            $tabs['category_' . $category->id] = Tab::make($category->name)
+                ->badge($category->certificates_count)
+                ->query(fn (Builder $query): Builder => $query->where('category_id', $category->id));
+        }
+
+        return $tabs;
+    }
 
     protected function getHeaderActions(): array
     {
@@ -23,6 +49,9 @@ class ListManualCertificates extends ListRecords
                 ->label('Import CSV')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('success')
+                ->slideOver()
+                ->modalHeading('Import CSV Sertifikat Manual')
+                ->modalSubmitActionLabel('Import Sekarang')
                 ->form([
                     Forms\Components\FileUpload::make('file')
                         ->label('File CSV')
@@ -30,31 +59,12 @@ class ListManualCertificates extends ListRecords
                         ->required()
                         ->disk('local')
                         ->directory('temp-imports')
-                        ->helperText('Upload file CSV dengan kolom: Names, SRN, Listening Ave, Speaking Ave, Reading Ave, Writing Ave, Phonetics Ave, Grammar Ave, Vocabulary Ave'),
+                        ->helperText('Format baru: NO INDUK, GROUP, NO ABSN, SRN, NAME, LIST, SPEAK, READ, WRIT, PHON, VOC, STRU, TTL, AVE, HRF, BLN, TAHUN, SEM, PRED'),
 
                     Forms\Components\Select::make('category_id')
                         ->label('Kategori Sertifikat')
                         ->options(CertificateCategory::where('is_active', true)->pluck('name', 'id'))
-                        ->required()
-                        ->live()
-                        ->afterStateUpdated(fn(Forms\Set $set) => $set('semester', null)),
-
-                    Forms\Components\Select::make('semester')
-                        ->label('Semester')
-                        ->options(function (Get $get) {
-                            $categoryId = $get('category_id');
-                            if (!$categoryId) return [];
-                            
-                            $category = CertificateCategory::find($categoryId);
-                            return $category?->getSemesterOptions() ?? [];
-                        })
-                        ->visible(function (Get $get) {
-                            $categoryId = $get('category_id');
-                            if (!$categoryId) return false;
-                            
-                            $category = CertificateCategory::find($categoryId);
-                            return !empty($category?->semesters);
-                        }),
+                        ->required(),
 
                     Forms\Components\DatePicker::make('issued_at')
                         ->label('Tanggal Terbit')
@@ -80,7 +90,7 @@ class ListManualCertificates extends ListRecords
                     try {
                         $import = new ManualCertificateImport(
                             categoryId: $data['category_id'],
-                            semester: $data['semester'] ?? null,
+                            semester: null,
                             issuedAt: $data['issued_at'],
                             studyProgram: $data['study_program'] ?? null
                         );
@@ -107,5 +117,17 @@ class ListManualCertificates extends ListRecords
 
             Actions\CreateAction::make(),
         ];
+    }
+
+    protected function configureCreateAction(CreateAction | Tables\Actions\CreateAction $action): void
+    {
+        parent::configureCreateAction($action);
+
+        $action
+            ->slideOver()
+            ->url(null)
+            ->modalHeading('Buat Sertifikat Manual')
+            ->modalSubmitActionLabel('Simpan Sertifikat')
+            ->modalWidth('7xl');
     }
 }

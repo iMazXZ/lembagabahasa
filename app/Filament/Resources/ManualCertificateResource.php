@@ -12,7 +12,9 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ManualCertificateResource extends Resource
 {
@@ -176,10 +178,78 @@ class ManualCertificateResource extends Resource
                     ->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('category_id')
-                    ->label('Kategori')
-                    ->options(CertificateCategory::pluck('name', 'id')),
+                Tables\Filters\SelectFilter::make('semester')
+                    ->label('Semester')
+                    ->options(function (): array {
+                        return ManualCertificate::query()
+                            ->whereNotNull('semester')
+                            ->distinct()
+                            ->orderBy('semester')
+                            ->pluck('semester')
+                            ->mapWithKeys(fn($semester) => [(string) $semester => "Semester {$semester}"])
+                            ->all();
+                    })
+                    ->searchable(),
+
+                Tables\Filters\SelectFilter::make('grade_band')
+                    ->label('Band Grade')
+                    ->options([
+                        'A' => 'A',
+                        'B' => 'B',
+                        'C' => 'C',
+                        'D' => 'D',
+                        'E' => 'E',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value)) {
+                            return $query;
+                        }
+
+                        return $query->where('grade', 'like', $value . '%');
+                    }),
+
+                Tables\Filters\TernaryFilter::make('has_srn')
+                    ->label('SRN')
+                    ->placeholder('Semua')
+                    ->trueLabel('Ada SRN')
+                    ->falseLabel('Tanpa SRN')
+                    ->queries(
+                        true: fn(Builder $query): Builder => $query->whereNotNull('srn')->where('srn', '!=', ''),
+                        false: fn(Builder $query): Builder => $query
+                            ->where(function (Builder $sub): Builder {
+                                return $sub->whereNull('srn')->orWhere('srn', '');
+                            }),
+                        blank: fn(Builder $query): Builder => $query
+                    ),
             ])
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->persistFiltersInSession()
+            ->groups([
+                Tables\Grouping\Group::make('semester')
+                    ->label('Semester')
+                    ->titlePrefixedWithLabel(false)
+                    ->getTitleFromRecordUsing(fn(ManualCertificate $record): string => $record->semester ? "Semester {$record->semester}" : 'Tanpa Semester')
+                    ->getKeyFromRecordUsing(fn(ManualCertificate $record): string => (string) ($record->semester ?? 'none'))
+                    ->scopeQueryByKeyUsing(function (Builder $query, string $key): Builder {
+                        if ($key === 'none') {
+                            return $query->whereNull('semester');
+                        }
+
+                        return $query->where('semester', (int) $key);
+                    })
+                    ->orderQueryUsing(fn(Builder $query, string $direction): Builder => $query
+                        ->orderByRaw('CASE WHEN semester IS NULL THEN 1 ELSE 0 END')
+                        ->orderBy('semester', $direction))
+                    ->collapsible(),
+
+                Tables\Grouping\Group::make('issued_at')
+                    ->label('Tanggal Terbit')
+                    ->date()
+                    ->collapsible(),
+            ])
+            ->defaultGroup('semester')
             ->actions([
                 Tables\Actions\Action::make('download')
                     ->label('PDF')
