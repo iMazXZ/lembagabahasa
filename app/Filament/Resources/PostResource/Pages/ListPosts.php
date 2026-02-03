@@ -17,18 +17,52 @@ class ListPosts extends ListRecords
 
     public function getTabs(): array
     {
+        $tabStyles = [
+            'all' => [
+                'icon' => 'heroicon-o-megaphone',
+                'badgeColor' => 'gray',
+            ],
+            'news' => [
+                'icon' => 'heroicon-o-document-text',
+                'badgeColor' => 'info',
+            ],
+            'schedule' => [
+                'icon' => 'heroicon-o-calendar-days',
+                'badgeColor' => 'warning',
+            ],
+            'scores' => [
+                'icon' => 'heroicon-o-chart-bar',
+                'badgeColor' => 'success',
+            ],
+            'service' => [
+                'icon' => 'heroicon-o-briefcase',
+                'badgeColor' => 'primary',
+            ],
+        ];
+
         $tabs = [
             'all' => Tab::make('Semua')
-                ->badge(Post::query()->count()),
+                ->icon($tabStyles['all']['icon'])
+                ->badge(Post::query()->count())
+                ->badgeColor($tabStyles['all']['badgeColor']),
         ];
 
         foreach (Post::TYPES as $type => $label) {
+            $style = $tabStyles[$type] ?? ['icon' => 'heroicon-o-megaphone', 'badgeColor' => 'gray'];
+
             $tabs[$type] = Tab::make($label)
+                ->icon($style['icon'])
                 ->badge(Post::query()->where('type', $type)->count())
+                ->badgeColor($style['badgeColor'])
                 ->query(fn (Builder $query): Builder => $query->where('type', $type));
         }
 
         return $tabs;
+    }
+
+    public function getDefaultActiveTab(): string | int | null
+    {
+        return 'schedule';
     }
 
     protected function getHeaderActions(): array

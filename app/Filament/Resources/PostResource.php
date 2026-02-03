@@ -11,10 +11,9 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Forms\Components\{
-    TextInput, Select, FileUpload, Toggle, DateTimePicker, Hidden, 
+    TextInput, Select, Toggle, DateTimePicker, Hidden, 
     Section, Group, Textarea, Grid
 };
-use Filament\Tables\Columns\{TextColumn, ImageColumn, IconColumn, ToggleColumn};
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Forms\{Get, Set};
 use Illuminate\Database\Eloquent\Builder;
@@ -207,41 +206,6 @@ class PostResource extends Resource
                         ->helperText('Dapat dijadwalkan untuk masa depan.'),
                 ]),
 
-                Section::make('Media')->schema([
-                    FileUpload::make('cover_path')
-                        ->label('Gambar Sampul')
-                        ->image()
-                        ->disk('public')
-                        ->visibility('public')
-                        ->directory('posts/covers')
-                        ->imageEditor()
-                        ->imagePreviewHeight('150') // Preview tidak terlalu besar
-                        ->maxSize(4096) // Limit 4MB (akan dikompresi)
-                        ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $get) {
-                            $old = $get('cover_path');
-                            if (is_string($old) && $old !== '' && Storage::disk('public')->exists($old)) {
-                                Storage::disk('public')->delete($old);
-                            }
-
-                            $result = ImageTransformer::toWebpFromUploaded(
-                                uploaded:   $file,
-                                targetDisk: 'public',
-                                targetDir:  'posts/covers',
-                                quality:    82,
-                                maxWidth:   1600,
-                                maxHeight:  1600,
-                            );
-
-                            return $result['path'];
-                        })
-                        ->deleteUploadedFileUsing(function (string $file) {
-                            if (Storage::disk('public')->exists($file)) {
-                                Storage::disk('public')->delete($file);
-                            }
-                        })
-                        ->columnSpanFull(),
-                ]),
-
                 // Hidden field tetap ada
                 Hidden::make('author_id')
                     ->default(fn () => auth()->id()),
@@ -253,22 +217,6 @@ class PostResource extends Resource
     {
         return $table
             ->columns([
-                // UPDATE: Logika Default Image berdasarkan Tipe
-                Tables\Columns\ImageColumn::make('cover_path')
-                    ->label('Cover')
-                    ->square()
-                    ->defaultImageUrl(function (Post $record) {
-                        // Pilih gambar berdasarkan type
-                        $filename = match ($record->type) {
-                            'schedule' => 'schedule.jpg',
-                            'scores'   => 'scores.jpg',
-                            'service'  => 'service.jpg',
-                            default    => 'news.jpg',
-                        };
-                        
-                        return url("/images/covers/{$filename}");
-                    }),
-
                 Tables\Columns\TextColumn::make('title')
                     ->label('Judul')
                     ->searchable()
