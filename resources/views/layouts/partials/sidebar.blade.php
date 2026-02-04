@@ -36,8 +36,8 @@
 @endphp
 
 <aside
-    class="fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 shadow-lg lg:shadow-none transition-all duration-300 transform"
-    :class="sidebarOpen ? 'translate-x-0 w-64' : (isMobile ? '-translate-x-full w-64' : 'translate-x-0 w-20')"
+    class="fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 shadow-lg lg:shadow-none transition-all duration-300 transform -translate-x-full lg:translate-x-0 w-64"
+    :class="sidebarOpen ? '!translate-x-0 !w-64' : (isMobile ? '!-translate-x-full !w-64' : '!translate-x-0 !w-20')"
 >
     {{-- Logo Area --}}
     <div class="flex items-center justify-between h-16 px-4 border-b border-slate-100">

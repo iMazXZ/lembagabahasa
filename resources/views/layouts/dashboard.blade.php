@@ -89,13 +89,47 @@
 <div x-data="{ 
         sidebarOpen: window.innerWidth >= 1024, 
         sidebarHover: false,
-        isMobile: window.innerWidth < 1024
+        isMobile: window.innerWidth < 1024,
+        swipeStartX: null,
+        swipeStartY: null,
+        startEdgeSwipe(event) {
+            if (!this.isMobile || this.sidebarOpen) return;
+            const touch = event.changedTouches?.[0];
+            if (!touch) return;
+
+            this.swipeStartX = touch.clientX;
+            this.swipeStartY = touch.clientY;
+        },
+        openSidebarFromEdgeSwipe(event) {
+            if (!this.isMobile || this.sidebarOpen || this.swipeStartX === null || this.swipeStartY === null) return;
+            const touch = event.changedTouches?.[0];
+            if (!touch) return;
+
+            const dx = touch.clientX - this.swipeStartX;
+            const dy = Math.abs(touch.clientY - this.swipeStartY);
+
+            if (dx > 70 && dy < 45) {
+                this.sidebarOpen = true;
+            }
+
+            this.swipeStartX = null;
+            this.swipeStartY = null;
+        }
      }"
      @resize.window="isMobile = window.innerWidth < 1024; if(!isMobile) sidebarOpen = true"
      class="min-h-screen flex overflow-hidden bg-slate-50">
 
     {{-- SIDEBAR --}}
     @include('layouts.partials.sidebar')
+
+    {{-- Edge swipe area (mobile) --}}
+    <div
+        x-show="isMobile && !sidebarOpen"
+        @touchstart="startEdgeSwipe($event)"
+        @touchend="openSidebarFromEdgeSwipe($event)"
+        class="fixed inset-y-0 left-0 z-30 w-6 lg:hidden"
+        x-cloak
+    ></div>
 
     {{-- MAIN CONTENT WRAPPER --}}
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300 ease-in-out"

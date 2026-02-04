@@ -175,10 +175,10 @@
     @endif
 
     {{-- SECTION 1: Welcome & Biodata Status --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 {{ $biodataLengkap ? 'lg:grid-cols-1' : 'lg:grid-cols-3' }} gap-6">
         
         {{-- Welcome Card --}}
-        <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-8 flex items-center gap-4 lg:gap-8 relative overflow-hidden group">
+        <div class="{{ $biodataLengkap ? '' : 'lg:col-span-2' }} bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-8 flex items-center gap-4 lg:gap-8 relative overflow-hidden group">
             
             {{-- [BARU] Tombol Home di Pojok Kanan Atas --}}
             <a href="{{ url('/') }}" 
@@ -240,41 +240,34 @@
             </div>
         </div>
 
-        {{-- Biodata Action Card --}}
-        <div class="rounded-xl border shadow-sm p-6 flex flex-col justify-center relative overflow-hidden
-             {{ $biodataLengkap ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100' }}">
-            
-            <div class="flex items-start justify-between mb-2">
-                <div>
-                    <p class="text-xs font-bold uppercase tracking-wider {{ $biodataLengkap ? 'text-emerald-600' : 'text-amber-600' }}">
-                        Status Akun
-                    </p>
-                    <h3 class="text-lg font-bold {{ $biodataLengkap ? 'text-emerald-800' : 'text-amber-800' }}">
-                        {{ $biodataLengkap ? 'Biodata Lengkap' : 'Lengkapi Data' }}
-                    </h3>
+        @unless($biodataLengkap)
+            {{-- Biodata Action Card --}}
+            <div class="rounded-xl border shadow-sm p-6 flex flex-col justify-center relative overflow-hidden bg-amber-50 border-amber-100">
+                <div class="flex items-start justify-between mb-2">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-amber-600">
+                            Status Akun
+                        </p>
+                        <h3 class="text-lg font-bold text-amber-800">
+                            Lengkapi Data
+                        </h3>
+                    </div>
+                    <div class="h-10 w-10 rounded-full flex items-center justify-center bg-amber-100 text-amber-600">
+                        <i class="fa-solid fa-exclamation text-lg"></i>
+                    </div>
                 </div>
-                <div class="h-10 w-10 rounded-full flex items-center justify-center {{ $biodataLengkap ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600' }}">
-                    <i class="fa-solid {{ $biodataLengkap ? 'fa-check' : 'fa-exclamation' }} text-lg"></i>
-                </div>
-            </div>
 
-            <p class="text-sm {{ $biodataLengkap ? 'text-emerald-700' : 'text-amber-700' }} mb-4 leading-relaxed">
-                @if ($biodataLengkap)
-                    Akun Anda siap digunakan untuk mengajukan layanan.
-                @else
+                <p class="text-sm text-amber-700 mb-4 leading-relaxed">
                     Mohon lengkapi biodata {{ $needsNilai ? 'dan nilai yang diperlukan' : '' }} agar dapat mengakses layanan.
-                @endif
-            </p>
+                </p>
 
-            <a href="{{ route('dashboard.biodata') }}" 
-               class="inline-flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-semibold transition-colors
-               {{ $biodataLengkap 
-                  ? 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50' 
-                  : 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm' }}">
-                {{ $biodataLengkap ? 'Edit Biodata' : 'Lengkapi Sekarang' }}
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
-        </div>
+                <a href="{{ route('dashboard.biodata') }}"
+                   class="inline-flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-semibold transition-colors bg-amber-600 text-white hover:bg-amber-700 shadow-sm">
+                    Lengkapi Sekarang
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        @endunless
     </div>
 
     {{-- Menggunakan variabel $user yang sudah didefinisikan di atas --}}
@@ -318,6 +311,88 @@
             </div>
         </div>
     @endif
+
+    {{-- SECTION 2: Quick Actions (Fixed Layout) --}}
+    <div>
+        <h3 class="text-sm font-bold text-slate-900 mb-3 px-1">Menu Cepat</h3>
+        
+        {{-- REVISI: lg:grid-cols-5 agar muat 5 item sejajar di laptop --}}
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+
+            {{-- 1. Basic Listening (hanya untuk tahun 2025+ dan bukan S2) --}}
+            @if($showBasicListening)
+            {{-- col-span-2 (HP) -> col-span-1 (Laptop/Tablet) --}}
+            <a href="{{ route('bl.index') }}" 
+               title="Ikuti kelas Basic Listening dan dapatkan sertifikat"
+               class="col-span-2 md:col-span-1 group relative overflow-hidden bg-violet-600 rounded-xl shadow-md shadow-violet-200 transition-all duration-200 hover:shadow-lg hover:bg-violet-700 flex items-center p-3.5 gap-3">
+                
+                {{-- Dekorasi Background --}}
+                <div class="absolute right-0 top-0 -mt-2 -mr-2 w-16 h-16 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
+                
+                <div class="shrink-0 h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center text-white border border-white/10 group-hover:scale-105 transition-transform">
+                    <i class="fa-solid fa-headphones text-lg"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-bold text-white truncate">Basic Listening</div>
+                    <div class="text-[10px] text-violet-100/90 truncate mt-0.5">Kelas & Sertifikat</div>
+                </div>
+                {{-- Icon Panah (Hanya muncul di HP biar tidak sempit di laptop) --}}
+                <i class="fa-solid fa-chevron-right text-white/50 text-xs hidden sm:block"></i>
+            </a>
+            @endif
+
+            {{-- Helper Style --}}
+            @php
+                $cardClass = "group bg-white border border-slate-200 rounded-xl p-3.5 flex items-center gap-3 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-200";
+                $iconBase  = "shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-lg transition-transform group-hover:scale-105";
+            @endphp
+
+            {{-- 2. Surat Rekomendasi --}}
+            <a href="{{ route('dashboard.ept') }}" title="Ajukan surat rekomendasi setelah 3x tes EPT" class="{{ $cardClass }}">
+                <div class="{{ $iconBase }} bg-blue-50 text-blue-600">
+                    <i class="fa-solid fa-file-signature"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-slate-800 group-hover:text-blue-600 truncate">Rekomendasi</div>
+                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Ajukan surat</div>
+                </div>
+            </a>
+
+            {{-- 3. Penerjemahan --}}
+            <a href="{{ route('dashboard.translation') }}" title="Layanan penerjemahan abstrak untuk jurnal ilmiah" class="{{ $cardClass }} hover:border-indigo-300">
+                <div class="{{ $iconBase }} bg-indigo-50 text-indigo-600">
+                    <i class="fa-solid fa-language"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-slate-800 group-hover:text-indigo-600 truncate">Penerjemahan</div>
+                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Abstrak/Dokumen</div>
+                </div>
+            </a>
+
+            {{-- 4. Cek Nilai EPT --}}
+            <a href="{{ route('front.scores') }}" title="Lihat skor EPT Anda berdasarkan NPM" class="{{ $cardClass }} hover:border-emerald-300">
+                <div class="{{ $iconBase }} bg-emerald-50 text-emerald-600">
+                    <i class="fa-solid fa-square-poll-vertical"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-slate-800 group-hover:text-emerald-600 truncate">Cek Nilai EPT</div>
+                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Lihat skor</div>
+                </div>
+            </a>
+
+            {{-- 5. Cek Jadwal EPT --}}
+            <a href="{{ route('front.schedule') }}" title="Lihat jadwal tes EPT yang tersedia" class="{{ $cardClass }} hover:border-amber-300">
+                <div class="{{ $iconBase }} bg-amber-50 text-amber-600">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-slate-800 group-hover:text-amber-600 truncate">Jadwal EPT</div>
+                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Info pelaksanaan</div>
+                </div>
+            </a>
+
+        </div>
+    </div>
 
     {{-- SECTION: EPT Registration Widget --}}
     @if($showEptWidget)
@@ -474,88 +549,6 @@
             </div>
         @endif
     @endif
-
-    {{-- SECTION 2: Quick Actions (Fixed Layout) --}}
-    <div>
-        <h3 class="text-sm font-bold text-slate-900 mb-3 px-1">Menu Cepat</h3>
-        
-        {{-- REVISI: lg:grid-cols-5 agar muat 5 item sejajar di laptop --}}
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-
-            {{-- 1. Basic Listening (hanya untuk tahun 2025+ dan bukan S2) --}}
-            @if($showBasicListening)
-            {{-- col-span-2 (HP) -> col-span-1 (Laptop/Tablet) --}}
-            <a href="{{ route('bl.index') }}" 
-               title="Ikuti kelas Basic Listening dan dapatkan sertifikat"
-               class="col-span-2 md:col-span-1 group relative overflow-hidden bg-violet-600 rounded-xl shadow-md shadow-violet-200 transition-all duration-200 hover:shadow-lg hover:bg-violet-700 flex items-center p-3.5 gap-3">
-                
-                {{-- Dekorasi Background --}}
-                <div class="absolute right-0 top-0 -mt-2 -mr-2 w-16 h-16 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
-                
-                <div class="shrink-0 h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center text-white border border-white/10 group-hover:scale-105 transition-transform">
-                    <i class="fa-solid fa-headphones text-lg"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-sm font-bold text-white truncate">Basic Listening</div>
-                    <div class="text-[10px] text-violet-100/90 truncate mt-0.5">Kelas & Sertifikat</div>
-                </div>
-                {{-- Icon Panah (Hanya muncul di HP biar tidak sempit di laptop) --}}
-                <i class="fa-solid fa-chevron-right text-white/50 text-xs hidden sm:block"></i>
-            </a>
-            @endif
-
-            {{-- Helper Style --}}
-            @php
-                $cardClass = "group bg-white border border-slate-200 rounded-xl p-3.5 flex items-center gap-3 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-200";
-                $iconBase  = "shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-lg transition-transform group-hover:scale-105";
-            @endphp
-
-            {{-- 2. Surat Rekomendasi --}}
-            <a href="{{ route('dashboard.ept') }}" title="Ajukan surat rekomendasi setelah 3x tes EPT" class="{{ $cardClass }}">
-                <div class="{{ $iconBase }} bg-blue-50 text-blue-600">
-                    <i class="fa-solid fa-file-signature"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-xs font-bold text-slate-800 group-hover:text-blue-600 truncate">Rekomendasi</div>
-                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Ajukan surat</div>
-                </div>
-            </a>
-
-            {{-- 3. Penerjemahan --}}
-            <a href="{{ route('dashboard.translation') }}" title="Layanan penerjemahan abstrak untuk jurnal ilmiah" class="{{ $cardClass }} hover:border-indigo-300">
-                <div class="{{ $iconBase }} bg-indigo-50 text-indigo-600">
-                    <i class="fa-solid fa-language"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-xs font-bold text-slate-800 group-hover:text-indigo-600 truncate">Penerjemahan</div>
-                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Abstrak/Dokumen</div>
-                </div>
-            </a>
-
-            {{-- 4. Cek Nilai EPT --}}
-            <a href="{{ route('front.scores') }}" title="Lihat skor EPT Anda berdasarkan NPM" class="{{ $cardClass }} hover:border-emerald-300">
-                <div class="{{ $iconBase }} bg-emerald-50 text-emerald-600">
-                    <i class="fa-solid fa-square-poll-vertical"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-xs font-bold text-slate-800 group-hover:text-emerald-600 truncate">Cek Nilai EPT</div>
-                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Lihat skor</div>
-                </div>
-            </a>
-
-            {{-- 5. Cek Jadwal EPT --}}
-            <a href="{{ route('front.schedule') }}" title="Lihat jadwal tes EPT yang tersedia" class="{{ $cardClass }} hover:border-amber-300">
-                <div class="{{ $iconBase }} bg-amber-50 text-amber-600">
-                    <i class="fa-solid fa-calendar-days"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-xs font-bold text-slate-800 group-hover:text-amber-600 truncate">Jadwal EPT</div>
-                    <div class="text-[10px] text-slate-500 truncate mt-0.5">Info pelaksanaan</div>
-                </div>
-            </a>
-
-        </div>
-    </div>
 
     {{-- SECTION 3: Recent Activity / Status Widgets --}}
     @php
