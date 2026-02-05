@@ -167,13 +167,54 @@ class PostResource extends Resource
                     // Field reaktif: Pilih Jadwal Terkait (hanya untuk tipe nilai)
                     Select::make('related_post_id')
                         ->label('Jadwal Terkait')
-                        ->options(fn () => \App\Models\Post::query()
-                            ->where('type', 'schedule')
-                            ->orderByDesc('event_date')
-                            ->pluck('title', 'id')
-                        )
+                        ->options(function (Get $get): array {
+                            if ($get('type') !== 'scores') {
+                                return [];
+                            }
+
+                            $selectedId = (int) ($get('related_post_id') ?? 0);
+
+                            return Post::query()
+                                ->where('type', 'schedule')
+                                ->where(function (Builder $query) use ($selectedId): void {
+                                    $query->whereDoesntHave('relatedScores');
+
+                                    if ($selectedId > 0) {
+                                        $query->orWhere('id', $selectedId);
+                                    }
+                                })
+                                ->orderByDesc('created_at')
+                                ->orderByDesc('id')
+                                ->limit(20)
+                                ->pluck('title', 'id')
+                                ->all();
+                        })
+                        ->getSearchResultsUsing(function (Get $get, string $search): array {
+                            $selectedId = (int) ($get('related_post_id') ?? 0);
+
+                            return Post::query()
+                                ->where('type', 'schedule')
+                                ->where(function (Builder $query) use ($selectedId): void {
+                                    $query->whereDoesntHave('relatedScores');
+
+                                    if ($selectedId > 0) {
+                                        $query->orWhere('id', $selectedId);
+                                    }
+                                })
+                                ->where('title', 'like', '%' . trim($search) . '%')
+                                ->orderByDesc('created_at')
+                                ->orderByDesc('id')
+                                ->limit(20)
+                                ->pluck('title', 'id')
+                                ->all();
+                        })
+                        ->getOptionLabelUsing(fn ($value): ?string => Post::query()->whereKey($value)->value('title'))
                         ->searchable()
                         ->preload()
+                        ->optionsLimit(20)
+                        ->searchPrompt('Tampilkan 20 jadwal terbaru. Ketik untuk mencari yang lain.')
+                        ->searchingMessage('Mencari jadwal...')
+                        ->noSearchResultsMessage('Tidak ada jadwal yang cocok.')
                         ->required()
                         ->visible(fn (Get $get) => $get('type') === 'scores')
                         ->live()
