@@ -17,6 +17,13 @@ class ListPosts extends ListRecords
 
     public function getTabs(): array
     {
+        $postCountsByType = Post::query()
+            ->selectRaw('type, COUNT(*) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        $totalPosts = (int) $postCountsByType->sum();
+
         $tabStyles = [
             'all' => [
                 'icon' => 'heroicon-o-megaphone',
@@ -43,7 +50,7 @@ class ListPosts extends ListRecords
         $tabs = [
             'all' => Tab::make('Semua')
                 ->icon($tabStyles['all']['icon'])
-                ->badge(Post::query()->count())
+                ->badge($totalPosts)
                 ->badgeColor($tabStyles['all']['badgeColor']),
         ];
 
@@ -52,7 +59,7 @@ class ListPosts extends ListRecords
 
             $tabs[$type] = Tab::make($label)
                 ->icon($style['icon'])
-                ->badge(Post::query()->where('type', $type)->count())
+                ->badge((int) ($postCountsByType[$type] ?? 0))
                 ->badgeColor($style['badgeColor'])
                 ->query(fn (Builder $query): Builder => $query->where('type', $type));
         }

@@ -19,7 +19,6 @@ use Filament\Forms\{Get, Set};
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use FilamentTiptapEditor\TiptapEditor;
-use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -45,29 +44,14 @@ class PostResource extends Resource
                     TextInput::make('title')
                         ->label('Judul')
                         ->required()
-                        ->maxLength(255)
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
-                            // Auto generate slug hanya jika slug kosong atau mode create
-                            if (blank($get('slug'))) {
-                                $set('slug', Str::slug((string) $state));
-                            }
-                        }),
+                        ->maxLength(255),
 
                     TextInput::make('slug')
                         ->label('Slug URL')
-                        ->required()
+                        ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? Str::slug($state) : null)
                         ->dehydrated()
                         ->unique(ignoreRecord: true)
-                        ->helperText('URL unik untuk postingan ini.')
-                        ->suffixAction(
-                            Action::make('regenerate')
-                                ->icon('heroicon-o-arrow-path')
-                                ->tooltip('Generate ulang dari Judul')
-                                ->action(function (Get $get, Set $set) {
-                                    $set('slug', Str::slug((string) $get('title')));
-                                })
-                        ),
+                        ->helperText('Boleh dikosongkan. Slug otomatis dibuat dari judul saat simpan.'),
 
                     Textarea::make('excerpt')
                         ->label('Ringkasan / Intro')
@@ -113,6 +97,15 @@ class PostResource extends Resource
                     Select::make('type')
                         ->label('Kategori')
                         ->options(\App\Models\Post::TYPES)
+                        ->default(function (): ?string {
+                            $type = request()->query('type');
+
+                            if (! is_string($type)) {
+                                return null;
+                            }
+
+                            return array_key_exists($type, Post::TYPES) ? $type : null;
+                        })
                         ->required()
                         ->searchable()
                         ->native(false)
@@ -167,6 +160,15 @@ class PostResource extends Resource
                     // Field reaktif: Pilih Jadwal Terkait (hanya untuk tipe nilai)
                     Select::make('related_post_id')
                         ->label('Jadwal Terkait')
+                        ->default(function (): ?int {
+                            if (request()->query('type') !== 'scores') {
+                                return null;
+                            }
+
+                            $relatedId = (int) request()->query('related_post_id');
+
+                            return $relatedId > 0 ? $relatedId : null;
+                        })
                         ->options(function (Get $get): array {
                             if ($get('type') !== 'scores') {
                                 return [];
@@ -189,6 +191,13 @@ class PostResource extends Resource
                                 ->pluck('title', 'id')
                                 ->all();
                         })
+                        ->afterStateHydrated(function (Set $set, Get $get, ?int $state): void {
+                            if (! $state || filled($get('title'))) {
+                                return;
+                            }
+
+                            static::fillScoresTitleFromRelatedPost($set, $state);
+                        })
                         ->getSearchResultsUsing(function (Get $get, string $search): array {
                             $selectedId = (int) ($get('related_post_id') ?? 0);
 
@@ -210,25 +219,26 @@ class PostResource extends Resource
                         })
                         ->getOptionLabelUsing(fn ($value): ?string => Post::query()->whereKey($value)->value('title'))
                         ->searchable()
-                        ->preload()
                         ->optionsLimit(20)
                         ->searchPrompt('Tampilkan 20 jadwal terbaru. Ketik untuk mencari yang lain.')
                         ->searchingMessage('Mencari jadwal...')
                         ->noSearchResultsMessage('Tidak ada jadwal yang cocok.')
-                        ->required()
+                        ->required(fn (Get $get): bool => $get('type') === 'scores')
+                        ->unique(
+                            table: Post::class,
+                            column: 'related_post_id',
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn ($rule) => $rule->where('type', 'scores'),
+                        )
+                        ->validationMessages([
+                            'unique' => 'Jadwal ini sudah memiliki post nilai.',
+                        ])
                         ->visible(fn (Get $get) => $get('type') === 'scores')
                         ->live()
-                        ->afterStateUpdated(function (Set $set, Get $get, ?int $state) {
+                        ->afterStateUpdated(function (Set $set, ?int $state) {
                             // Auto generate judul dari jadwal terkait
                             if ($state) {
-                                $related = \App\Models\Post::find($state);
-                                if ($related && $related->event_date) {
-                                    $formatted = $related->event_date->translatedFormat('l, d F Y');
-                                    // Extract group number from title if possible
-                                    preg_match('/Grup\s*(\d+)/i', $related->title, $matches);
-                                    $groupNum = $matches[1] ?? '';
-                                    $set('title', "Nilai EPT Grup {$groupNum} ({$formatted})");
-                                }
+                                static::fillScoresTitleFromRelatedPost($set, $state);
                             }
                         })
                         ->helperText('Judul akan otomatis terisi dari jadwal terkait'),
@@ -257,6 +267,9 @@ class PostResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
+                'relatedScores:id,related_post_id,slug,published_at',
+            ]))
             ->columns([
                 Tables\Columns\TextColumn::make('title')
                     ->label('Judul')
@@ -282,6 +295,22 @@ class PostResource extends Resource
                     })
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('scores_status')
+                    ->label('Status Nilai')
+                    ->state(function (Post $record): string {
+                        if ($record->type !== 'schedule') {
+                            return '-';
+                        }
+
+                        return static::hasScorePostForSchedule($record) ? 'Sudah Ada' : 'Belum Ada';
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Sudah Ada' => 'success',
+                        'Belum Ada' => 'warning',
+                        default => 'gray',
+                    }),
+
                 Tables\Columns\ToggleColumn::make('is_published')
                     ->label('Tayang'),
 
@@ -304,6 +333,21 @@ class PostResource extends Resource
                     ->placeholder('Semua')
                     ->trueLabel('Tayang')
                     ->falseLabel('Draft'),
+
+                Tables\Filters\TernaryFilter::make('has_scores')
+                    ->label('Status Nilai (Jadwal)')
+                    ->placeholder('Semua')
+                    ->trueLabel('Sudah Ada')
+                    ->falseLabel('Belum Ada')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query
+                            ->where('type', 'schedule')
+                            ->whereHas('relatedScores'),
+                        false: fn (Builder $query): Builder => $query
+                            ->where('type', 'schedule')
+                            ->whereDoesntHave('relatedScores'),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
 
                 Tables\Filters\Filter::make('published_range')
                     ->label('Rentang Tayang')
@@ -362,10 +406,34 @@ class PostResource extends Resource
             ->defaultGroup('type')
             ->defaultSort('published_at', 'desc')
             ->actions([
+                Tables\Actions\Action::make('scores_post')
+                        ->label(function (Post $record): string {
+                            return static::hasScorePostForSchedule($record) ? 'Lihat Nilai' : 'Input Nilai';
+                        })
+                        ->icon(function (Post $record): string {
+                            return static::hasScorePostForSchedule($record) ? 'heroicon-m-document-text' : 'heroicon-m-plus-circle';
+                        })
+                        ->color(function (Post $record): string {
+                            return static::hasScorePostForSchedule($record) ? 'info' : 'success';
+                        })
+                        ->visible(fn (Post $record): bool => $record->type === 'schedule')
+                        ->url(function (Post $record): string {
+                            $scorePost = static::latestScorePostForSchedule($record);
+
+                            if ($scorePost) {
+                                return route('front.post.show', ['post' => $scorePost]);
+                            }
+
+                            return static::getUrl('create', [
+                                'type' => 'scores',
+                                'related_post_id' => $record->id,
+                            ]);
+                        })
+                        ->openUrlInNewTab(fn (Post $record): bool => static::hasScorePostForSchedule($record)),
                 Tables\Actions\Action::make('view_public')
                         ->label('Lihat Post')
                         ->icon('heroicon-m-arrow-top-right-on-square')
-                        ->url(fn (Post $record): string => route('front.post.show', $record))
+                        ->url(fn (Post $record): string => route('front.post.show', ['post' => $record]))
                         ->openUrlInNewTab(),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
@@ -383,6 +451,47 @@ class PostResource extends Resource
     public static function getRelations(): array
     {
         return [];
+    }
+
+    protected static function fillScoresTitleFromRelatedPost(Set $set, int $relatedPostId): void
+    {
+        $related = Post::query()
+            ->select(['id', 'title', 'event_date'])
+            ->find($relatedPostId);
+
+        if (! $related || ! $related->event_date) {
+            return;
+        }
+
+        $formattedDate = $related->event_date->translatedFormat('l, d F Y');
+        preg_match('/Grup\s*(\d+)/i', $related->title, $matches);
+        $groupNum = $matches[1] ?? '';
+        $groupLabel = $groupNum !== '' ? " {$groupNum}" : '';
+
+        $set('title', "Nilai EPT Grup{$groupLabel} ({$formattedDate})");
+    }
+
+    protected static function latestScorePostForSchedule(Post $schedulePost): ?Post
+    {
+        if ($schedulePost->type !== 'schedule') {
+            return null;
+        }
+
+        if ($schedulePost->relationLoaded('relatedScores')) {
+            /** @var ?Post $scorePost */
+            $scorePost = $schedulePost->relatedScores->first();
+
+            return $scorePost;
+        }
+
+        return $schedulePost->relatedScores()
+            ->select(['id', 'related_post_id', 'slug', 'published_at'])
+            ->first();
+    }
+
+    protected static function hasScorePostForSchedule(Post $schedulePost): bool
+    {
+        return static::latestScorePostForSchedule($schedulePost) instanceof Post;
     }
 
     public static function getPages(): array
