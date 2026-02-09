@@ -111,7 +111,15 @@ class ManualCertificate extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            // Generate verification code dari category prefix + SRN
+            // 1. Generate certificate number if missing
+            if (empty($model->certificate_number) && !empty($model->category_id)) {
+                $category = $model->category ?? CertificateCategory::find($model->category_id);
+                if ($category) {
+                    $model->certificate_number = $category->generateCertificateNumber($model->semester);
+                }
+            }
+
+            // 2. Generate verification code dari category prefix + SRN
             if (empty($model->verification_code) && !empty($model->srn)) {
                 $category = $model->category ?? CertificateCategory::find($model->category_id);
                 $prefix = $category?->code_prefix ?? 'MC';
@@ -121,7 +129,7 @@ class ManualCertificate extends Model
                 $model->verification_code = 'MC-' . strtoupper(Str::random(8));
             }
 
-            // Calculate scores
+            // 3. Calculate scores
             $model->calculateScores();
             $model->determineGrade();
         });
