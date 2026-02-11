@@ -14,7 +14,7 @@ class CertificateCategoryResource extends Resource
 {
     protected static ?string $model = CertificateCategory::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-tag';
     protected static ?string $navigationGroup = 'Sertifikat';
     protected static ?string $navigationLabel = 'Kategori Sertifikat';
     protected static ?string $modelLabel = 'Kategori Sertifikat';
@@ -46,7 +46,7 @@ class CertificateCategoryResource extends Resource
                     Forms\Components\TextInput::make('number_format')
                         ->label('Format Nomor Sertifikat')
                         ->required()
-                        ->helperText('Placeholders: {seq}, {semester}, {year}, {year_short}')
+                        ->helperText('Placeholders: {seq}, {seq3}, {semester}, {year}, {year_short}, {no_induk}, {no_induk3}, {group}, {absen}, {year_csv}, {year_plus_one}')
                         ->placeholder('{seq}.{semester}/II.3.AU/A/EPP.LB.{year}'),
 
                     Forms\Components\TextInput::make('last_sequence')

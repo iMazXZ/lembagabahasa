@@ -74,6 +74,7 @@ class AdminPanelProvider extends PanelProvider
                 'EPT',
                 'Basic Listening',
                 'Sistem',
+                'Sertifikat',
             ])
             ->middleware([
                 EncryptCookies::class,

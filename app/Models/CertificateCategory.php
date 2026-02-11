@@ -36,22 +36,29 @@ class CertificateCategory extends Model
 
     /**
      * Generate nomor sertifikat berikutnya
-     * Format placeholders: {seq}, {semester}, {year}, {year_short}
+     * Format placeholders:
+     * - Default: {seq}, {seq3}, {semester}, {year}, {year_short}
+     * - CSV import: {no_induk}, {no_induk3}, {group}, {absen}, {year_csv}, {year_plus_one}
      */
-    public function generateCertificateNumber(?int $semester = null): string
+    public function generateCertificateNumber(?int $semester = null, array $extraReplacements = []): string
     {
         $this->increment('last_sequence');
         
         $replacements = [
             '{seq}' => $this->last_sequence,
+            '{seq3}' => str_pad((string) $this->last_sequence, 3, '0', STR_PAD_LEFT),
             '{semester}' => $semester ?? '',
             '{year}' => now()->year,
             '{year_short}' => now()->format('y'),
         ];
 
+        if (! empty($extraReplacements)) {
+            $replacements = array_merge($replacements, $extraReplacements);
+        }
+
         return str_replace(
             array_keys($replacements),
-            array_values($replacements),
+            array_map(static fn ($value): string => (string) $value, array_values($replacements)),
             $this->number_format
         );
     }

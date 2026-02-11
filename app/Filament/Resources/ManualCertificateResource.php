@@ -20,7 +20,7 @@ class ManualCertificateResource extends Resource
 {
     protected static ?string $model = ManualCertificate::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $navigationIcon = 'heroicon-o-document-check';
     protected static ?string $navigationGroup = 'Sertifikat';
     protected static ?string $navigationLabel = 'Sertifikat Manual';
     protected static ?string $modelLabel = 'Sertifikat Manual';
