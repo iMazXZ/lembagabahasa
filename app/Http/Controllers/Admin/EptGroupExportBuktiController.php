@@ -3,63 +3,63 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Penerjemahan;
+use App\Models\EptGroup;
+use App\Models\EptRegistration;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
+use ZipArchive;
 
-class ExportBuktiController extends Controller
+class EptGroupExportBuktiController extends Controller
 {
-    private const MAX_ITEMS = 8;
+    private const MAX_ITEMS = 20;
+    private const MAX_ITEMS_PER_PDF = 8;
     private const MAX_ROWS_PER_PAGE = 10;
     private const TOKEN_TTL_SECONDS = 21600; // 6 hours
     private const TEMP_CROP_TTL_SECONDS = 21600; // 6 hours
-    private const TEMP_CROP_BASE_DIR = 'exports/penerjemahan-bukti-crops';
+    private const TEMP_CROP_BASE_DIR = 'exports/ept-group-bukti-crops';
 
-    public function preview(Request $request)
+    public function preview(Request $request, EptGroup $group)
     {
         abort_unless(
             auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']),
             403
         );
 
-        $ids = $this->normalizeIdList($request->input('ids', []));
+        $this->cleanupStaleTempCrops((int) auth()->id());
 
-        if (empty($ids)) {
-            return redirect()->back()->with('error', 'Tidak ada data yang dipilih.');
-        }
-
-        if (count($ids) > self::MAX_ITEMS) {
-            return redirect()->back()->with(
-                'error',
-                'Maksimal ' . self::MAX_ITEMS . ' gambar per export agar server tetap ringan.'
-            );
-        }
-
-        $records = Penerjemahan::query()
-            ->with(['users:id,name,srn'])
-            ->whereIn('id', $ids)
+        $records = $this->baseGroupRegistrationsQuery((int) $group->id)
+            ->with(['user:id,name,srn'])
             ->get()
             ->filter(fn ($r) => filled($r->bukti_pembayaran) && Storage::disk('public')->exists($r->bukti_pembayaran))
             ->values();
 
         if ($records->isEmpty()) {
-            return redirect()->back()->with('error', 'Tidak ada bukti pembayaran yang tersedia.');
+            return redirect()->back()->with('error', 'Tidak ada bukti pembayaran peserta pada grup ini.');
         }
 
-        $this->cleanupStaleTempCrops((int) auth()->id());
+        if ($records->count() > self::MAX_ITEMS) {
+            return redirect()->back()->with(
+                'error',
+                'Maksimal ' . self::MAX_ITEMS . ' peserta per export untuk menjaga performa server.'
+            );
+        }
 
         $selectionToken = $this->createSelectionToken(
             $records->pluck('id')->map(fn ($id) => (int) $id)->all(),
-            (int) auth()->id()
+            (int) auth()->id(),
+            (int) $group->id
         );
 
         $records = $records->map(function ($record) use ($selectionToken) {
             $record->preview_bukti_url = $this->resolvePreviewImageUrl($record, $selectionToken);
+            $record->display_name = $record->user?->name ?? '-';
+            $record->display_srn = $record->user?->srn ?? '-';
             return $record;
         });
 
@@ -67,6 +67,13 @@ class ExportBuktiController extends Controller
             'records' => $records,
             'selectionToken' => $selectionToken,
             'maxItems' => self::MAX_ITEMS,
+            'pageTitle' => 'Layout Designer - Export Bukti EPT: ' . $group->name,
+            'backUrl' => $this->resolveGroupBackUrl((int) $group->id),
+            'backLabel' => 'Kembali ke Grup',
+            'generateRoute' => route('admin.ept-group-export-bukti.generate'),
+            'cropSaveRoute' => route('admin.ept-group-export-bukti.crop-save'),
+            'downloadButtonText' => 'Download ZIP (PDF Batch)',
+            'processingText' => 'Membuat ZIP PDF...',
         ]);
     }
 
@@ -76,10 +83,9 @@ class ExportBuktiController extends Controller
             auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']),
             403
         );
-        
-        // Increase memory limit for large exports
+
         ini_set('memory_limit', '512M');
-        set_time_limit(120);
+        set_time_limit(180);
 
         $request->validate([
             'rows' => 'required|string',
@@ -89,7 +95,7 @@ class ExportBuktiController extends Controller
 
         $selectionToken = $request->input('selection_token');
         try {
-            $allowedIds = $this->extractAllowedIds($selectionToken);
+            [$allowedIds, $groupId] = $this->extractSelectionPayload($selectionToken);
         } catch (ValidationException $e) {
             return response()->json([
                 'error' => $e->errors()['selection_token'][0] ?? 'Sesi export tidak valid.',
@@ -116,7 +122,7 @@ class ExportBuktiController extends Controller
 
         if (count($uniqueItemIds) > self::MAX_ITEMS) {
             return response()->json([
-                'error' => "Terlalu banyak gambar (" . count($uniqueItemIds) . '). Maksimum ' . self::MAX_ITEMS . ' gambar per export.',
+                'error' => 'Terlalu banyak gambar (' . count($uniqueItemIds) . '). Maksimum ' . self::MAX_ITEMS . ' gambar per export.',
             ], 422);
         }
 
@@ -125,132 +131,120 @@ class ExportBuktiController extends Controller
             return response()->json(['error' => 'Ada data yang tidak diizinkan untuk diexport.'], 403);
         }
 
-        $recordsById = Penerjemahan::query()
-            ->with(['users:id,name,srn'])
+        $recordsById = $this->baseGroupRegistrationsQuery($groupId)
+            ->with(['user:id,name,srn'])
             ->whereIn('id', $uniqueItemIds)
             ->get()
             ->keyBy('id');
 
-        // Process rows - fetch records and pre-process images
-        $processedRows = [];
+        if ($recordsById->isEmpty()) {
+            return response()->json(['error' => 'Data peserta grup tidak ditemukan.'], 404);
+        }
+
+        $groupName = EptGroup::query()->whereKey($groupId)->value('name') ?? 'grup';
+        $groupToken = $this->formatGroupToken($groupName);
+        $dateToken = now()->format('Ymd');
+
+        $zipTempPath = tempnam(sys_get_temp_dir(), 'ept_bukti_zip_');
+        if ($zipTempPath === false) {
+            return response()->json(['error' => 'Gagal menyiapkan file ZIP sementara.'], 500);
+        }
+
+        $zip = new ZipArchive();
+        $zipOpenStatus = $zip->open($zipTempPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        if ($zipOpenStatus !== true) {
+            @unlink($zipTempPath);
+            return response()->json(['error' => 'Gagal membuka file ZIP sementara.'], 500);
+        }
+
         $manager = new ImageManager(new Driver());
+        $rowBatches = $this->splitRowsIntoBatches($normalizedRows, self::MAX_ITEMS_PER_PDF);
+        $batchIndex = 0;
 
-        foreach ($normalizedRows as $row) {
-            $columns = (int) ($row['columns'] ?? 2);
-            $itemIds = $row['items'] ?? [];
+        foreach ($rowBatches as $batchRows) {
+            $processedRows = [];
 
-            // Fetch records and process images
-            $processedRecords = [];
-            foreach ($itemIds as $id) {
-                $record = $recordsById->get($id);
-                if (!$record) {
-                    continue;
+            foreach ($batchRows as $row) {
+                $columns = (int) ($row['columns'] ?? 2);
+                $itemIds = $row['items'] ?? [];
+                $processedRecords = [];
+
+                foreach ($itemIds as $id) {
+                    $record = $recordsById->get($id);
+                    if (!$record) {
+                        continue;
+                    }
+
+                    $resolvedImagePath = $this->resolveImagePath($record, $selectionToken);
+                    if (!$resolvedImagePath) {
+                        continue;
+                    }
+
+                    $imageData = $this->processImage($manager, $resolvedImagePath, $columns);
+                    if (!$imageData) {
+                        continue;
+                    }
+
+                    $processedRecords[] = [
+                        'name' => $record->user?->name ?? '-',
+                        'srn' => $record->user?->srn ?? '-',
+                        'imageData' => $imageData,
+                    ];
                 }
 
-                $resolvedImagePath = $this->resolveImagePath($record, $selectionToken);
-                if (!$resolvedImagePath) {
-                    continue;
+                if (!empty($processedRecords)) {
+                    $processedRows[] = [
+                        'columns' => $columns,
+                        'items' => $processedRecords,
+                    ];
                 }
 
-                // Process and compress image
-                $imageData = $this->processImage(
-                    $manager,
-                    $resolvedImagePath,
-                    $columns
-                );
-
-                if (!$imageData) {
-                    continue;
-                }
-
-                $processedRecords[] = [
-                    'name' => $record->users?->name ?? '-',
-                    'srn' => $record->users?->srn ?? '-',
-                    'imageData' => $imageData,
-                ];
+                gc_collect_cycles();
             }
-            
-            if (!empty($processedRecords)) {
-                $processedRows[] = [
-                    'columns' => $columns,
-                    'items' => $processedRecords,
-                ];
+
+            if (empty($processedRows)) {
+                continue;
             }
 
-            // Clear memory after each row
-            gc_collect_cycles();
+            $pages = array_chunk($processedRows, $rowsPerPage);
+            $pdfBinary = Pdf::loadView('exports.penerjemahan-bukti-rows-pdf', [
+                'pages' => $pages,
+            ])
+            ->setPaper('legal', 'portrait')
+            ->setOption('isRemoteEnabled', true)
+            ->output();
+
+            $batchIndex++;
+            $pdfFilename = sprintf(
+                'Bukti_Pembayaran_EPT_%s_%s_Bagian_%02d.pdf',
+                $groupToken,
+                $dateToken,
+                $batchIndex
+            );
+            $zip->addFromString($pdfFilename, $pdfBinary);
         }
 
-        if (empty($processedRows)) {
-            return response()->json(['error' => 'Tidak ada data valid'], 400);
+        $zip->close();
+
+        if ($batchIndex === 0) {
+            @unlink($zipTempPath);
+            return response()->json(['error' => 'Tidak ada data valid untuk diexport.'], 400);
         }
 
-        // Split rows into pages
-        $pages = array_chunk($processedRows, $rowsPerPage);
+        $zipFilename = 'Bukti_Pembayaran_EPT_' . $groupToken . '_' . now()->format('Ymd_His') . '.zip';
 
-        $pdf = Pdf::loadView('exports.penerjemahan-bukti-rows-pdf', [
-            'pages' => $pages,
-        ])
-        ->setPaper('legal', 'portrait')
-        ->setOption('isRemoteEnabled', true);
-
-        $filename = 'Bukti_Pembayaran_Penerjemahan_' . now()->format('Ymd_His') . '.pdf';
-
-        return $pdf->stream($filename);
+        return response()->download($zipTempPath, $zipFilename, [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
     }
 
-    /**
-     * Process and compress image for PDF embedding - balanced optimization
-     */
-    private function processImage(ImageManager $manager, string $filePath, int $columns): ?string
-    {
-        try {
-            // Balanced quality for low-resource hosting.
-            $maxWidth = match($columns) {
-                1 => 840,
-                2 => 620,
-                3 => 460,
-                default => 620,
-            };
-            $maxHeight = match($columns) {
-                1 => 760,
-                2 => 580,
-                3 => 430,
-                default => 580,
-            };
-
-            // Read image
-            $image = $manager->read($filePath);
-
-            // Resize to fit within bounds (maintain aspect ratio)
-            $image->scaleDown($maxWidth, $maxHeight);
-
-            // Encode as JPEG (compressed enough for shared hosting usage)
-            $encoded = $image->toJpeg(88);
-
-            // Convert to base64
-            $base64 = base64_encode($encoded->toString());
-
-            // Free memory immediately
-            unset($image, $encoded);
-
-            return 'data:image/jpeg;base64,' . $base64;
-
-        } catch (\Exception $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Save cropped image from preview page
-     */
     public function cropSave(Request $request)
     {
         abort_unless(
             auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']),
             403
         );
-        
+
         $request->validate([
             'id' => 'required|integer',
             'image' => 'required|file|mimes:jpeg,jpg,png,webp',
@@ -259,20 +253,26 @@ class ExportBuktiController extends Controller
 
         $selectionToken = $request->input('selection_token');
         try {
-            $allowedIds = $this->extractAllowedIds($selectionToken);
+            [$allowedIds, $groupId] = $this->extractSelectionPayload($selectionToken);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->errors()['selection_token'][0] ?? 'Sesi export tidak valid.',
             ], 422);
         }
-        $recordId = (int) $request->input('id');
 
+        $recordId = (int) $request->input('id');
         if (!in_array($recordId, $allowedIds, true)) {
-            return response()->json(['success' => false, 'message' => 'Data tidak diizinkan untuk sesi export ini.'], 403);
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak diizinkan untuk sesi export ini.',
+            ], 403);
         }
 
-        $record = Penerjemahan::query()->select(['id', 'bukti_pembayaran'])->find($recordId);
+        $record = $this->baseGroupRegistrationsQuery($groupId)
+            ->select(['id', 'bukti_pembayaran'])
+            ->whereKey($recordId)
+            ->first();
 
         if (!$record) {
             return response()->json(['success' => false, 'message' => 'Data tidak ditemukan']);
@@ -283,11 +283,9 @@ class ExportBuktiController extends Controller
         }
 
         try {
-            // Save crop as temporary file (non-destructive: original is untouched).
             $uploadedFile = $request->file('image');
             $manager = new ImageManager(new Driver());
             $image = $manager->read($uploadedFile->getPathname());
-
             $image->scaleDown(1800, 1800);
             $encoded = $image->toWebp(85);
 
@@ -301,9 +299,46 @@ class ExportBuktiController extends Controller
                 'message' => 'Gambar berhasil disimpan',
                 'url' => Storage::disk('public')->url($tempRelativePath),
             ]);
-
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    private function baseGroupRegistrationsQuery(int $groupId)
+    {
+        return EptRegistration::query()
+            ->where(function ($q) use ($groupId) {
+                $q->where('grup_1_id', $groupId)
+                    ->orWhere('grup_2_id', $groupId)
+                    ->orWhere('grup_3_id', $groupId);
+            });
+    }
+
+    private function processImage(ImageManager $manager, string $filePath, int $columns): ?string
+    {
+        try {
+            $maxWidth = match($columns) {
+                1 => 840,
+                2 => 620,
+                3 => 460,
+                default => 620,
+            };
+            $maxHeight = match($columns) {
+                1 => 760,
+                2 => 580,
+                3 => 430,
+                default => 580,
+            };
+
+            $image = $manager->read($filePath);
+            $image->scaleDown($maxWidth, $maxHeight);
+            $encoded = $image->toJpeg(88);
+            $base64 = base64_encode($encoded->toString());
+            unset($image, $encoded);
+
+            return 'data:image/jpeg;base64,' . $base64;
+        } catch (\Exception $e) {
+            return null;
         }
     }
 
@@ -353,10 +388,51 @@ class ExportBuktiController extends Controller
         return $normalized;
     }
 
-    private function createSelectionToken(array $ids, int $userId): string
+    private function splitRowsIntoBatches(array $rows, int $maxItemsPerBatch): array
+    {
+        $batches = [];
+        $currentRows = [];
+        $currentItemsCount = 0;
+
+        foreach ($rows as $row) {
+            $items = $row['items'] ?? [];
+            if (empty($items)) {
+                continue;
+            }
+
+            $chunks = array_chunk($items, $maxItemsPerBatch);
+            foreach ($chunks as $chunkItems) {
+                $chunkCount = count($chunkItems);
+                if ($chunkCount === 0) {
+                    continue;
+                }
+
+                if ($currentItemsCount > 0 && ($currentItemsCount + $chunkCount) > $maxItemsPerBatch) {
+                    $batches[] = $currentRows;
+                    $currentRows = [];
+                    $currentItemsCount = 0;
+                }
+
+                $currentRows[] = [
+                    'columns' => (int) ($row['columns'] ?? 2),
+                    'items' => $chunkItems,
+                ];
+                $currentItemsCount += $chunkCount;
+            }
+        }
+
+        if (!empty($currentRows)) {
+            $batches[] = $currentRows;
+        }
+
+        return $batches;
+    }
+
+    private function createSelectionToken(array $ids, int $userId, int $groupId): string
     {
         return Crypt::encryptString(json_encode([
             'uid' => $userId,
+            'gid' => $groupId,
             'ids' => $this->normalizeIdList($ids),
             'iat' => now()->timestamp,
         ], JSON_THROW_ON_ERROR));
@@ -365,17 +441,18 @@ class ExportBuktiController extends Controller
     /**
      * @throws ValidationException
      */
-    private function extractAllowedIds(string $selectionToken): array
+    private function extractSelectionPayload(string $selectionToken): array
     {
         try {
             $payload = json_decode(Crypt::decryptString($selectionToken), true, 512, JSON_THROW_ON_ERROR);
         } catch (\Throwable $e) {
             throw ValidationException::withMessages([
-                'selection_token' => 'Sesi export tidak valid. Silakan buka ulang dari halaman daftar.',
+                'selection_token' => 'Sesi export tidak valid. Silakan buka ulang dari halaman grup.',
             ]);
         }
 
         $tokenUserId = (int) ($payload['uid'] ?? 0);
+        $groupId = (int) ($payload['gid'] ?? 0);
         $issuedAt = (int) ($payload['iat'] ?? 0);
         $allowedIds = $this->normalizeIdList($payload['ids'] ?? []);
 
@@ -385,9 +462,15 @@ class ExportBuktiController extends Controller
             ]);
         }
 
+        if ($groupId <= 0) {
+            throw ValidationException::withMessages([
+                'selection_token' => 'Data grup pada sesi export tidak valid.',
+            ]);
+        }
+
         if ($issuedAt <= 0 || (now()->timestamp - $issuedAt) > self::TOKEN_TTL_SECONDS) {
             throw ValidationException::withMessages([
-                'selection_token' => 'Sesi export sudah kedaluwarsa. Silakan pilih data ulang.',
+                'selection_token' => 'Sesi export sudah kedaluwarsa. Silakan buka ulang dari halaman grup.',
             ]);
         }
 
@@ -397,7 +480,7 @@ class ExportBuktiController extends Controller
             ]);
         }
 
-        return $allowedIds;
+        return [$allowedIds, $groupId];
     }
 
     private function getTempCropRelativePath(string $selectionToken, int $recordId): string
@@ -408,7 +491,7 @@ class ExportBuktiController extends Controller
         return self::TEMP_CROP_BASE_DIR . "/u{$userId}/{$sessionHash}/{$recordId}.webp";
     }
 
-    private function resolveImagePath(Penerjemahan $record, string $selectionToken): ?string
+    private function resolveImagePath(EptRegistration $record, string $selectionToken): ?string
     {
         $disk = Storage::disk('public');
         $tempCropPath = $this->getTempCropRelativePath($selectionToken, (int) $record->id);
@@ -424,7 +507,7 @@ class ExportBuktiController extends Controller
         return $disk->path($record->bukti_pembayaran);
     }
 
-    private function resolvePreviewImageUrl(Penerjemahan $record, string $selectionToken): ?string
+    private function resolvePreviewImageUrl(EptRegistration $record, string $selectionToken): ?string
     {
         $disk = Storage::disk('public');
         $tempCropPath = $this->getTempCropRelativePath($selectionToken, (int) $record->id);
@@ -471,6 +554,27 @@ class ExportBuktiController extends Controller
             if (empty($disk->files($dir)) && empty($disk->directories($dir))) {
                 $disk->deleteDirectory($dir);
             }
+        }
+    }
+
+    private function formatGroupToken(string $groupName): string
+    {
+        $token = (string) Str::of($groupName)
+            ->replaceMatches('/[^A-Za-z0-9]+/', '_')
+            ->trim('_')
+            ->upper()
+            ->limit(32, '')
+            ->trim('_');
+
+        return $token !== '' ? $token : 'GRUP';
+    }
+
+    private function resolveGroupBackUrl(int $groupId): string
+    {
+        try {
+            return route('filament.admin.resources.ept-groups.view', ['record' => $groupId]);
+        } catch (\Throwable $e) {
+            return url('/admin/ept-groups/' . $groupId);
         }
     }
 }

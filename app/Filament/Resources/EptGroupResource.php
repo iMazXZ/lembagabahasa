@@ -169,6 +169,17 @@ class EptGroupResource extends Resource
                                 ->body("Berhasil: {$sent}, Gagal: {$failed}")
                                 ->send();
                         }),
+
+                    Tables\Actions\Action::make('export_bukti_pembayaran')
+                        ->label('Export Bukti')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('warning')
+                        ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']))
+                        ->action(function (EptGroup $record) {
+                            return redirect()->to(route('admin.ept-group-export-bukti.preview', [
+                                'group' => $record->id,
+                            ]));
+                        }),
                     
                     Tables\Actions\ViewAction::make()
                         ->label('Lihat Peserta'),

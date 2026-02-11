@@ -571,6 +571,15 @@ class PenerjemahanResource extends Resource
                                         ->send();
                                     return;
                                 }
+
+                                if ($filtered->count() > 8) {
+                                    Notification::make()
+                                        ->warning()
+                                        ->title('Maksimal 8 gambar')
+                                        ->body('Pilih maksimal 8 data per export agar proses PDF tetap ringan di server.')
+                                        ->send();
+                                    return;
+                                }
                                 
                                 // Redirect to preview page with selected IDs
                                 $ids = $filtered->pluck('id')->implode(',');

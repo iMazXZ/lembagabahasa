@@ -1,5 +1,14 @@
 <!DOCTYPE html>
 <html lang="id">
+@php
+    $pageTitle = $pageTitle ?? 'Layout Designer - Export Bukti';
+    $backUrl = $backUrl ?? url('/admin/penerjemahan');
+    $backLabel = $backLabel ?? 'Kembali';
+    $cropSaveRoute = $cropSaveRoute ?? route('admin.export-bukti.crop-save');
+    $generateRoute = $generateRoute ?? route('admin.export-bukti.generate');
+    $downloadButtonText = $downloadButtonText ?? 'Preview PDF';
+    $processingText = $processingText ?? 'Membuat PDF...';
+@endphp
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,11 +34,11 @@
         <div class="bg-white rounded-lg shadow p-4 mb-6">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 class="text-xl font-bold text-gray-900">Layout Designer - Export Bukti</h1>
-                    <p class="text-sm text-gray-500">Klik gambar untuk crop/rotate • Drag untuk atur urutan • {{ $records->count() }} gambar</p>
+                    <h1 class="text-xl font-bold text-gray-900">{{ $pageTitle }}</h1>
+                    <p class="text-sm text-gray-500">Klik gambar untuk crop/rotate • Drag untuk atur urutan • {{ $records->count() }} gambar (maks {{ $maxItems }})</p>
                 </div>
-                <a href="{{ url('/admin/penerjemahan') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                    <i class="fa-solid fa-arrow-left mr-1"></i> Kembali
+                <a href="{{ $backUrl }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> {{ $backLabel }}
                 </a>
             </div>
         </div>
@@ -44,26 +53,31 @@
             </div>
             <div id="source-items" class="flex flex-wrap gap-2 min-h-[60px] p-2 bg-gray-50 rounded border-2 border-dashed border-gray-200">
                 @foreach($records as $record)
+                    @php
+                        $previewUrl = filled($record->preview_bukti_url) ? ($record->preview_bukti_url . '?t=' . time()) : '';
+                        $displayName = $record->display_name ?? $record->users?->name ?? $record->user?->name ?? '-';
+                        $displaySrn = $record->display_srn ?? $record->users?->srn ?? $record->user?->srn ?? '-';
+                    @endphp
                     <div class="item-card bg-white border rounded-lg p-2 cursor-move shadow-sm flex items-center gap-2" 
                          data-id="{{ $record->id }}" 
-                         data-name="{{ $record->users?->name ?? '-' }}"
-                         data-srn="{{ $record->users?->srn ?? '-' }}"
-                         data-image="{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}">
-                        @if(Storage::disk('public')->exists($record->bukti_pembayaran))
+                         data-name="{{ $displayName }}"
+                         data-srn="{{ $displaySrn }}"
+                         data-image="{{ $previewUrl }}">
+                        @if($previewUrl !== '')
                             <div class="relative">
-                                <img src="{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}" 
+                                <img src="{{ $previewUrl }}" 
                                      class="w-14 h-14 object-cover rounded item-thumb"
-                                     onclick="openCropModal({{ $record->id }}, '{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}', '{{ addslashes($record->users?->name ?? '-') }}')">
+                                     onclick='openCropModal({{ $record->id }}, null, @json($displayName))'>
                                 <button type="button" 
                                         class="edit-btn absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-yellow-600"
-                                        onclick="openCropModal({{ $record->id }}, '{{ Storage::disk('public')->url($record->bukti_pembayaran) }}?t={{ time() }}', '{{ addslashes($record->users?->name ?? '-') }}')">
+                                        onclick='openCropModal({{ $record->id }}, null, @json($displayName))'>
                                     <i class="fa-solid fa-pen text-[8px]"></i>
                                 </button>
                             </div>
                         @endif
                         <div class="text-xs">
-                            <div class="font-medium truncate max-w-[120px]">{{ Str::limit($record->users?->name ?? '-', 18) }}</div>
-                            <div class="text-gray-500">{{ $record->users?->srn ?? '-' }}</div>
+                            <div class="font-medium truncate max-w-[120px]">{{ Str::limit($displayName, 18) }}</div>
+                            <div class="text-gray-500">{{ $displaySrn }}</div>
                         </div>
                     </div>
                 @endforeach
@@ -93,7 +107,7 @@
                     </select>
                 </div>
                 <button type="button" onclick="previewPdf()" id="downloadBtn" class="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition disabled:opacity-50">
-                    <i class="fa-solid fa-eye mr-2"></i> Preview PDF
+                    <i class="fa-solid fa-eye mr-2"></i> {{ $downloadButtonText }}
                 </button>
             </div>
         </div>
@@ -158,6 +172,11 @@
         let rowSortables = {};
         let cropper = null;
         let currentCropId = null;
+        const selectionToken = @json($selectionToken);
+        const maxItems = {{ (int) $maxItems }};
+        const cropSaveRoute = @json($cropSaveRoute);
+        const generateRoute = @json($generateRoute);
+        const processingText = @json($processingText);
         
         document.addEventListener('DOMContentLoaded', function() {
             sourceSortable = new Sortable(document.getElementById('source-items'), {
@@ -251,6 +270,16 @@
         
         // Crop Modal Functions
         function openCropModal(id, imageUrl, name) {
+            const card = document.querySelector(`[data-id="${id}"]`);
+            if (!imageUrl && card) {
+                imageUrl = card.dataset.image;
+            }
+
+            if (!imageUrl) {
+                alert('Gambar tidak ditemukan untuk data ini.');
+                return;
+            }
+
             currentCropId = id;
             document.getElementById('crop-modal-title').textContent = 'Crop/Rotate: ' + name;
             document.getElementById('crop-image').src = imageUrl;
@@ -336,9 +365,10 @@
                 const formData = new FormData();
                 formData.append('image', blob, 'cropped.jpg');
                 formData.append('id', currentCropId);
+                formData.append('selection_token', selectionToken);
                 formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
                 
-                fetch('{{ route("admin.export-bukti.crop-save") }}', {
+                fetch(cropSaveRoute, {
                     method: 'POST',
                     body: formData,
                     headers: {
@@ -395,7 +425,9 @@
             const rows = [];
             document.querySelectorAll('.row-container').forEach(rowEl => {
                 const columns = parseInt(rowEl.dataset.columns);
-                const items = Array.from(rowEl.querySelectorAll('.item-card')).map(item => item.dataset.id);
+                const items = Array.from(rowEl.querySelectorAll('.item-card'))
+                    .map(item => Number.parseInt(item.dataset.id, 10))
+                    .filter(id => Number.isInteger(id) && id > 0);
                 if (items.length > 0) {
                     rows.push({ columns, items });
                 }
@@ -405,14 +437,20 @@
                 alert('Tidak ada gambar yang diatur. Drag gambar ke baris terlebih dahulu.');
                 return;
             }
+
+            const uniqueIds = [...new Set(rows.flatMap(row => row.items))];
+            if (uniqueIds.length > maxItems) {
+                alert(`Maksimal ${maxItems} gambar per export. Kurangi jumlah gambar terlebih dahulu.`);
+                return;
+            }
             
             const rowsPerPage = document.getElementById('rowsPerPage').value;
-            showLoading('Membuat PDF...');
+            showLoading(processingText);
             document.getElementById('downloadBtn').disabled = true;
             
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = '{{ route("admin.export-bukti.generate") }}';
+            form.action = generateRoute;
             form.target = '_blank';
             form.style.display = 'none';
             
@@ -433,6 +471,12 @@
             rppInput.name = 'rows_per_page';
             rppInput.value = rowsPerPage;
             form.appendChild(rppInput);
+
+            const selectionTokenInput = document.createElement('input');
+            selectionTokenInput.type = 'hidden';
+            selectionTokenInput.name = 'selection_token';
+            selectionTokenInput.value = selectionToken;
+            form.appendChild(selectionTokenInput);
             
             document.body.appendChild(form);
             form.submit();

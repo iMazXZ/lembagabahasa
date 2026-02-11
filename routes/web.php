@@ -543,4 +543,14 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     
     Route::post('/export-bukti-crop-save', [\App\Http\Controllers\Admin\ExportBuktiController::class, 'cropSave'])
         ->name('admin.export-bukti.crop-save');
+
+    // Export Bukti EPT Group Preview & Generate (ZIP batch)
+    Route::get('/ept-groups/{group}/export-bukti-preview', [\App\Http\Controllers\Admin\EptGroupExportBuktiController::class, 'preview'])
+        ->name('admin.ept-group-export-bukti.preview');
+
+    Route::post('/ept-groups/export-bukti-generate', [\App\Http\Controllers\Admin\EptGroupExportBuktiController::class, 'generate'])
+        ->name('admin.ept-group-export-bukti.generate');
+
+    Route::post('/ept-groups/export-bukti-crop-save', [\App\Http\Controllers\Admin\EptGroupExportBuktiController::class, 'cropSave'])
+        ->name('admin.ept-group-export-bukti.crop-save');
 });

@@ -57,6 +57,17 @@ class ViewEptGroup extends ViewRecord
                 ->action(function () {
                     $this->sendBulkWA($this->record);
                 }),
+
+            Actions\Action::make('export_bukti_pembayaran')
+                ->label('Export Bukti Pembayaran')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('warning')
+                ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']))
+                ->action(function () {
+                    return redirect()->to(route('admin.ept-group-export-bukti.preview', [
+                        'group' => $this->record->id,
+                    ]));
+                }),
         ];
     }
 
