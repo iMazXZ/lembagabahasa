@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Support\LegacyBasicListeningScores;
 use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 
@@ -224,11 +225,12 @@ class SiteSetting extends Model
         }
 
         if ($isProdiIslam) {
-            return is_numeric($user->interactive_bahasa_arab_1 ?? null)
+            return LegacyBasicListeningScores::effectiveScoreForUser($user) !== null
+                && is_numeric($user->interactive_bahasa_arab_1 ?? null)
                 && is_numeric($user->interactive_bahasa_arab_2 ?? null);
         }
 
-        return is_numeric($user->nilaibasiclistening ?? null);
+        return LegacyBasicListeningScores::effectiveScoreForUser($user) !== null;
     }
 
     public static function checkEptEligibility(User $user): array

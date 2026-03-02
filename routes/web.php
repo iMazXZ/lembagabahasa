@@ -200,6 +200,14 @@ Route::get('/verification/{code}/ept.pdf', [EptSubmissionPdfController::class, '
 Route::get('/verification', [VerificationController::class, 'index'])
     ->name('verification.index');
 
+Route::get('/verification/lookup', [VerificationController::class, 'lookup'])
+    ->middleware('throttle:60,1')
+    ->name('verification.lookup');
+
+Route::get('/verification/basic-listening/manual-search', [VerificationController::class, 'searchLegacyScores'])
+    ->middleware('throttle:60,1')
+    ->name('verification.basic-listening.manual.search');
+
 Route::get('/verification/{code}', [VerificationController::class, 'show'])
     ->where('code', '[A-Za-z0-9\-_]+')
     ->middleware('throttle:60,1')
@@ -390,6 +398,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard/biodata', [BasicListeningProfileController::class, 'showDashboardBiodata'])
         ->name('dashboard.biodata');
+    Route::get('/dashboard/biodata/manual-basic-listening-score', [BasicListeningProfileController::class, 'lookupLegacyScore'])
+        ->middleware('throttle:30,1')
+        ->name('dashboard.biodata.manual-basic-listening-score');
     Route::delete('/dashboard/biodata/photo', [BasicListeningProfileController::class, 'deletePhoto'])
         ->name('dashboard.biodata.photo.delete');
 

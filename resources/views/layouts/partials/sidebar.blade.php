@@ -10,22 +10,7 @@
     $isProdiIslam = $u && $u->prody && in_array($u->prody->name, $prodiIslam);
     $needsBL = $u && $u->year && (int)$u->year <= 2024 && !$isS2;
     
-    // Check nilai completeness based on prodi type
-    $hasNilai = false;
-    if (!$needsBL) {
-        $hasNilai = true; // S2 atau angkatan >= 2025 tidak perlu nilai
-    } elseif ($isPBI) {
-        // PBI: perlu interactive_class_1 sampai 6
-        $hasNilai = is_numeric($u->interactive_class_1 ?? null) && is_numeric($u->interactive_class_6 ?? null);
-    } elseif ($isProdiIslam) {
-        // Prodi Islam: perlu interactive_bahasa_arab_1 dan 2
-        $hasNilai = is_numeric($u->interactive_bahasa_arab_1 ?? null) && is_numeric($u->interactive_bahasa_arab_2 ?? null);
-    } else {
-        // Prodi lain: perlu nilaibasiclistening
-        $hasNilai = is_numeric($u->nilaibasiclistening ?? null);
-    }
-    
-    $biodataComplete = $hasBasicInfo && $hasNilai;
+    $biodataComplete = $u ? \App\Models\SiteSetting::isEptBiodataComplete($u) : false;
     $waVerified = $u && !empty($u->whatsapp_verified_at);
     $biodataNeedsBadge = !$biodataComplete || !$waVerified;
 

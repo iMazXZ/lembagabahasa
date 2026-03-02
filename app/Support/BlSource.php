@@ -29,7 +29,7 @@ class BlSource
         }
 
         // ≤ 2024 → manual
-        $num = is_numeric($user->nilaibasiclistening) ? (float) $user->nilaibasiclistening : null;
+        $num = LegacyBasicListeningScores::effectiveScoreForUser($user);
         $let = $num !== null ? BlGrading::letter($num) : null;
 
         // Opsional: sinkronkan juga ke cache agar sertifikat & laporan seragam

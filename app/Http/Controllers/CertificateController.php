@@ -10,6 +10,7 @@ use App\Models\BasicListeningSurveyResponse;
 use App\Support\BlCompute;
 use App\Support\BlGrading;
 use App\Support\BlSource;
+use App\Support\LegacyBasicListeningScores;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -168,8 +169,8 @@ class CertificateController extends Controller
         $finalLetter  = null;
 
         if ($year <= 2024) {
-            // Nilai manual (dari users.nilaibasiclistening)
-            $manual = is_numeric($user->nilaibasiclistening) ? (float) $user->nilaibasiclistening : null;
+            // Nilai manual legacy (diprioritaskan dari tabel nilai manual)
+            $manual = LegacyBasicListeningScores::effectiveScoreForUser($user);
             if ($manual !== null) {
                 $finalNumeric = round($manual, 2);
                 $finalLetter  = BlGrading::letter($manual);

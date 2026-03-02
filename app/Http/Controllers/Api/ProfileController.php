@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Prody;
+use App\Support\LegacyBasicListeningScores;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ImageTransformer;
@@ -30,7 +31,7 @@ class ProfileController extends Controller
                 'year' => $user->year,
                 'prody_id' => $user->prody_id,
                 'prody_name' => $user->prody->name ?? null,
-                'nilaibasiclistening' => $user->nilaibasiclistening,
+                'nilaibasiclistening' => LegacyBasicListeningScores::effectiveScoreForUser($user),
                 'photo' => $user->image ? url(Storage::url($user->image)) : null,
                 'created_at' => $user->created_at->toIso8601String(),
             ],
@@ -61,6 +62,15 @@ class ProfileController extends Controller
             'prody_id',
             'nilaibasiclistening',
         ]));
+
+        $prodyName = LegacyBasicListeningScores::resolveProdyName($user->prody_id ? (int) $user->prody_id : null);
+        if (LegacyBasicListeningScores::requiresLegacyScore((int) ($user->year ?? 0), $prodyName)) {
+            $resolved = LegacyBasicListeningScores::findBySrn($user->srn);
+            if ($resolved && is_numeric($resolved->score)) {
+                $user->nilaibasiclistening = (float) $resolved->score;
+            }
+        }
+
         $user->save();
         $user->load('prody');
 
@@ -76,7 +86,7 @@ class ProfileController extends Controller
                 'year' => $user->year,
                 'prody_id' => $user->prody_id,
                 'prody_name' => $user->prody->name ?? null,
-                'nilaibasiclistening' => $user->nilaibasiclistening,
+                'nilaibasiclistening' => LegacyBasicListeningScores::effectiveScoreForUser($user),
             ],
         ]);
     }

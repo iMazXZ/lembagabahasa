@@ -22,17 +22,34 @@
         : 'https://ui-avatars.com/api/?name='.urlencode($user->name).'&background=EBF4FF&color=1E40AF&bold=true';
     
     $initialYear = old('year', $user->year);
+    $initialSrn = old('srn', $user->srn);
+    $initialProdyId = old('prody_id', $user->prody_id);
+    $initialProdyName = $initialProdyId ? $prodis->firstWhere('id', $initialProdyId)?->name : ($user->prody->name ?? '');
+    $initialLegacyScoreRaw = old('nilaibasiclistening', $legacyAutoScore ?? $user->nilaibasiclistening);
+    $initialLegacyScore = is_numeric($initialLegacyScoreRaw) ? (int) round((float) $initialLegacyScoreRaw) : $initialLegacyScoreRaw;
     $shouldOpenPasswordModal = $errors->has('current_password') || $errors->has('password');
+    $initialYearString = filled($initialYear) ? (string) $initialYear : '';
+    $initialSrnString = filled($initialSrn) ? (string) $initialSrn : '';
+    $prodiIslamNames = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
+    $initialYearInt = filled($initialYearString) ? (int) $initialYearString : null;
+    $initialShowLegacyScore = \App\Support\LegacyBasicListeningScores::requiresLegacyScore($initialYearInt, $initialProdyName ?: null);
+    $initialShowInteractiveClass = $initialYearInt !== null && $initialYearInt <= 2024 && $initialProdyName === 'Pendidikan Bahasa Inggris';
+    $initialShowInteractiveArabic = $initialYearInt !== null && $initialYearInt <= 2024 && in_array($initialProdyName, $prodiIslamNames, true);
 @endphp
 
 <div
     x-data="{
-        year: '{{ $initialYear }}',
-        isS2: {{ ($user->prody && str_starts_with($user->prody->name ?? '', 'S2')) ? 'true' : 'false' }},
-        prodiName: '{{ $user->prody->name ?? '' }}',
-        changePasswordOpen: {{ $shouldOpenPasswordModal ? 'true' : 'false' }}
+        year: @js($initialYearString),
+        srn: @js($initialSrnString),
+        legacyScore: @js($initialLegacyScore),
+        legacyScoreFound: {{ $initialLegacyScore !== null && $initialLegacyScore !== '' ? 'true' : 'false' }},
+        legacyScoreLoading: false,
+        legacyScoreMessage: @js(($initialLegacyScore !== null && $initialLegacyScore !== '') ? '' : 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.'),
+        isS2: {{ str_starts_with($initialProdyName ?? '', 'S2') ? 'true' : 'false' }},
+        prodiName: @js($initialProdyName),
+        changePasswordOpen: {{ $shouldOpenPasswordModal ? 'true' : 'false' }},
+        lookupUrl: @js(route('dashboard.biodata.manual-basic-listening-score'))
     }"
-    @prodi-changed.window="isS2 = $event.detail.isS2; prodiName = $event.detail.prodiName"
     class="max-w-7xl mx-auto"
 >
     {{-- TOP BANNER: WhatsApp OTP Verification (hanya muncul jika ada pending OTP) --}}
@@ -553,16 +570,20 @@
                             {{-- NPM --}}
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">NPM / NIM <span class="text-rose-500">*</span></label>
-                                <input type="text" name="srn" value="{{ old('srn', $user->srn) }}"
+                                <input type="text" id="biodata-srn" name="srn" x-ref="srnInput" value="{{ $initialSrnString }}" x-model="srn"
                                        class="block w-full py-3 px-4 rounded-xl border-2 border-slate-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue text-base transition-all duration-200 placeholder:text-slate-400"
                                        placeholder="Masukkan NPM / NIM">
+                                <p class="mt-1 pl-1 text-xs text-slate-500">Jika NPM memiliki akhiran seperti P, masukkan lengkap.</p>
+                                <p id="biodata-srn-warning" style="display:none" class="mt-1 pl-1 text-xs text-amber-700">
+                                    NPM minimal 8 digit.
+                                </p>
                                 @error('srn') <p class="mt-1 text-xs text-rose-600 pl-1">{{ $message }}</p> @enderror
                             </div>
 
                             {{-- Angkatan --}}
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">Tahun Angkatan <span class="text-rose-500">*</span></label>
-                                <select name="year" x-model="year"
+                                <select id="biodata-year" name="year" x-ref="yearSelect" x-model="year"
                                         class="block w-full py-3 px-4 rounded-xl border-2 border-slate-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue text-base transition-all duration-200">
                                     <option value="">Pilih Tahun</option>
                                     @foreach (collect(range(2017, (int)date('Y')+1))->reverse() as $y)
@@ -591,8 +612,9 @@
                                         this.selectedName = prodi.name;
                                         this.search = '';
                                         this.open = false;
-                                        // Dispatch event untuk update isS2 dan prodiName di parent
-                                        $dispatch('prodi-changed', { isS2: prodi.name.startsWith('S2'), prodiName: prodi.name });
+                                        window.dispatchEvent(new CustomEvent('biodata-prodi-changed', {
+                                            detail: { id: prodi.id, prodiName: prodi.name }
+                                        }));
                                     },
                                     clear() {
                                         this.selected = null;
@@ -604,7 +626,7 @@
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">Program Studi <span class="text-rose-500">*</span></label>
                                 
                                 {{-- Hidden input for form submission --}}
-                                <input type="hidden" name="prody_id" :value="selected">
+                                <input type="hidden" id="biodata-prody-id" name="prody_id" value="{{ $initialProdyId }}" :value="selected">
                                 
                                 {{-- Dropdown trigger --}}
                                 <div class="relative">
@@ -663,58 +685,59 @@
                             </div>
 
                             {{-- Nilai BL (Conditional: angkatan <= 2024 DAN bukan S2 DAN bukan Pendidikan Bahasa Inggris) --}}
-                            <template x-if="year && parseInt(year) <= 2024 && !isS2 && prodiName !== 'Pendidikan Bahasa Inggris'">
-                            <div class="md:col-span-2 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-blue-200 relative overflow-hidden shadow-sm">
-                                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 sm:w-24 sm:h-24 bg-blue-200 rounded-full blur-2xl opacity-40"></div>
-                                <div class="relative z-10">
-                                    <div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-um-blue rounded-lg sm:rounded-xl flex items-center justify-center shadow-md shrink-0">
-                                            <i class="fa-solid fa-star text-white text-sm sm:text-base"></i>
-                                        </div>
-                                        <div>
-                                            <label class="text-sm sm:text-base font-bold text-slate-900 block">Nilai Basic Listening <span class="text-rose-500">*</span></label>
-                                            <p class="text-[10px] sm:text-xs text-slate-500">Wajib untuk angkatan 2024 ke bawah</p>
-                                        </div>
+                            <div id="legacy-score-section" style="{{ $initialShowLegacyScore ? '' : 'display:none' }}" class="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+                                <div class="flex items-start gap-3 mb-4">
+                                    <div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600 shrink-0">
+                                        <i class="fa-solid fa-wave-square text-sm"></i>
                                     </div>
+                                    <div>
+                                        <label class="text-sm sm:text-base font-semibold text-slate-900 block">Nilai Basic Listening <span class="text-rose-500">*</span></label>
+                                        <p class="text-xs text-slate-500 mt-0.5">Nilai ini terisi otomatis jika memang sudah mengikuti Basic Listening.</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-3">
                                     <div class="flex items-center gap-3">
-                                        <input type="number" name="nilaibasiclistening" min="1" max="100" placeholder="0"
-                                               value="{{ old('nilaibasiclistening', $user->nilaibasiclistening) }}"
-                                               class="w-24 sm:w-32 py-2 sm:py-3 px-3 sm:px-4 text-center text-xl sm:text-2xl font-bold rounded-lg sm:rounded-xl border-2 border-blue-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue">
-                                        <span class="text-sm sm:text-base text-slate-500 font-medium">/ 100</span>
+                                        <input type="number" id="legacy-score-input" name="nilaibasiclistening" min="1" max="100" placeholder="0"
+                                               value="{{ $initialLegacyScore }}"
+                                               readonly
+                                               class="w-28 sm:w-32 py-2.5 px-3 text-center text-xl font-semibold rounded-xl border border-slate-300 bg-slate-50 text-slate-700"
+                                               data-has-score="{{ $initialLegacyScore !== null && $initialLegacyScore !== '' ? '1' : '0' }}">
+                                        <span class="text-sm text-slate-500 font-medium">/ 100</span>
+                                        <span id="legacy-score-loading" style="display:none" class="text-xs font-medium text-slate-500">Memuat...</span>
                                     </div>
-                                    <p class="text-[10px] sm:text-xs text-slate-500 mt-2 sm:mt-3">
-                                        <i class="fa-solid fa-info-circle text-blue-400"></i>
-                                        Masukkan nilai Basic Listening Anda.
+                                    <p id="legacy-score-message" style="{{ $initialLegacyScore !== null && $initialLegacyScore !== '' ? 'display:none' : '' }}" class="text-xs text-amber-700">
+                                        <i id="legacy-score-message-icon" class="fa-solid fa-circle-info text-amber-500"></i>
+                                        <span>Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.</span>
                                     </p>
+                                    @error('nilaibasiclistening')
+                                        <p class="mt-2 text-xs text-rose-600">{{ $message }}</p>
+                                    @enderror
                                 </div>
                             </div>
-                            </template>
 
                             {{-- Interactive Class (6 semester) - KHUSUS Pendidikan Bahasa Inggris --}}
-                            <template x-if="year && parseInt(year) <= 2024 && prodiName === 'Pendidikan Bahasa Inggris'">
-                            <div class="md:col-span-2 bg-gradient-to-br from-violet-50 to-purple-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-violet-200 relative overflow-hidden shadow-sm">
-                                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 sm:w-24 sm:h-24 bg-violet-200 rounded-full blur-2xl opacity-40"></div>
-                                <div class="relative z-10">
-                                    <div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-violet-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md shrink-0">
-                                            <i class="fa-solid fa-comments text-white text-sm sm:text-base"></i>
-                                        </div>
-                                        <div>
-                                            <label class="text-sm sm:text-base font-bold text-slate-900 block">Nilai Interactive Class <span class="text-rose-500">*</span></label>
-                                            <p class="text-[10px] sm:text-xs text-slate-500">Wajib untuk Pendidikan Bahasa Inggris (Semester 1-6)</p>
-                                        </div>
+                            <div id="interactive-class-section" style="{{ $initialShowInteractiveClass ? '' : 'display:none' }}" class="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+                                <div class="flex items-start gap-3 mb-4">
+                                    <div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-violet-600 shrink-0">
+                                        <i class="fa-solid fa-comments text-sm"></i>
                                     </div>
+                                    <div>
+                                        <label class="text-sm sm:text-base font-semibold text-slate-900 block">Nilai Interactive Bahasa Inggris <span class="text-rose-500">*</span></label>
+                                        <p class="text-xs text-slate-500 mt-0.5">Masukkan nilai per semester untuk mahasiswa Pendidikan Bahasa Inggris.</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
                                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                         @for ($i = 1; $i <= 6; $i++)
                                         <div>
                                             <label class="block text-xs font-medium text-slate-600 mb-1">Semester {{ $i }}</label>
                                             <input type="number" name="interactive_class_{{ $i }}" min="0" max="100" placeholder="0"
                                                    value="{{ old('interactive_class_'.$i, $user->{'interactive_class_'.$i}) }}"
-                                                   class="w-full py-2 px-3 text-center text-lg font-bold rounded-lg border-2 border-violet-200 bg-white shadow-sm focus:border-violet-500 focus:ring-violet-500">
+                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-white focus:border-violet-500 focus:ring-violet-500">
                                         </div>
                                         @endfor
                                     </div>
-                                    <p class="text-[10px] sm:text-xs text-slate-500 mt-2 sm:mt-3">
+                                    <p class="text-xs text-slate-500">
                                         <i class="fa-solid fa-info-circle text-violet-400"></i>
                                         Masukkan nilai Interactive Class untuk setiap semester.
                                     </p>
@@ -723,41 +746,38 @@
                                     @endfor
                                 </div>
                             </div>
-                            </template>
 
                             {{-- Interactive Bahasa Arab (2 field) - KHUSUS 3 Prodi Islam --}}
                             @php
                                 $prodiIslam = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
                                 $prodiIslamJs = Js::from($prodiIslam);
                             @endphp
-                            <template x-if="year && parseInt(year) <= 2024 && {{ $prodiIslamJs }}.includes(prodiName)">
-                            <div class="md:col-span-2 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-emerald-200 relative overflow-hidden shadow-sm">
-                                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 sm:w-24 sm:h-24 bg-emerald-200 rounded-full blur-2xl opacity-40"></div>
-                                <div class="relative z-10">
-                                    <div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md shrink-0">
-                                            <i class="fa-solid fa-book-quran text-white text-sm sm:text-base"></i>
-                                        </div>
-                                        <div>
-                                            <label class="text-sm sm:text-base font-bold text-slate-900 block">Nilai Interactive Bahasa Arab <span class="text-rose-500">*</span></label>
-                                            <p class="text-[10px] sm:text-xs text-slate-500">Wajib untuk prodi keislaman</p>
-                                        </div>
+                            <div id="interactive-arabic-section" style="{{ $initialShowInteractiveArabic ? '' : 'display:none' }}" class="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+                                <div class="flex items-start gap-3 mb-4">
+                                    <div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
+                                        <i class="fa-solid fa-book-quran text-sm"></i>
                                     </div>
+                                    <div>
+                                        <label class="text-sm sm:text-base font-semibold text-slate-900 block">Nilai Interactive Bahasa Arab <span class="text-rose-500">*</span></label>
+                                        <p class="text-xs text-slate-500 mt-0.5">Masukkan dua nilai Interactive Bahasa Arab.</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
                                             <label class="block text-xs font-medium text-slate-600 mb-1">Bahasa Arab 1</label>
                                             <input type="number" name="interactive_bahasa_arab_1" min="0" max="100" placeholder="0"
                                                    value="{{ old('interactive_bahasa_arab_1', $user->interactive_bahasa_arab_1) }}"
-                                                   class="w-full py-2 px-3 text-center text-lg font-bold rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-white focus:border-emerald-500 focus:ring-emerald-500">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-slate-600 mb-1">Bahasa Arab 2</label>
                                             <input type="number" name="interactive_bahasa_arab_2" min="0" max="100" placeholder="0"
                                                    value="{{ old('interactive_bahasa_arab_2', $user->interactive_bahasa_arab_2) }}"
-                                                   class="w-full py-2 px-3 text-center text-lg font-bold rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-white focus:border-emerald-500 focus:ring-emerald-500">
                                         </div>
                                     </div>
-                                    <p class="text-[10px] sm:text-xs text-slate-500 mt-2 sm:mt-3">
+                                    <p class="text-xs text-slate-500">
                                         <i class="fa-solid fa-info-circle text-emerald-400"></i>
                                         Masukkan nilai Interactive Bahasa Arab Anda.
                                     </p>
@@ -765,7 +785,6 @@
                                     @error('interactive_bahasa_arab_2') <p class="text-xs text-rose-600 mt-1">{{ $message }}</p> @enderror
                                 </div>
                             </div>
-                            </template>
                         </div>
                     </div>
 
@@ -876,4 +895,270 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const srnInput = document.getElementById('biodata-srn');
+    const yearSelect = document.getElementById('biodata-year');
+    const prodyInput = document.getElementById('biodata-prody-id');
+    const nameInput = document.querySelector('input[name="name"]');
+    const legacySection = document.getElementById('legacy-score-section');
+    const legacyInput = document.getElementById('legacy-score-input');
+    const legacyLoading = document.getElementById('legacy-score-loading');
+    const legacyMessage = document.getElementById('legacy-score-message');
+    const legacyMessageIcon = document.getElementById('legacy-score-message-icon');
+    const interactiveClassSection = document.getElementById('interactive-class-section');
+    const interactiveArabicSection = document.getElementById('interactive-arabic-section');
+    const srnWarning = document.getElementById('biodata-srn-warning');
+    const lookupUrl = @json(route('dashboard.biodata.manual-basic-listening-score'));
+    const prodiMap = @json($prodis->pluck('name', 'id'));
+    const prodiIslam = @json($prodiIslamNames);
+    const legacyLookupMinLength = 8;
+    let lookupTimer = null;
+    let selectedProdyName = @json($initialProdyName ?? '');
+
+    if (!srnInput || !yearSelect || !prodyInput) {
+        return;
+    }
+
+    const setVisible = (element, visible) => {
+        if (!element) return;
+        element.style.display = visible ? '' : 'none';
+    };
+
+    const setLegacyState = ({ score = '', found = false, message = '', loading = false } = {}) => {
+        if (legacyInput) {
+            legacyInput.value = score ?? '';
+            legacyInput.classList.remove('bg-emerald-50', 'border-emerald-300', 'text-emerald-700', 'bg-slate-50', 'text-slate-700', 'border-slate-300');
+            legacyInput.classList.add(found ? 'bg-emerald-50' : 'bg-slate-50');
+            legacyInput.classList.add(found ? 'border-emerald-300' : 'border-slate-300');
+            legacyInput.classList.add(found ? 'text-emerald-700' : 'text-slate-700');
+        }
+
+        if (legacyLoading) {
+            legacyLoading.style.display = loading ? '' : 'none';
+        }
+
+        if (legacyMessage) {
+            const span = legacyMessage.querySelector('span');
+            legacyMessage.style.display = loading || found ? 'none' : '';
+            legacyMessage.classList.remove('text-amber-700', 'text-slate-500');
+            legacyMessage.classList.add('text-amber-700');
+            if (span) {
+                span.textContent = message || 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.';
+            }
+        }
+
+        if (legacyMessageIcon) {
+            legacyMessageIcon.classList.remove('text-amber-500');
+            legacyMessageIcon.classList.add('text-amber-500');
+        }
+    };
+
+    const getSelectedProdiName = () => {
+        const id = String(prodyInput.value || '').trim();
+        if (id && Object.prototype.hasOwnProperty.call(prodiMap, id)) {
+            return prodiMap[id];
+        }
+
+        return selectedProdyName || '';
+    };
+
+    const getFlags = () => {
+        const year = parseInt(yearSelect.value || '0', 10);
+        const prodiName = getSelectedProdiName();
+        const isS2 = prodiName.startsWith('S2');
+        const isEnglish = prodiName === 'Pendidikan Bahasa Inggris';
+        const isIslamic = prodiIslam.includes(prodiName);
+
+        return {
+            year,
+            prodiName,
+            needsLegacy: !!year && year <= 2024 && !isS2 && !isEnglish,
+            needsInteractiveClass: !!year && year <= 2024 && isEnglish,
+            needsInteractiveArabic: !!year && year <= 2024 && isIslamic,
+        };
+    };
+
+    const shouldLookupWhileTyping = (rawSrn) => {
+        const value = String(rawSrn || '').trim().toUpperCase();
+        const normalized = value.replace(/[^A-Z0-9]/g, '');
+
+        if (normalized.length < legacyLookupMinLength) {
+            return false;
+        }
+
+        const hasLetter = /[A-Z]/.test(normalized);
+        if (hasLetter) {
+            return true;
+        }
+
+        return normalized.length > legacyLookupMinLength;
+    };
+
+    const validateSrnInput = ({ report = false } = {}) => {
+        const rawValue = String(srnInput.value || '').trim();
+        const digitCount = String(rawValue).replace(/\D+/g, '').length;
+        const hasValue = rawValue.length > 0;
+        const isValid = !hasValue || digitCount >= legacyLookupMinLength;
+
+        srnInput.setCustomValidity(isValid ? '' : `NPM minimal ${legacyLookupMinLength} digit.`);
+
+        if (srnWarning) {
+            srnWarning.style.display = hasValue && !isValid ? '' : 'none';
+        }
+
+        if (report && !isValid) {
+            srnInput.reportValidity();
+        }
+
+        return isValid;
+    };
+
+    const applyAcademicSections = () => {
+        const flags = getFlags();
+        setVisible(legacySection, flags.needsLegacy);
+        setVisible(interactiveClassSection, flags.needsInteractiveClass);
+        setVisible(interactiveArabicSection, flags.needsInteractiveArabic);
+
+        if (!flags.needsLegacy) {
+            setLegacyState({
+                score: '',
+                found: false,
+                message: 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.',
+                loading: false,
+            });
+        }
+
+        return flags;
+    };
+
+    const lookupLegacyScore = async () => {
+        const flags = applyAcademicSections();
+        if (!flags.needsLegacy) {
+            return;
+        }
+
+        const srn = String(srnInput.value || '').trim();
+        const normalizedSrn = srn.replace(/\D+/g, '');
+        if (!srn || normalizedSrn.length < legacyLookupMinLength) {
+            setLegacyState({
+                score: '',
+                found: false,
+                message: 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Basic Listening.',
+                loading: false,
+            });
+            return;
+        }
+
+        setLegacyState({
+            score: legacyInput?.value || '',
+            found: false,
+            message: '',
+            loading: true,
+        });
+
+        try {
+            const params = new URLSearchParams({
+                srn,
+                name: nameInput?.value || '',
+                year: yearSelect.value || '',
+                prody_id: prodyInput.value || '',
+            });
+
+            const response = await fetch(`${lookupUrl}?${params.toString()}`, {
+                headers: { Accept: 'application/json' },
+            });
+
+            if (!response.ok) {
+                throw new Error('Lookup nilai gagal diproses.');
+            }
+
+            const result = await response.json();
+
+            if (!result.applicable) {
+                setLegacyState({
+                    score: '',
+                    found: false,
+                    message: 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.',
+                    loading: false,
+                });
+                return;
+            }
+
+            if (result.found && result.score !== null) {
+                setLegacyState({
+                    score: result.score,
+                    found: true,
+                    message: result.message || 'Nilai ditemukan dari data manual.',
+                    loading: false,
+                });
+            } else {
+                setLegacyState({
+                    score: '',
+                    found: false,
+                    message: result.message || 'Nilai belum ditemukan. Hubungi admin agar data manual diimport.',
+                    loading: false,
+                });
+            }
+        } catch (error) {
+            setLegacyState({
+                score: '',
+                found: false,
+                message: error?.message || 'Terjadi kesalahan saat mencari nilai.',
+                loading: false,
+            });
+        }
+    };
+
+    srnInput.addEventListener('input', () => {
+        validateSrnInput();
+        window.clearTimeout(lookupTimer);
+        if (!shouldLookupWhileTyping(srnInput.value)) {
+            const flags = applyAcademicSections();
+            if (flags.needsLegacy) {
+                setLegacyState({
+                    score: '',
+                    found: false,
+                    message: 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Basic Listening.',
+                    loading: false,
+                });
+            }
+            return;
+        }
+
+        lookupTimer = window.setTimeout(() => {
+            lookupLegacyScore();
+        }, 350);
+    });
+
+    srnInput.addEventListener('blur', () => {
+        validateSrnInput({ report: String(srnInput.value || '').trim().length > 0 });
+        lookupLegacyScore();
+    });
+
+    yearSelect.addEventListener('change', () => {
+        lookupLegacyScore();
+    });
+
+    window.addEventListener('biodata-prodi-changed', (event) => {
+        if (event.detail?.id && prodyInput) {
+            prodyInput.value = event.detail.id;
+        }
+        if (event.detail?.prodiName) {
+            selectedProdyName = event.detail.prodiName;
+        }
+        lookupLegacyScore();
+    });
+
+    srnInput.form?.addEventListener('submit', (event) => {
+        if (!validateSrnInput({ report: true })) {
+            event.preventDefault();
+        }
+    });
+
+    applyAcademicSections();
+    validateSrnInput();
+    lookupLegacyScore();
+});
+</script>
 @endsection

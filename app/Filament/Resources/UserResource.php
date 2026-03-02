@@ -144,7 +144,7 @@ class UserResource extends Resource
 
                 // Interactive Bahasa Arab (2 fields) - Only for 3 Prodi Islam
                 Forms\Components\Section::make('Nilai Interactive Bahasa Arab')
-                    ->description('Khusus untuk prodi keislaman')
+                    ->description('Khusus untuk Prodi Islam')
                     ->schema([
                         Forms\Components\Grid::make(2)
                             ->schema([

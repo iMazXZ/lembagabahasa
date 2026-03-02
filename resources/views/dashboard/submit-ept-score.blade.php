@@ -48,7 +48,7 @@
             <h2 class="text-2xl font-bold text-slate-900 mb-3">Biodata Belum Lengkap</h2>
             <p class="text-slate-500 max-w-lg mx-auto mb-8 leading-relaxed">
                 Sistem mendeteksi data diri Anda belum lengkap (<strong>Prodi</strong>, <strong>NPM</strong>, <strong>Tahun Angkatan</strong>).
-                <br>Khusus angkatan <strong>≤ 2024</strong> wajib mengisi nilai Basic Listening manual.
+                <br>Khusus angkatan <strong>≤ 2024</strong> wajib memiliki data nilai Basic Listening manual yang sudah terdaftar.
             </p>
             <a href="{{ route('dashboard.biodata') }}"
                class="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-base shadow-lg shadow-amber-500/30 transition-all hover:scale-105">

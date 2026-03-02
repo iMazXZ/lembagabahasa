@@ -58,7 +58,7 @@
                     Pelayanan Dibuka
                 </div>
                 <h1 class="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-1 leading-tight">
-                    LEMBAGA <span class="text-blue-300">BAHASA</span>
+                    LEMBAGA <span class="text-um-gold">BAHASA</span>
                 </h1>
                 <p class="text-blue-100/90 text-lg md:text-xl font-medium mb-1">
                     Universitas Muhammadiyah Metro
@@ -95,7 +95,7 @@
                         <i class="fas fa-check-circle text-lg"></i>
                     </div>
                     <div>
-                        <p class="font-bold text-sm">Verifikasi Dokumen</p>
+                        <p class="font-bold text-sm">Cek/Cari Dokumen</p>
                         <p class="text-[11px] text-blue-200">Cek keaslian sertifikat</p>
                     </div>
                 </a>
@@ -276,7 +276,7 @@
         Tentang Kami
       </div>
       <h2 class="text-3xl lg:text-5xl font-black text-slate-900 mb-4">
-        Lembaga <span class="text-blue-600">Bahasa</span> UM Metro
+        Lembaga <span class="text-um-gold">Bahasa</span> UM Metro
       </h2>
       <p class="text-slate-500 text-lg max-w-2xl mx-auto">
         Pusat pengembangan bahasa terpercaya dengan standar internasional

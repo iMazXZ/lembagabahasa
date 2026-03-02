@@ -8,13 +8,78 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\Penerjemahan;
 use App\Models\EptSubmission;
 use App\Models\BasicListeningGrade;
+use App\Models\BasicListeningLegacyScore;
 use App\Models\ManualCertificate;
+use App\Support\LegacyBasicListeningScores;
 
 class VerificationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return view('verification.index');
+        $query = trim((string) $request->query('code', $request->query('q', '')));
+
+        if ($query !== '') {
+            $documentCode = $this->findDocumentVerificationCode($query);
+
+            if ($documentCode !== null) {
+                return redirect()->route('verification.show', ['code' => $documentCode]);
+            }
+        }
+
+        $legacyResults = $query !== ''
+            ? $this->searchLegacyScoreRecords($query)
+            : collect();
+
+        return view('verification.index', [
+            'lookupQuery' => $query,
+            'legacyLookupPerformed' => $query !== '',
+            'legacyResults' => $legacyResults->map(fn (BasicListeningLegacyScore $score): array => $this->mapLegacyScore($score))->all(),
+        ]);
+    }
+
+    public function lookup(Request $request)
+    {
+        $data = $request->validate([
+            'q' => ['required', 'string', 'max:100'],
+        ]);
+
+        $query = trim($data['q']);
+        $documentCode = $this->findDocumentVerificationCode($query);
+
+        if ($documentCode !== null) {
+            return response()->json([
+                'success' => true,
+                'mode' => 'document',
+                'query' => $query,
+                'redirect_url' => route('verification.show', ['code' => $documentCode]),
+            ]);
+        }
+
+        $results = $this->searchLegacyScoreRecords($query);
+
+        return response()->json([
+            'success' => true,
+            'mode' => 'legacy_scores',
+            'query' => $query,
+            'count' => $results->count(),
+            'items' => $results->map(fn (BasicListeningLegacyScore $score): array => $this->mapLegacyScore($score))->all(),
+        ]);
+    }
+
+    public function searchLegacyScores(Request $request)
+    {
+        $data = $request->validate([
+            'q' => ['required', 'string', 'max:100'],
+        ]);
+
+        $results = $this->searchLegacyScoreRecords($data['q']);
+
+        return response()->json([
+            'success' => true,
+            'query' => $data['q'],
+            'count' => $results->count(),
+            'items' => $results->map(fn (BasicListeningLegacyScore $score): array => $this->mapLegacyScore($score))->all(),
+        ]);
     }
 
     public function show(string $code)
@@ -80,6 +145,8 @@ class VerificationController extends Controller
                 $dailyAvg = \App\Support\BlCompute::dailyAvgForUser($u->id, $rec->user_year);
             }
 
+            $legacyScore = LegacyBasicListeningScores::effectiveScoreForUser($u);
+
             $vm = [
                 'type'              => 'basic_listening',
                 'title'             => 'Verifikasi Sertifikat Basic Listening',
@@ -107,7 +174,7 @@ class VerificationController extends Controller
                     'attendance'     => $rec->attendance,
                     'daily'          => $dailyAvg,
                     'final_test'     => $rec->final_test,
-                    'final_numeric'  => $rec->final_numeric_cached,
+                    'final_numeric'  => $rec->final_numeric_cached ?? $legacyScore,
                     'final_letter'   => $rec->final_letter_cached,
                 ],
 
@@ -232,5 +299,60 @@ class VerificationController extends Controller
         ];
 
         return response()->view('verification.show', ['vm' => $vm], 404);
+    }
+
+    private function findDocumentVerificationCode(string $query): ?string
+    {
+        $query = trim($query);
+
+        if ($query === '') {
+            return null;
+        }
+
+        foreach ([
+            Penerjemahan::query(),
+            BasicListeningGrade::query(),
+            EptSubmission::query(),
+            ManualCertificate::query(),
+        ] as $builder) {
+            $match = (clone $builder)
+                ->where('verification_code', $query)
+                ->value('verification_code');
+
+            if (is_string($match) && $match !== '') {
+                return $match;
+            }
+        }
+
+        return null;
+    }
+
+    private function searchLegacyScoreRecords(string $query)
+    {
+        return BasicListeningLegacyScore::query()
+            ->search($query)
+            ->limit(20)
+            ->get([
+                'id',
+                'srn',
+                'name',
+                'study_program',
+                'source_year',
+                'score',
+                'grade',
+            ]);
+    }
+
+    private function mapLegacyScore(BasicListeningLegacyScore $score): array
+    {
+        return [
+            'id' => $score->id,
+            'srn' => $score->srn,
+            'name' => $score->name,
+            'study_program' => $score->study_program,
+            'source_year' => $score->source_year,
+            'score' => $score->score !== null ? (int) round((float) $score->score) : null,
+            'grade' => $score->grade,
+        ];
     }
 }

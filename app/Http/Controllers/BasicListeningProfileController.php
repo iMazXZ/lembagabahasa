@@ -4,10 +4,15 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Models\BasicListeningGrade;
 use App\Models\Prody;
+use App\Support\BlGrading;
+use App\Support\LegacyBasicListeningScores;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ImageTransformer;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use App\Models\User;
 
 class BasicListeningProfileController extends Controller
 {
@@ -48,6 +53,64 @@ class BasicListeningProfileController extends Controller
 
         $prody = \App\Models\Prody::find($prodyId);
         return $prody && in_array($prody->name, self::PRODI_ISLAM);
+    }
+
+    private function needsLegacyBasicListening(Request $request): bool
+    {
+        $year = (int) $request->input('year');
+        $prodyName = LegacyBasicListeningScores::resolveProdyName(
+            $request->input('prody_id') ? (int) $request->input('prody_id') : null
+        );
+
+        return LegacyBasicListeningScores::requiresLegacyScore($year, $prodyName);
+    }
+
+    private function minimumSrnDigitsRule(): callable
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            $digits = preg_replace('/\D+/', '', (string) $value);
+
+            if (mb_strlen((string) $digits) < 8) {
+                $fail('NPM minimal 8 digit.');
+            }
+        };
+    }
+
+    private function resolveLegacyScoreFromRequest(Request $request): ?float
+    {
+        $record = LegacyBasicListeningScores::findByIdentity(
+            srn: $request->input('srn'),
+            name: $request->input('name'),
+            year: (int) $request->input('year'),
+        );
+
+        return $record && is_numeric($record->score)
+            ? (float) $record->score
+            : null;
+    }
+
+    private function resolveExistingStoredLegacyScore(User $user, array $data): ?float
+    {
+        if (! is_numeric($user->nilaibasiclistening)) {
+            return null;
+        }
+
+        if ((int) ($user->prody_id ?? 0) !== (int) ($data['prody_id'] ?? 0)) {
+            return null;
+        }
+
+        if ((int) ($user->year ?? 0) !== (int) ($data['year'] ?? 0)) {
+            return null;
+        }
+
+        if (
+            LegacyBasicListeningScores::normalizeSrn($user->srn)
+            !== LegacyBasicListeningScores::normalizeSrn($data['srn'] ?? null)
+        ) {
+            return null;
+        }
+
+        return (float) $user->nilaibasiclistening;
     }
 
     public function updateGroupNumber(Request $request)
@@ -105,6 +168,7 @@ class BasicListeningProfileController extends Controller
                 'required',
                 'string',
                 'max:50',
+                $this->minimumSrnDigitsRule(),
                 Rule::unique('users', 'srn')->ignore($user->id),
             ],
             'year'     => [
@@ -115,32 +179,7 @@ class BasicListeningProfileController extends Controller
             ],
 
             // ===== Nilai Basic Listening (conditional: angkatan <= 2024 DAN bukan S2 DAN bukan Pendidikan Bahasa Inggris) =====
-            'nilaibasiclistening' => [
-                'nullable',
-                Rule::requiredIf(function () use ($request) {
-                    $year = (int) $request->input('year');
-                    $prodyId = $request->input('prody_id');
-                    
-                    // Jika tahun > 2024, tidak wajib
-                    if ($year > 2024) return false;
-                    
-                    if ($prodyId) {
-                        $prody = \App\Models\Prody::find($prodyId);
-                        if ($prody) {
-                            // Jika prodi S2, tidak wajib
-                            if (str_starts_with($prody->name, 'S2')) return false;
-                            // Jika Pendidikan Bahasa Inggris, tidak wajib (pakai Interactive Class)
-                            if ($prody->name === 'Pendidikan Bahasa Inggris') return false;
-                        }
-                    }
-                    
-                    // Angkatan <= 2024 dan bukan S2 dan bukan PBI, wajib
-                    return true;
-                }),
-                'numeric',
-                'min:0',
-                'max:100',
-            ],
+            'nilaibasiclistening' => ['nullable', 'numeric', 'min:0', 'max:100'],
 
             // ===== Interactive Class (6 field) - KHUSUS Pendidikan Bahasa Inggris angkatan <= 2024 =====
             'interactive_class_1' => ['nullable', Rule::requiredIf($this->isPendidikanBahasaInggris($request)), 'numeric', 'min:0', 'max:100'],
@@ -210,6 +249,21 @@ class BasicListeningProfileController extends Controller
             $data['name'] = mb_strtoupper(trim($data['name']), 'UTF-8');
         }
 
+        if ($this->needsLegacyBasicListening($request)) {
+            $resolvedScore = $this->resolveLegacyScoreFromRequest($request);
+            $storedScore = $this->resolveExistingStoredLegacyScore($user, $data);
+
+            if ($resolvedScore !== null) {
+                $data['nilaibasiclistening'] = $resolvedScore;
+            } elseif ($storedScore !== null) {
+                $data['nilaibasiclistening'] = $storedScore;
+            } elseif (! is_numeric($data['nilaibasiclistening'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'nilaibasiclistening' => 'Nilai Basic Listening tidak ditemukan untuk NPM ini. Hubungi admin agar data nilai manual diimport.',
+                ]);
+            }
+        }
+
         // Normalisasi nomor WhatsApp
         if (array_key_exists('whatsapp', $data) && !empty($data['whatsapp'])) {
             $data['whatsapp'] = \App\Support\NormalizeWhatsAppNumber::normalize($data['whatsapp']);
@@ -243,6 +297,17 @@ class BasicListeningProfileController extends Controller
 
         $user->forceFill($data)->save();
 
+        if ((int) ($user->year ?? 0) <= 2024 && is_numeric($user->nilaibasiclistening)) {
+            $grade = BasicListeningGrade::firstOrCreate([
+                'user_id' => $user->id,
+                'user_year' => $user->year,
+            ]);
+
+            $grade->final_numeric_cached = round((float) $user->nilaibasiclistening, 2);
+            $grade->final_letter_cached = BlGrading::letter((float) $user->nilaibasiclistening);
+            $grade->save();
+        }
+
         return redirect($next)->with('success', 'Biodata berhasil diperbarui.');
     }
 
@@ -264,11 +329,77 @@ class BasicListeningProfileController extends Controller
     {
         $user   = $request->user();
         $prodis = Prody::query()->orderBy('name')->get(['id', 'name']);
+        $legacyAutoScore = LegacyBasicListeningScores::effectiveScoreForUser($user);
 
         // bisa pakai input number biasa, jadi tidak wajib kirim list years
         return view('dashboard.biodata', [
-            'user'   => $user,
+            'user' => $user,
             'prodis' => $prodis,
+            'legacyAutoScore' => $legacyAutoScore,
+        ]);
+    }
+
+    public function lookupLegacyScore(Request $request)
+    {
+        $data = $request->validate([
+            'srn' => ['required', 'string', 'max:50'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'year' => ['nullable', 'integer', 'min:2015', 'max:' . ((int) now()->year + 1)],
+            'prody_id' => ['nullable', Rule::exists('prodies', 'id')],
+        ]);
+
+        $prodyName = LegacyBasicListeningScores::resolveProdyName(isset($data['prody_id']) ? (int) $data['prody_id'] : null);
+        $applicable = LegacyBasicListeningScores::requiresLegacyScore(
+            isset($data['year']) ? (int) $data['year'] : null,
+            $prodyName,
+        );
+
+        if (! $applicable) {
+            return response()->json([
+                'success' => true,
+                'applicable' => false,
+                'found' => false,
+                'score' => null,
+                'message' => 'Nilai manual tidak diperlukan untuk kombinasi angkatan dan prodi ini.',
+            ]);
+        }
+
+        $normalizedSrn = preg_replace('/\D+/', '', (string) $data['srn']);
+        if (mb_strlen((string) $normalizedSrn) < 8) {
+            return response()->json([
+                'success' => true,
+                'applicable' => true,
+                'found' => false,
+                'score' => null,
+                'grade' => null,
+                'message' => 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Basic Listening.',
+            ]);
+        }
+
+        $record = LegacyBasicListeningScores::findByIdentity(
+            srn: $data['srn'],
+            name: $data['name'] ?? null,
+            year: isset($data['year']) ? (int) $data['year'] : null,
+        );
+
+        $storedScore = $record === null
+            ? $this->resolveExistingStoredLegacyScore($request->user(), $data)
+            : null;
+
+        return response()->json([
+            'success' => true,
+            'applicable' => true,
+            'found' => $record !== null || $storedScore !== null,
+            'score' => $record?->score !== null
+                ? (int) round((float) $record->score)
+                : ($storedScore !== null ? (int) round($storedScore) : null),
+            'grade' => $record?->grade,
+            'source' => $record !== null
+                ? 'legacy_import'
+                : ($storedScore !== null ? 'existing_user_manual' : null),
+            'message' => ($record !== null || $storedScore !== null)
+                ? null
+                : 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.',
         ]);
     }
 }

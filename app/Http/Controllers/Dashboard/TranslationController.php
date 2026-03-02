@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\BasicListeningGrade;
 use App\Models\Penerjemahan;
+use App\Models\SiteSetting;
 use App\Support\ImageTransformer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,40 +18,7 @@ class TranslationController extends Controller
     protected function userHasCompleteBiodata(): bool
     {
         $u = Auth::user();
-        if (! $u) return false;
-
-        $hasBasicInfo = !empty($u->prody) && !empty($u->srn) && !empty($u->year);
-        if (! $hasBasicInfo) return false;
-
-        $year = (int) $u->year;
-        $isS2 = $u->prody && str_starts_with($u->prody->name ?? '', 'S2');
-        $isPBI = $u->prody && $u->prody->name === 'Pendidikan Bahasa Inggris';
-        $prodiIslam = ['Komunikasi dan Penyiaran Islam', 'Pendidikan Agama Islam', 'Pendidikan Islam Anak Usia Dini'];
-        $isProdiIslam = $u->prody && in_array($u->prody->name, $prodiIslam);
-        $needsNilai = $year <= 2024 && !$isS2;
-
-        // S2 tidak perlu nilai
-        if ($isS2) {
-            return true;
-        }
-
-        // Check nilai completeness based on prodi type
-        if (!$needsNilai) {
-            return true; // angkatan >= 2025 tidak perlu nilai manual
-        }
-
-        if ($isPBI) {
-            // PBI: perlu interactive_class_1 sampai 6
-            return is_numeric($u->interactive_class_1 ?? null) && is_numeric($u->interactive_class_6 ?? null);
-        }
-
-        if ($isProdiIslam) {
-            // Prodi Islam: perlu interactive_bahasa_arab_1 dan 2
-            return is_numeric($u->interactive_bahasa_arab_1 ?? null) && is_numeric($u->interactive_bahasa_arab_2 ?? null);
-        }
-
-        // Prodi lain: perlu nilaibasiclistening
-        return is_numeric($u->nilaibasiclistening);
+        return $u ? SiteSetting::isEptBiodataComplete($u) : false;
     }
 
     protected function userHasCompletedBasicListening(): bool
