@@ -3,9 +3,33 @@
 @section('title', 'Lembaga Bahasa UM Metro | EPT, Penerjemahan, Pelatihan Bahasa')
 
 @section('meta')
+  @php
+    $homeCanonical = route('front.home');
+    $newsListSchema = [
+      '@context' => 'https://schema.org',
+      '@type' => 'ItemList',
+      'name' => 'Berita Terbaru Lembaga Bahasa UM Metro',
+      'itemListElement' => $news->take(6)->values()->map(fn ($item, $index) => [
+        '@type' => 'ListItem',
+        'position' => $index + 1,
+        'name' => $item->title,
+        'url' => route('front.post.show', $item->slug),
+      ])->all(),
+    ];
+  @endphp
   <meta name="description" content="Lembaga Bahasa UM Metro menyediakan layanan English Proficiency Test (EPT), penerjemahan dokumen, dan pelatihan Basic Listening untuk mahasiswa dan umum di Kota Metro, Lampung.">
   <meta name="keywords" content="Lembaga Bahasa UM Metro, EPT UM Metro, Penerjemahan, Basic Listening, Jadwal EPT, Nilai EPT, Pelatihan Bahasa Inggris">
   <meta name="author" content="Lembaga Bahasa UM Metro">
+  <link rel="canonical" href="{{ $homeCanonical }}">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Lembaga Bahasa UM Metro | EPT, Penerjemahan, Pelatihan Bahasa">
+  <meta property="og:description" content="Layanan EPT, penerjemahan dokumen, pelatihan bahasa, serta berita terbaru Lembaga Bahasa UM Metro.">
+  <meta property="og:url" content="{{ $homeCanonical }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Lembaga Bahasa UM Metro | EPT, Penerjemahan, Pelatihan Bahasa">
+  <meta name="twitter:description" content="Layanan EPT, penerjemahan dokumen, pelatihan bahasa, serta berita terbaru Lembaga Bahasa UM Metro.">
+  <script type="application/ld+json">{!! json_encode($newsListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 @endsection
 
 @section('content')
@@ -104,7 +128,94 @@
 <section id="berita" class="bg-white py-2">
   <x-post.card-grid title="Jadwal Tes EPT Offline" :items="$schedules" :moreRoute="route('front.schedule')" emptyText="Belum ada jadwal." type="schedule"/>
   <x-post.card-grid title="Nilai Tes EPT" :items="$scores" :moreRoute="route('front.scores')" emptyText="Belum ada pengumuman nilai." type="scores"/>
-  <!-- <x-post.section-split title="Berita Terbaru" :items="$news" :moreRoute="route('front.news')" emptyText="Belum ada berita."/> -->
+</section>
+
+{{-- SECTION: Berita Terbaru (SEO-friendly) --}}
+<section id="berita-terbaru" class="py-14 lg:py-20 bg-gradient-to-b from-slate-50 to-white" aria-labelledby="berita-terbaru-title">
+  <div class="max-w-7xl mx-auto px-4 lg:px-8">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-8 lg:mb-10">
+      <div>
+        <p class="text-xs font-bold tracking-[0.18em] uppercase text-blue-600 mb-2">Berita Resmi</p>
+        <h2 id="berita-terbaru-title" class="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
+          Berita Terbaru Lembaga Bahasa
+        </h2>
+        <p class="text-slate-600 mt-3 max-w-3xl">
+          Informasi kegiatan, pengumuman penting, dan pembaruan layanan dari Lembaga Bahasa Universitas Muhammadiyah Metro.
+        </p>
+      </div>
+      <a href="{{ route('front.news') }}"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition shadow-sm">
+        Lihat Semua Berita
+        <i class="fas fa-arrow-right text-xs"></i>
+      </a>
+    </div>
+
+    @if($news->isNotEmpty())
+      @php
+        $featuredNews = $news->first();
+        $otherNews = $news->skip(1)->take(5);
+        $featuredExcerpt = $featuredNews->excerpt ?: 'Baca informasi terbaru dari Lembaga Bahasa Universitas Muhammadiyah Metro.';
+      @endphp
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        <article class="lg:col-span-7 bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition">
+          <a href="{{ route('front.post.show', $featuredNews->slug) }}" class="block">
+            <img src="{{ $featuredNews->cover_url }}"
+                 alt="{{ $featuredNews->title }}"
+                 class="w-full aspect-[16/9] object-cover"
+                 loading="lazy" decoding="async">
+          </a>
+          <div class="p-6 lg:p-7">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              <time datetime="{{ optional($featuredNews->published_at)->toIso8601String() }}">
+                {{ optional($featuredNews->published_at)->translatedFormat('d M Y') }}
+              </time>
+            </p>
+            <h3 class="text-2xl font-black text-slate-900 leading-tight mb-3">
+              <a href="{{ route('front.post.show', $featuredNews->slug) }}" class="hover:text-blue-600 transition">
+                {{ $featuredNews->title }}
+              </a>
+            </h3>
+            <p class="text-slate-600 leading-relaxed mb-5">{{ \Illuminate\Support\Str::limit($featuredExcerpt, 180) }}</p>
+            <a href="{{ route('front.post.show', $featuredNews->slug) }}" class="inline-flex items-center gap-2 text-blue-600 font-semibold hover:gap-3 transition-all">
+              Baca artikel
+              <i class="fas fa-arrow-right text-xs"></i>
+            </a>
+          </div>
+        </article>
+
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 lg:p-6">
+          <h3 class="text-sm font-black uppercase tracking-[0.16em] text-slate-500 mb-4">Artikel Lainnya</h3>
+          <div class="divide-y divide-slate-100">
+            @forelse($otherNews as $item)
+              @php
+                $itemExcerpt = $item->excerpt ?: 'Informasi terbaru dari Lembaga Bahasa UM Metro.';
+              @endphp
+              <article class="py-4 first:pt-0 last:pb-0">
+                <h4 class="text-base font-bold text-slate-900 leading-snug mb-2">
+                  <a href="{{ route('front.post.show', $item->slug) }}" class="hover:text-blue-600 transition">
+                    {{ $item->title }}
+                  </a>
+                </h4>
+                <p class="text-sm text-slate-600 mb-2">{{ \Illuminate\Support\Str::limit($itemExcerpt, 120) }}</p>
+                <p class="text-xs text-slate-500">
+                  <time datetime="{{ optional($item->published_at)->toIso8601String() }}">
+                    {{ optional($item->published_at)->translatedFormat('d M Y') }}
+                  </time>
+                </p>
+              </article>
+            @empty
+              <p class="text-sm text-slate-500">Belum ada berita tambahan.</p>
+            @endforelse
+          </div>
+        </div>
+      </div>
+    @else
+      <div class="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+        <p class="text-slate-600">Belum ada berita yang dipublikasikan.</p>
+      </div>
+    @endif
+  </div>
 </section>
 
 {{-- SECTION: Layanan --}}

@@ -2,17 +2,19 @@
 
 @php
     $type = $post->type ?? $post->category ?? 'news';
+    $newsCategorySlug = \App\Models\Post::normalizeNewsCategory($post->news_category ?? null);
+    $newsCategoryLabel = \App\Models\Post::newsCategoryLabel($newsCategorySlug);
 
     $chipClass = match ($type) {
         'schedule' => 'bg-emerald-50 text-emerald-700',
         'scores'   => 'bg-violet-50 text-violet-700',
-        default    => 'bg-slate-100 text-slate-700',
+        default    => 'bg-blue-50 text-blue-700',
     };
 
     $chipLabel = match ($type) {
         'schedule' => 'Jadwal',
         'scores'   => 'Nilai',
-        default    => 'Berita',
+        default    => $newsCategoryLabel,
     };
 @endphp
 

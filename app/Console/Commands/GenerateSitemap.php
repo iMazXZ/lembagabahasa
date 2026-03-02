@@ -57,27 +57,40 @@ class GenerateSitemap extends Command
                     ->setLastModificationDate($now)
             );
 
-        // ===== Detail Post yang sudah dipublikasikan =====
+        // ===== Halaman kategori berita =====
+        $newsCategoryCounts = Post::query()
+            ->published()
+            ->where('type', 'news')
+            ->selectRaw('news_category, COUNT(*) as total')
+            ->groupBy('news_category')
+            ->pluck('total', 'news_category');
+
+        foreach (Post::newsCategoryOptions(onlyActive: true) as $slug => $label) {
+            if ((int) ($newsCategoryCounts[$slug] ?? 0) <= 0) {
+                continue;
+            }
+
+            $sitemap->add(
+                SitemapUrl::create(route('front.news.category', ['newsCategory' => $slug]))
+                    ->setPriority(0.85)
+                    ->setChangeFrequency(SitemapUrl::CHANGE_FREQUENCY_DAILY)
+                    ->setLastModificationDate($now)
+            );
+        }
+
+        // ===== Detail Post indexable (news only) =====
+        // Schedule/scores detail mengikuti kebijakan noindex, jadi tidak dimasukkan ke sitemap.
         Post::query()
             ->published()
+            ->where('type', 'news')
             ->orderByDesc('updated_at')
             ->chunk(500, function ($posts) use ($sitemap) {
                 /** @var \App\Models\Post $post */
                 foreach ($posts as $post) {
                     $sitemap->add(
                         SitemapUrl::create(route('front.post.show', $post->slug))
-                            ->setPriority(match ($post->type) {
-                                'news'     => 0.8,
-                                'schedule' => 0.7,
-                                'scores'   => 0.7,
-                                default    => 0.6,
-                            })
-                            ->setChangeFrequency(match ($post->type) {
-                                'news'     => SitemapUrl::CHANGE_FREQUENCY_DAILY,
-                                'schedule' => SitemapUrl::CHANGE_FREQUENCY_WEEKLY,
-                                'scores'   => SitemapUrl::CHANGE_FREQUENCY_WEEKLY,
-                                default    => SitemapUrl::CHANGE_FREQUENCY_MONTHLY,
-                            })
+                            ->setPriority(0.8)
+                            ->setChangeFrequency(SitemapUrl::CHANGE_FREQUENCY_DAILY)
                             ->setLastModificationDate($post->updated_at ?? $post->published_at ?? $post->created_at)
                     );
                 }

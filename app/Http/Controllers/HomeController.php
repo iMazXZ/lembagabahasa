@@ -30,7 +30,7 @@ class HomeController extends Controller
         return view('welcome', [
             'news'      => Post::published()->type('news')
                 ->latest('published_at')->limit(6)
-                ->get(['title','slug','type','excerpt','cover_path','published_at']),
+                ->get(['title','slug','type','news_category','excerpt','cover_path','published_at']),
             'schedules' => Post::published()->type('schedule')
                 ->latest('published_at')->limit(6)
                 ->get(['title','slug','type','excerpt','cover_path','published_at','event_date','event_time','event_location']),

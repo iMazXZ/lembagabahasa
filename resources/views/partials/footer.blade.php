@@ -128,8 +128,8 @@
         </p>
         <nav aria-label="Legal" class="text-blue-200 text-sm">
           <ul class="flex items-center gap-4">
-            <li><a href="{{ url('/privacy') }}" class="hover:text-white transition">Kebijakan Privasi</a></li>
-            <li><a href="{{ url('/terms') }}" class="hover:text-white transition">Syarat Layanan</a></li>
+            <li><a href="{{ route('legal.privacy') }}" class="hover:text-white transition">Kebijakan Privasi</a></li>
+            <li><a href="{{ route('legal.terms') }}" class="hover:text-white transition">Syarat Layanan</a></li>
           </ul>
         </nav>
       </div>

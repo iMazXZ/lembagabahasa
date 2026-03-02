@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PostResource\Pages;
 
+use App\Filament\Resources\NewsCategoryResource;
 use App\Filament\Resources\PostResource;
 use App\Models\Post;
 use Filament\Actions;
@@ -75,6 +76,12 @@ class ListPosts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('manage_news_categories')
+                ->label('Kelola Kategori Berita')
+                ->icon('heroicon-o-tag')
+                ->color('gray')
+                ->url(fn (): string => NewsCategoryResource::getUrl())
+                ->visible(fn (): bool => NewsCategoryResource::canViewAny()),
             Actions\CreateAction::make(),
         ];
     }

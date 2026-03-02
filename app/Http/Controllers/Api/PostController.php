@@ -13,13 +13,20 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
+        $requestedType = (string) $request->query('type', '');
+        $requestedCategory = trim((string) $request->query('news_category'));
+
         $query = Post::published()
-            ->select(['id', 'title', 'slug', 'type', 'excerpt', 'cover_path', 'published_at', 'views'])
+            ->select(['id', 'title', 'slug', 'type', 'news_category', 'excerpt', 'cover_path', 'published_at', 'views'])
             ->with(['author:id,name']);
 
         // Filter by type (news, schedule, scores)
-        if ($type = $request->query('type')) {
-            $query->type($type);
+        if ($requestedType !== '') {
+            $query->type($requestedType);
+        }
+
+        if ($requestedType === 'news' && $requestedCategory !== '' && Post::isValidNewsCategory($requestedCategory)) {
+            $query->newsCategory($requestedCategory);
         }
 
         // Search
@@ -50,6 +57,8 @@ class PostController extends Controller
                 'slug' => $post->slug,
                 'type' => $post->type,
                 'type_label' => Post::TYPES[$post->type] ?? $post->type,
+                'news_category' => $post->news_category,
+                'news_category_label' => $post->type === 'news' ? Post::newsCategoryLabel($post->news_category) : null,
                 'excerpt' => $post->excerpt,
                 'cover_url' => $post->cover_url,
                 'published_at' => $post->published_at->toIso8601String(),
@@ -87,14 +96,20 @@ class PostController extends Controller
         $related = Post::published()
             ->type($post->type)
             ->where('id', '!=', $post->id)
+            ->when(
+                $post->type === 'news' && filled($post->news_category),
+                fn ($query) => $query->where('news_category', $post->news_category)
+            )
             ->latest('published_at')
             ->limit(4)
-            ->get(['id', 'title', 'slug', 'cover_path', 'published_at'])
+            ->get(['id', 'title', 'slug', 'type', 'news_category', 'cover_path', 'published_at'])
             ->map(function ($p) {
                 return [
                     'id' => $p->id,
                     'title' => $p->title,
                     'slug' => $p->slug,
+                    'news_category' => $p->news_category,
+                    'news_category_label' => $p->type === 'news' ? Post::newsCategoryLabel($p->news_category) : null,
                     'cover_url' => $p->cover_url,
                     'published_at' => $p->published_at->toIso8601String(),
                 ];
@@ -108,6 +123,8 @@ class PostController extends Controller
                 'slug' => $post->slug,
                 'type' => $post->type,
                 'type_label' => Post::TYPES[$post->type] ?? $post->type,
+                'news_category' => $post->news_category,
+                'news_category_label' => $post->type === 'news' ? Post::newsCategoryLabel($post->news_category) : null,
                 'excerpt' => $post->excerpt,
                 'body' => $post->body,
                 'cover_url' => $post->cover_url,

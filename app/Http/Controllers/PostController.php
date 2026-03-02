@@ -7,15 +7,28 @@ use Illuminate\Http\Request;
 
 class PostController extends Controller
 {
+    public function newsCategory(Request $request, string $newsCategory)
+    {
+        return $this->index($request, 'news', $newsCategory);
+    }
+
     /**
      * List postingan per kategori (news|schedule|scores)
      * + dukung ?q=search & ?sort=new|old|az
      */
-    public function index(Request $request, string $type)
+    public function index(Request $request, string $type, ?string $newsCategory = null)
     {
         abort_unless(in_array($type, ['news', 'schedule', 'scores'], true), 404);
 
-        $title = Post::TYPES[$type] ?? ucfirst($type);
+        $activeNewsCategory = null;
+        if ($type === 'news') {
+            $requestedNewsCategory = $newsCategory ?: trim((string) $request->query('kategori'));
+
+            if ($requestedNewsCategory !== '') {
+                abort_unless(Post::isValidNewsCategory($requestedNewsCategory), 404);
+                $activeNewsCategory = $requestedNewsCategory;
+            }
+        }
 
         $query = Post::published()
             ->type($type) // karena $type selalu salah satu dari tiga di atas
@@ -28,6 +41,7 @@ class PostController extends Controller
                 'published_at',
                 'author_id',
                 'type',
+                'news_category',
                 'views',
                 'event_date',
                 'event_time',
@@ -35,6 +49,10 @@ class PostController extends Controller
                 'related_post_id',
             ])
             ->with(['author:id,name']);
+
+        if ($type === 'news' && $activeNewsCategory !== null) {
+            $query->newsCategory($activeNewsCategory);
+        }
 
         if ($type === 'schedule') {
             $query->with([
@@ -45,12 +63,22 @@ class PostController extends Controller
         }
 
         // Pencarian (opsional)
-        if ($search = trim((string) $request->query('q'))) {
-            $query->where(function ($qq) use ($search) {
-                $qq->where('title', 'like', "%{$search}%")
-                   ->orWhere('excerpt', 'like', "%{$search}%")
-                   ->orWhere('body', 'like', "%{$search}%");
-            });
+        $search = trim((string) $request->query('q'));
+        $fullTextSearch = null;
+        if ($search !== '') {
+            $query->searchText($search);
+
+            $candidate = Post::buildBooleanFullTextQuery($search);
+            if ($candidate !== null && Post::hasSearchFullTextIndex()) {
+                $fullTextSearch = $candidate;
+            }
+        }
+
+        if ($fullTextSearch !== null) {
+            $query->orderByRaw(
+                'MATCH(title, excerpt, body) AGAINST (? IN BOOLEAN MODE) DESC',
+                [$fullTextSearch]
+            );
         }
 
         // Sort (opsional)
@@ -65,10 +93,41 @@ class PostController extends Controller
 
         $posts = $query->paginate(12)->withQueryString();
 
+        $title = Post::TYPES[$type] ?? ucfirst($type);
+        if ($type === 'news' && $activeNewsCategory !== null) {
+            $title = 'Berita: ' . Post::newsCategoryLabel($activeNewsCategory);
+        }
+
         // untuk komponen card di index
         $category = $type;
+        $newsCategoryMenu = [];
+        if ($type === 'news') {
+            $newsCounts = Post::published()
+                ->type('news')
+                ->selectRaw('news_category, COUNT(*) as total')
+                ->groupBy('news_category')
+                ->pluck('total', 'news_category');
 
-        return view('front.posts.index', compact('posts', 'title', 'category'));
+            foreach (Post::newsCategoryOptions(onlyActive: true) as $slug => $label) {
+                $count = (int) ($newsCounts[$slug] ?? 0);
+                if ($count === 0 && $activeNewsCategory !== $slug) {
+                    continue;
+                }
+
+                $newsCategoryMenu[] = [
+                    'slug' => $slug,
+                    'label' => $label,
+                    'count' => $count,
+                    'url' => route('front.news.category', ['newsCategory' => $slug]),
+                    'active' => $activeNewsCategory === $slug,
+                ];
+            }
+        }
+
+        return view(
+            'front.posts.index',
+            compact('posts', 'title', 'category', 'activeNewsCategory', 'newsCategoryMenu')
+        );
     }
 
     public function show(Post $post)
@@ -76,12 +135,54 @@ class PostController extends Controller
         // Lengkapi relasi bila belum dimuat
         $post->loadMissing(['author:id,name']);
 
-        $related = Post::published()
+        $relatedSelect = [
+            'id',
+            'title',
+            'slug',
+            'type',
+            'news_category',
+            'excerpt',
+            'cover_path',
+            'published_at',
+            'event_date',
+            'event_time',
+            'event_location',
+        ];
+
+        $relatedBaseQuery = Post::published()
             ->type($post->type)
-            ->where('id', '!=', $post->id)
-            ->latest('published_at')
-            ->limit(6)
-            ->get(['title', 'slug', 'type', 'excerpt', 'cover_path', 'published_at', 'event_date', 'event_time', 'event_location']);
+            ->where('id', '!=', $post->id);
+
+        $related = collect();
+        if ($post->type === 'news' && filled($post->news_category)) {
+            $related = (clone $relatedBaseQuery)
+                ->where('news_category', $post->news_category)
+                ->latest('published_at')
+                ->limit(6)
+                ->get($relatedSelect);
+
+            if ($related->count() < 6) {
+                $remaining = 6 - $related->count();
+
+                $extra = (clone $relatedBaseQuery)
+                    ->where(function ($query) use ($post): void {
+                        $query
+                            ->whereNull('news_category')
+                            ->orWhere('news_category', '!=', $post->news_category);
+                    })
+                    ->whereNotIn('id', $related->pluck('id')->all())
+                    ->latest('published_at')
+                    ->limit($remaining)
+                    ->get($relatedSelect);
+
+                $related = $related->concat($extra);
+            }
+        } else {
+            $related = (clone $relatedBaseQuery)
+                ->latest('published_at')
+                ->limit(6)
+                ->get($relatedSelect);
+        }
 
         $body = $this->formatBody($post->body ?? '');
 
@@ -95,8 +196,8 @@ class PostController extends Controller
     {
         if ($html === '') return $html;
 
-        // buang style/class/size inline
-        $html = preg_replace('/\s(?:style|class|width|height)="[^"]*"/i', '', $html);
+        // Buang class/id tempelan paste, tapi tetap pertahankan style aman dari purifier.
+        $html = preg_replace('/\s(?:class|id)="[^"]*"/i', '', $html);
 
         // bersihkan baris “nama file + ukuran”
         $html = preg_replace(
@@ -128,7 +229,7 @@ class PostController extends Controller
 
         // rapikan img
         $html = preg_replace_callback('/<img\b([^>]*)>/i', function ($m) {
-            $attrs = preg_replace('/\s(?:width|height)="[^"]*"/i', '', $m[1]);
+            $attrs = preg_replace('/\s(?:class|loading|decoding)="[^"]*"/i', '', $m[1]);
             if (!preg_match('/\balt="/i', $attrs)) $attrs .= ' alt=""';
             $attrs .= ' loading="lazy" decoding="async" class="mx-auto my-6 rounded-2xl shadow-md"';
             return '<img' . $attrs . '>';

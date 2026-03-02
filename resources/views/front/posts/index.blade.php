@@ -2,6 +2,45 @@
 
 @section('title', $title.' - Lembaga Bahasa')
 
+@section('meta')
+  @php
+    $metaCategory = $category ?? 'news';
+    $activeNewsCategory = $activeNewsCategory ?? null;
+    $newsCategoryLabel = $metaCategory === 'news' && filled($activeNewsCategory)
+        ? \App\Models\Post::newsCategoryLabel($activeNewsCategory)
+        : null;
+
+    $metaCanonical = match ($metaCategory) {
+        'news' => $newsCategoryLabel
+            ? route('front.news.category', ['newsCategory' => $activeNewsCategory])
+            : route('front.news'),
+        'schedule' => route('front.schedule'),
+        'scores'   => route('front.scores'),
+        default    => route('front.news'),
+    };
+
+    $metaHasVariants = request()->has('page')
+        || trim((string) request('q')) !== ''
+        || request()->has('sort')
+        || ($metaCategory === 'news' && trim((string) request('kategori')) !== '');
+
+    $metaRobots = in_array($metaCategory, ['news', 'schedule', 'scores'], true) && !$metaHasVariants
+        ? 'index,follow'
+        : 'noindex,follow';
+
+    $metaDescription = match ($metaCategory) {
+        'schedule' => 'Jadwal tes EPT terbaru dari Lembaga Bahasa UM Metro.',
+        'scores'   => 'Informasi nilai tes EPT terbaru dari Lembaga Bahasa UM Metro.',
+        default    => $newsCategoryLabel
+            ? "Berita kategori {$newsCategoryLabel} dari Lembaga Bahasa UM Metro."
+            : 'Berita dan informasi terbaru dari Lembaga Bahasa UM Metro.',
+    };
+  @endphp
+  <meta name="description" content="{{ $metaDescription }}">
+  <link rel="canonical" href="{{ $metaCanonical }}">
+  <meta name="robots" content="{{ $metaRobots }}">
+@endsection
+
 @section('content')
 
   {{-- Hero (match homepage style) --}}
@@ -10,12 +49,14 @@
     $heroBadge = match ($heroCategory) {
         'schedule' => 'Jadwal EPT',
         'scores'   => 'Nilai EPT',
-        default    => 'Informasi Lembaga',
+        default    => $newsCategoryLabel ? 'Kategori: ' . $newsCategoryLabel : 'Informasi Lembaga',
     };
     $heroSubtitle = match ($heroCategory) {
         'schedule' => 'Pantau jadwal tes EPT terbaru dan informasi pelaksanaan.',
         'scores'   => 'Cek pengumuman nilai EPT terbaru di sini.',
-        default    => 'Temukan berita dan informasi terbaru dari Lembaga Bahasa.',
+        default    => $newsCategoryLabel
+            ? "Kumpulan berita kategori {$newsCategoryLabel} dari Lembaga Bahasa."
+            : 'Temukan berita dan informasi terbaru dari Lembaga Bahasa.',
     };
   @endphp
   <div class="relative bg-slate-900 overflow-hidden">
@@ -46,6 +87,25 @@
   </div>
 
   <section class="max-w-7xl mx-auto px-4 py-10">
+    @if(($category ?? '') === 'news' && !empty($newsCategoryMenu ?? []))
+      <div class="mb-6">
+        <div class="flex flex-wrap gap-2">
+          <a href="{{ route('front.news') }}"
+             class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium transition {{ empty($activeNewsCategory) ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700' }}">
+            Semua
+          </a>
+
+          @foreach($newsCategoryMenu as $item)
+            <a href="{{ $item['url'] }}"
+               class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium transition {{ $item['active'] ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700' }}">
+              <span>{{ $item['label'] }}</span>
+              <span class="text-xs {{ $item['active'] ? 'text-blue-100' : 'text-gray-500' }}">({{ $item['count'] }})</span>
+            </a>
+          @endforeach
+        </div>
+      </div>
+    @endif
+
     {{-- FILTER BAR (q + sort). Tipe mengikuti route, jadi tidak dipilih ulang di sini --}}
     <form method="GET" class="mb-8">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end">

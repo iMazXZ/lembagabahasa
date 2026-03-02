@@ -107,6 +107,10 @@ Route::get('/berita', [PostController::class, 'index'])
     ->defaults('type', 'news')
     ->name('front.news');
 
+Route::get('/berita/kategori/{newsCategory}', [PostController::class, 'newsCategory'])
+    ->where('newsCategory', '[a-z0-9\-]+')
+    ->name('front.news.category');
+
 Route::get('/jadwal-ujian', [PostController::class, 'index'])
     ->defaults('type', 'schedule')
     ->name('front.schedule');
@@ -118,6 +122,12 @@ Route::get('/nilai-ujian', [PostController::class, 'index'])
 Route::get('/post/{post:slug}', [PostController::class, 'show'])
     ->middleware(CountPostView::class)
     ->name('front.post.show');
+
+Route::view('/privacy', 'legal.privacy')
+    ->name('legal.privacy');
+
+Route::view('/terms', 'legal.terms')
+    ->name('legal.terms');
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;

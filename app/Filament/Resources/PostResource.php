@@ -12,7 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Forms\Components\{
     TextInput, Select, Toggle, DateTimePicker, Hidden, 
-    Section, Group, Textarea, Grid
+    Section, Group, Textarea, Grid, FileUpload
 };
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Forms\{Get, Set};
@@ -64,6 +64,8 @@ class PostResource extends Resource
                         ->label('Isi Berita')
                         ->required()
                         ->columnSpanFull()
+                        ->formatStateUsing(fn ($state): string => static::normalizeEditorBody($state))
+                        ->dehydrateStateUsing(fn ($state): string => static::sanitizeEditorBody(static::normalizeEditorBody($state)))
                         ->disk('public')
                         ->directory('posts/body')
                         ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $set) {
@@ -81,12 +83,15 @@ class PostResource extends Resource
 
                             return Storage::disk('public')->url($result['path']);
                         })
+                        ->helperText('Tips: tombol "Hapus format" di toolbar kiri untuk reset format teks (isi tetap ada). Ikon penghapus di kanan atas untuk hapus semua konten. Gunakan Ctrl/Cmd+Shift+V untuk paste tanpa format.')
                         ->maxContentWidth('full') // Agar editor lebih luas
-                        ->profile('default') // Gunakan profile default agar fitur lengkap
+                        ->profile('default')
                         ->tools([
-                            'heading', 'bullet-list', 'ordered-list', 'bold', 'italic', 
-                            'underline', 'link', 'table', 'media', 'code', 'code-block', 
-                            'blockquote', 'hr', 'undo', 'redo', 'align-left', 'align-center', 'align-right'
+                            'heading', 'bullet-list', 'ordered-list', 'blockquote', 'hr', '|',
+                            'bold', 'italic', 'underline', 'strike', 'color', 'highlight', '|',
+                            ['button' => 'tiptap.tools.clear-format'],
+                            'align-left', 'align-center', 'align-right', '|',
+                            'link', 'media', 'table', 'code-block'
                         ]),
                 ]),
             ])->columnSpan(['lg' => 2]), // 2/3 layar di desktop
@@ -110,6 +115,70 @@ class PostResource extends Resource
                         ->searchable()
                         ->native(false)
                         ->live(),
+
+                    Select::make('news_category')
+                        ->label('Kategori Berita')
+                        ->options(fn (): array => Post::newsCategoryOptions(onlyActive: true))
+                        ->default(fn (): string => Post::defaultNewsCategorySlug())
+                        ->required(fn (Get $get): bool => $get('type') === 'news')
+                        ->searchable()
+                        ->native(false)
+                        ->visible(fn (Get $get): bool => $get('type') === 'news')
+                        ->afterStateHydrated(function (Set $set, Get $get, ?string $state): void {
+                            if ($get('type') !== 'news') {
+                                return;
+                            }
+
+                            if (! Post::isValidNewsCategory($state)) {
+                                $set('news_category', Post::defaultNewsCategorySlug());
+                            }
+                        })
+                        ->helperText('Pilih kategori berita agar mudah difilter di halaman publik.'),
+
+                    FileUpload::make('cover_path')
+                        ->label('Gambar Utama')
+                        ->image()
+                        ->imageEditor()
+                        ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
+                        ->imagePreviewHeight('160')
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(8192)
+                        ->disk('public')
+                        ->visibility('public')
+                        ->downloadable()
+                        ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $get) {
+                            $old = $get('cover_path');
+                            if (is_array($old)) {
+                                $old = $old['path'] ?? ($old[0]['path'] ?? null);
+                            }
+
+                            if (is_string($old) && $old !== '' && Storage::disk('public')->exists($old)) {
+                                Storage::disk('public')->delete($old);
+                            }
+
+                            $title = (string) ($get('title') ?? 'cover');
+                            $basename = Str::slug($title, '_');
+                            if ($basename === '') {
+                                $basename = 'cover';
+                            }
+
+                            return ImageTransformer::toWebpFromUploaded(
+                                uploaded:   $file,
+                                targetDisk: 'public',
+                                targetDir:  'posts/covers',
+                                quality:    82,
+                                maxWidth:   1600,
+                                maxHeight:  900,
+                                basename:   $basename
+                            )['path'];
+                        })
+                        ->deleteUploadedFileUsing(function (string $file): void {
+                            if (Storage::disk('public')->exists($file)) {
+                                Storage::disk('public')->delete($file);
+                            }
+                        })
+                        ->helperText('Khusus kategori Berita.')
+                        ->visible(fn (Get $get): bool => $get('type') === 'news'),
 
                     // Grid untuk Nomor Grup dan Tanggal (2 kolom)
                     Grid::make(2)
@@ -295,6 +364,15 @@ class PostResource extends Resource
                     })
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('news_category')
+                    ->label('Kategori Berita')
+                    ->formatStateUsing(fn (?string $state, Post $record): string => $record->type === 'news'
+                        ? Post::newsCategoryLabel($state)
+                        : '-')
+                    ->badge()
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('scores_status')
                     ->label('Status Nilai')
                     ->state(function (Post $record): string {
@@ -389,6 +467,21 @@ class PostResource extends Resource
 
                         return $query;
                     }),
+
+                Tables\Filters\SelectFilter::make('news_category')
+                    ->label('Kategori Berita')
+                    ->options(fn (): array => Post::newsCategoryOptions())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! is_string($value) || ! Post::isValidNewsCategory($value)) {
+                            return $query;
+                        }
+
+                        return $query
+                            ->where('type', 'news')
+                            ->where('news_category', $value);
+                    }),
             ], layout: FiltersLayout::AboveContentCollapsible)
             ->persistFiltersInSession()
             ->groups([
@@ -451,6 +544,74 @@ class PostResource extends Resource
     public static function getRelations(): array
     {
         return [];
+    }
+
+    protected static function sanitizeEditorBody(string|array|null $html): string
+    {
+        $html = static::toEditorHtml($html);
+
+        if ($html === '') {
+            return '';
+        }
+
+        if (function_exists('clean')) {
+            try {
+                return (string) clean($html, 'post');
+            } catch (\Throwable) {
+                return $html;
+            }
+        }
+
+        return $html;
+    }
+
+    protected static function normalizeEditorBody(string|array|null $html): string
+    {
+        $html = static::toEditorHtml($html);
+
+        if ($html === '') {
+            return '';
+        }
+
+        $normalized = preg_replace_callback('/<img\b([^>]*)>/i', function (array $match): string {
+            $attributes = preg_replace('/\s(?:width|height)="[^"]*"/i', '', $match[1]);
+            if (! is_string($attributes)) {
+                $attributes = $match[1];
+            }
+
+            return '<img' . $attributes . '>';
+        }, $html);
+
+        return is_string($normalized) ? $normalized : $html;
+    }
+
+    protected static function toEditorHtml(string|array|null $content): string
+    {
+        if ($content === null || $content === '') {
+            return '';
+        }
+
+        if (is_string($content)) {
+            $trimmed = trim($content);
+
+            if ($trimmed !== '' && ($trimmed[0] === '{' || $trimmed[0] === '[')) {
+                $decoded = json_decode($trimmed, true);
+
+                if (is_array($decoded)) {
+                    $content = $decoded;
+                }
+            }
+        }
+
+        if (is_array($content)) {
+            try {
+                return (string) tiptap_converter()->asHTML($content);
+            } catch (\Throwable) {
+                return '';
+            }
+        }
+
+        return (string) $content;
     }
 
     protected static function fillScoresTitleFromRelatedPost(Set $set, int $relatedPostId): void
