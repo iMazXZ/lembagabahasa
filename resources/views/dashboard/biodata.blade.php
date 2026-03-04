@@ -939,6 +939,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const lookupUrl = @json(route('dashboard.biodata.manual-basic-listening-score'));
     const prodiMap = @json($prodis->pluck('name', 'id'));
     const prodiIslam = @json($prodiIslamNames);
+    const originalIdentity = {
+        srn: @json(\App\Support\LegacyBasicListeningScores::normalizeSrn($user->srn)),
+        year: @json((string) ($user->year ?? '')),
+        prodyId: @json((string) ($user->prody_id ?? '')),
+    };
     const legacyLookupMinLength = 8;
     let lookupTimer = null;
     let selectedProdyName = @json($initialProdyName ?? '');
@@ -1160,6 +1165,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const inferredYearString = String(inferredYear);
 
         return availableYears.has(inferredYearString) ? inferredYearString : null;
+    };
+
+    const normalizeSrnForLookup = (rawSrn) => String(rawSrn || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    const shouldAllowExistingUserLegacyScore = () => {
+        return normalizeSrnForLookup(srnInput.value) === String(originalIdentity.srn || '')
+            && String(yearSelect.value || '').trim() === String(originalIdentity.year || '')
+            && String(prodyInput.value || '').trim() === String(originalIdentity.prodyId || '');
     };
 
     const applyAutoYearFromSrn = () => {
@@ -1402,6 +1415,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: nameInput?.value || '',
                 year: yearSelect.value || '',
                 prody_id: prodyInput.value || '',
+                allow_existing_user_score: shouldAllowExistingUserLegacyScore() ? '1' : '0',
             });
 
             const response = await fetch(`${lookupUrl}?${params.toString()}`, {

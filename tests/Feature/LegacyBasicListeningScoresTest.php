@@ -119,6 +119,7 @@ class LegacyBasicListeningScoresTest extends TestCase
                 'name' => $user->name,
                 'year' => 2021,
                 'prody_id' => $prody->id,
+                'allow_existing_user_score' => 1,
             ]));
 
         $response->assertOk()
@@ -128,6 +129,37 @@ class LegacyBasicListeningScoresTest extends TestCase
                 'found' => true,
                 'score' => 77,
                 'source' => 'existing_user_manual',
+            ]);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function lookup_does_not_reuse_existing_user_manual_score_for_other_srn(): void
+    {
+        $prody = Prody::query()->create(['name' => 'Ilmu Komputer']);
+        $user = User::factory()->create([
+            'prody_id' => $prody->id,
+            'srn' => '21430058',
+            'year' => 2021,
+            'nilaibasiclistening' => 99,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('dashboard.biodata.manual-basic-listening-score', [
+                'srn' => '21430200',
+                'name' => $user->name,
+                'year' => 2021,
+                'prody_id' => $prody->id,
+                'allow_existing_user_score' => 0,
+            ]));
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'applicable' => true,
+                'found' => false,
+                'score' => null,
+                'source' => null,
             ]);
     }
 

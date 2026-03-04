@@ -477,6 +477,7 @@ class BasicListeningProfileController extends Controller
             'name' => ['nullable', 'string', 'max:255'],
             'year' => ['nullable', 'integer', 'min:2015', 'max:' . ((int) now()->year + 1)],
             'prody_id' => ['nullable', Rule::exists('prodies', 'id')],
+            'allow_existing_user_score' => ['nullable', 'boolean'],
         ]);
 
         $prodyName = LegacyBasicListeningScores::resolveProdyName(isset($data['prody_id']) ? (int) $data['prody_id'] : null);
@@ -521,7 +522,7 @@ class BasicListeningProfileController extends Controller
             )
             : null;
 
-        $storedScore = $legacyApplicable && $record === null
+        $storedScore = ($data['allow_existing_user_score'] ?? false) && $legacyApplicable && $record === null
             ? $this->resolveExistingStoredLegacyScore($request->user(), $data)
             : null;
 
