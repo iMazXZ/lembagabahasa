@@ -26,7 +26,11 @@
     $initialProdyId = old('prody_id', $user->prody_id);
     $initialProdyName = $initialProdyId ? $prodis->firstWhere('id', $initialProdyId)?->name : ($user->prody->name ?? '');
     $initialLegacyScoreRaw = old('nilaibasiclistening', $legacyAutoScore ?? $user->nilaibasiclistening);
-    $initialLegacyScore = is_numeric($initialLegacyScoreRaw) ? (int) round((float) $initialLegacyScoreRaw) : $initialLegacyScoreRaw;
+    $initialLegacyScore = is_numeric($initialLegacyScoreRaw) && (float) $initialLegacyScoreRaw > 0
+        ? (int) round((float) $initialLegacyScoreRaw)
+        : '';
+    $initialInteractiveAutoScores = $interactiveAutoScores ?? [];
+    $initialInteractiveArabicAutoScores = $interactiveArabicAutoScores ?? [];
     $shouldOpenPasswordModal = $errors->has('current_password') || $errors->has('password');
     $initialYearString = filled($initialYear) ? (string) $initialYear : '';
     $initialSrnString = filled($initialSrn) ? (string) $initialSrn : '';
@@ -42,9 +46,9 @@
         year: @js($initialYearString),
         srn: @js($initialSrnString),
         legacyScore: @js($initialLegacyScore),
-        legacyScoreFound: {{ $initialLegacyScore !== null && $initialLegacyScore !== '' ? 'true' : 'false' }},
+        legacyScoreFound: {{ $initialLegacyScore !== '' ? 'true' : 'false' }},
         legacyScoreLoading: false,
-        legacyScoreMessage: @js(($initialLegacyScore !== null && $initialLegacyScore !== '') ? '' : 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.'),
+        legacyScoreMessage: @js($initialLegacyScore !== '' ? '' : 'Nilai Basic Listening belum tersedia di arsip. Jika Anda sudah mengikuti dan lulus kelas, silakan konfirmasi ke kantor Lembaga Bahasa.'),
         isS2: {{ str_starts_with($initialProdyName ?? '', 'S2') ? 'true' : 'false' }},
         prodiName: @js($initialProdyName),
         changePasswordOpen: {{ $shouldOpenPasswordModal ? 'true' : 'false' }},
@@ -582,7 +586,10 @@
 
                             {{-- Angkatan --}}
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">Tahun Angkatan <span class="text-rose-500">*</span></label>
+                                <label class="mb-1.5 ml-1 flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
+                                    <span>Tahun Angkatan <span class="text-rose-500">*</span></span>
+                                    <span class="text-[11px] font-medium text-slate-400">Auto dari NPM, bisa diubah</span>
+                                </label>
                                 <select id="biodata-year" name="year" x-ref="yearSelect" x-model="year"
                                         class="block w-full py-3 px-4 rounded-xl border-2 border-slate-200 bg-white shadow-sm focus:border-um-blue focus:ring-um-blue text-base transition-all duration-200">
                                     <option value="">Pilih Tahun</option>
@@ -692,7 +699,7 @@
                                     </div>
                                     <div>
                                         <label class="text-sm sm:text-base font-semibold text-slate-900 block">Nilai Basic Listening <span class="text-rose-500">*</span></label>
-                                        <p class="text-xs text-slate-500 mt-0.5">Nilai ini terisi otomatis jika memang sudah mengikuti Basic Listening.</p>
+                                        <p class="text-xs text-slate-500 mt-0.5">Nilai diambil otomatis dari arsip Basic Listening. Anda tidak perlu mengisi manual.</p>
                                     </div>
                                 </div>
                                 <div class="space-y-3">
@@ -701,13 +708,12 @@
                                                value="{{ $initialLegacyScore }}"
                                                readonly
                                                class="w-28 sm:w-32 py-2.5 px-3 text-center text-xl font-semibold rounded-xl border border-slate-300 bg-slate-50 text-slate-700"
-                                               data-has-score="{{ $initialLegacyScore !== null && $initialLegacyScore !== '' ? '1' : '0' }}">
-                                        <span class="text-sm text-slate-500 font-medium">/ 100</span>
+                                               data-has-score="{{ $initialLegacyScore !== '' ? '1' : '0' }}">
                                         <span id="legacy-score-loading" style="display:none" class="text-xs font-medium text-slate-500">Memuat...</span>
                                     </div>
-                                    <p id="legacy-score-message" style="{{ $initialLegacyScore !== null && $initialLegacyScore !== '' ? 'display:none' : '' }}" class="text-xs text-amber-700">
+                                    <p id="legacy-score-message" style="{{ $initialLegacyScore !== '' ? 'display:none' : '' }}" class="text-xs text-amber-700">
                                         <i id="legacy-score-message-icon" class="fa-solid fa-circle-info text-amber-500"></i>
-                                        <span>Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.</span>
+                                        <span>Nilai Basic Listening belum tersedia di arsip. Jika Anda sudah mengikuti dan lulus kelas, silakan konfirmasi ke kantor Lembaga Bahasa.</span>
                                     </p>
                                     @error('nilaibasiclistening')
                                         <p class="mt-2 text-xs text-rose-600">{{ $message }}</p>
@@ -723,7 +729,7 @@
                                     </div>
                                     <div>
                                         <label class="text-sm sm:text-base font-semibold text-slate-900 block">Nilai Interactive Bahasa Inggris <span class="text-rose-500">*</span></label>
-                                        <p class="text-xs text-slate-500 mt-0.5">Masukkan nilai per semester untuk mahasiswa Pendidikan Bahasa Inggris.</p>
+                                        <p class="text-xs text-slate-500 mt-0.5">Nilai per semester terisi otomatis dari arsip Interactive Class dan tidak bisa diubah manual.</p>
                                     </div>
                                 </div>
                                 <div class="space-y-4">
@@ -731,16 +737,19 @@
                                         @for ($i = 1; $i <= 6; $i++)
                                         <div>
                                             <label class="block text-xs font-medium text-slate-600 mb-1">Semester {{ $i }}</label>
-                                            <input type="number" name="interactive_class_{{ $i }}" min="0" max="100" placeholder="0"
-                                                   value="{{ old('interactive_class_'.$i, $user->{'interactive_class_'.$i}) }}"
-                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-white focus:border-violet-500 focus:ring-violet-500">
+                                            <input type="number" id="interactive-class-input-{{ $i }}" data-interactive-class-input data-semester="{{ $i }}" name="interactive_class_{{ $i }}" min="0" max="100" placeholder="0" readonly
+                                                   value="{{ old('interactive_class_'.$i, $initialInteractiveAutoScores[$i] ?? $user->{'interactive_class_'.$i}) }}"
+                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-slate-50 text-slate-700 cursor-not-allowed focus:border-slate-300 focus:ring-0">
                                         </div>
                                         @endfor
                                     </div>
-                                    <p class="text-xs text-slate-500">
-                                        <i class="fa-solid fa-info-circle text-violet-400"></i>
-                                        Masukkan nilai Interactive Class untuk setiap semester.
-                                    </p>
+                                    <div class="flex items-center gap-3 text-xs">
+                                        <span id="interactive-class-loading" style="display:none" class="font-medium text-slate-500">Memuat...</span>
+                                        <p id="interactive-class-message" class="text-slate-500">
+                                            <i class="fa-solid fa-info-circle text-violet-400"></i>
+                                            Nilai Interactive Class akan terisi otomatis jika arsipnya ditemukan.
+                                        </p>
+                                    </div>
                                     @for ($i = 1; $i <= 6; $i++)
                                         @error('interactive_class_'.$i) <p class="text-xs text-rose-600 mt-1">{{ $message }}</p> @enderror
                                     @endfor
@@ -759,27 +768,35 @@
                                     </div>
                                     <div>
                                         <label class="text-sm sm:text-base font-semibold text-slate-900 block">Nilai Interactive Bahasa Arab <span class="text-rose-500">*</span></label>
-                                        <p class="text-xs text-slate-500 mt-0.5">Masukkan dua nilai Interactive Bahasa Arab.</p>
+                                        <p class="text-xs text-slate-500 mt-0.5">Nilai diambil otomatis dari arsip Interactive Bahasa Arab. Anda tidak perlu mengisi manual.</p>
                                     </div>
                                 </div>
                                 <div class="space-y-4">
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
                                             <label class="block text-xs font-medium text-slate-600 mb-1">Bahasa Arab 1</label>
-                                            <input type="number" name="interactive_bahasa_arab_1" min="0" max="100" placeholder="0"
-                                                   value="{{ old('interactive_bahasa_arab_1', $user->interactive_bahasa_arab_1) }}"
-                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-white focus:border-emerald-500 focus:ring-emerald-500">
+                                            <input type="number" id="interactive-arabic-input-1" data-interactive-arabic-input data-semester="1" name="interactive_bahasa_arab_1" min="0" max="100" placeholder="0" readonly
+                                                   value="{{ old('interactive_bahasa_arab_1', (($initialInteractiveArabicAutoScores[1] ?? null) ?: ((is_numeric($user->interactive_bahasa_arab_1 ?? null) && (float) $user->interactive_bahasa_arab_1 > 0) ? $user->interactive_bahasa_arab_1 : ''))) }}"
+                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-slate-50 text-slate-700 cursor-not-allowed focus:border-slate-300 focus:ring-0">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-slate-600 mb-1">Bahasa Arab 2</label>
-                                            <input type="number" name="interactive_bahasa_arab_2" min="0" max="100" placeholder="0"
-                                                   value="{{ old('interactive_bahasa_arab_2', $user->interactive_bahasa_arab_2) }}"
-                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-white focus:border-emerald-500 focus:ring-emerald-500">
+                                            <input type="number" id="interactive-arabic-input-2" data-interactive-arabic-input data-semester="2" name="interactive_bahasa_arab_2" min="0" max="100" placeholder="0" readonly
+                                                   value="{{ old('interactive_bahasa_arab_2', (($initialInteractiveArabicAutoScores[2] ?? null) ?: ((is_numeric($user->interactive_bahasa_arab_2 ?? null) && (float) $user->interactive_bahasa_arab_2 > 0) ? $user->interactive_bahasa_arab_2 : ''))) }}"
+                                                   class="w-full py-2.5 px-3 text-center text-base font-semibold rounded-xl border border-slate-300 bg-slate-50 text-slate-700 cursor-not-allowed focus:border-slate-300 focus:ring-0">
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <span id="interactive-arabic-loading" style="display:none" class="text-xs font-medium text-slate-500">Memuat data arsip...</span>
+                                        <div id="interactive-arabic-message" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                                            <div class="flex items-start gap-2">
+                                                <i class="fa-solid fa-circle-info mt-0.5 text-slate-400"></i>
+                                                <span>Masukkan NPM lengkap untuk mengecek nilai Bahasa Arab 1 dan 2 secara otomatis.</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <p class="text-xs text-slate-500">
-                                        <i class="fa-solid fa-info-circle text-emerald-400"></i>
-                                        Masukkan nilai Interactive Bahasa Arab Anda.
+                                        Jika ada nilai yang belum muncul, silakan datang ke kantor Lembaga Bahasa sambil membawa bukti hasil Interactive Bahasa Arab.
                                     </p>
                                     @error('interactive_bahasa_arab_1') <p class="text-xs text-rose-600 mt-1">{{ $message }}</p> @enderror
                                     @error('interactive_bahasa_arab_2') <p class="text-xs text-rose-600 mt-1">{{ $message }}</p> @enderror
@@ -901,13 +918,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const yearSelect = document.getElementById('biodata-year');
     const prodyInput = document.getElementById('biodata-prody-id');
     const nameInput = document.querySelector('input[name="name"]');
+    const profileForm = srnInput?.form || document.querySelector('form[action="{{ route('bl.profile.complete.submit') }}"]');
+    const submitButton = profileForm?.querySelector('button[type="submit"]');
     const legacySection = document.getElementById('legacy-score-section');
     const legacyInput = document.getElementById('legacy-score-input');
     const legacyLoading = document.getElementById('legacy-score-loading');
     const legacyMessage = document.getElementById('legacy-score-message');
     const legacyMessageIcon = document.getElementById('legacy-score-message-icon');
     const interactiveClassSection = document.getElementById('interactive-class-section');
+    const interactiveClassInputs = Array.from(document.querySelectorAll('[data-interactive-class-input]'));
+    const interactiveClassLoading = document.getElementById('interactive-class-loading');
+    const interactiveClassMessage = document.getElementById('interactive-class-message');
     const interactiveArabicSection = document.getElementById('interactive-arabic-section');
+    const interactiveArabicInputs = Array.from(document.querySelectorAll('[data-interactive-arabic-input]'));
+    const interactiveArabicInput1 = document.getElementById('interactive-arabic-input-1');
+    const interactiveArabicInput2 = document.getElementById('interactive-arabic-input-2');
+    const interactiveArabicLoading = document.getElementById('interactive-arabic-loading');
+    const interactiveArabicMessage = document.getElementById('interactive-arabic-message');
     const srnWarning = document.getElementById('biodata-srn-warning');
     const lookupUrl = @json(route('dashboard.biodata.manual-basic-listening-score'));
     const prodiMap = @json($prodis->pluck('name', 'id'));
@@ -919,6 +946,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!srnInput || !yearSelect || !prodyInput) {
         return;
     }
+
+    const availableYears = new Set(Array.from(yearSelect.options).map((option) => String(option.value || '').trim()).filter(Boolean));
+    let isApplyingAutoYear = false;
+    let yearManualOverride = String(yearSelect.value || '').trim() !== '';
+
+    yearSelect.dataset.autofilled = '0';
 
     const setVisible = (element, visible) => {
         if (!element) return;
@@ -944,13 +977,119 @@ document.addEventListener('DOMContentLoaded', () => {
             legacyMessage.classList.remove('text-amber-700', 'text-slate-500');
             legacyMessage.classList.add('text-amber-700');
             if (span) {
-                span.textContent = message || 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.';
+                span.textContent = message || 'Nilai Basic Listening belum tersedia di arsip. Jika Anda sudah mengikuti dan lulus kelas, silakan konfirmasi ke kantor Lembaga Bahasa.';
             }
         }
 
         if (legacyMessageIcon) {
             legacyMessageIcon.classList.remove('text-amber-500');
             legacyMessageIcon.classList.add('text-amber-500');
+        }
+    };
+
+    const setInteractiveClassState = ({ scores = {}, found = false, message = '', loading = false, clearAutoFilled = false, replaceAll = false } = {}) => {
+        interactiveClassInputs.forEach((input) => {
+            const semester = parseInt(input.dataset.semester || '0', 10);
+            const hasIncoming = Object.prototype.hasOwnProperty.call(scores, semester);
+            const hasAutoFilled = input.dataset.autofilled === '1';
+
+            if (hasIncoming) {
+                input.value = scores[semester];
+                input.dataset.autofilled = '1';
+            } else if (replaceAll) {
+                input.value = '';
+                input.dataset.autofilled = '0';
+            } else if (clearAutoFilled && hasAutoFilled) {
+                input.value = '';
+                input.dataset.autofilled = '0';
+            }
+
+            input.classList.remove('bg-violet-50', 'border-violet-300', 'text-violet-700', 'bg-white', 'border-slate-300');
+            const activeAutoFill = (hasIncoming || input.dataset.autofilled === '1') && String(input.value || '').trim() !== '';
+            input.classList.add(activeAutoFill ? 'bg-violet-50' : 'bg-white');
+            input.classList.add(activeAutoFill ? 'border-violet-300' : 'border-slate-300');
+            input.classList.add(activeAutoFill ? 'text-violet-700' : 'text-slate-900');
+        });
+
+        if (interactiveClassLoading) {
+            interactiveClassLoading.style.display = loading ? '' : 'none';
+        }
+
+        if (interactiveClassMessage) {
+            interactiveClassMessage.style.display = loading ? 'none' : '';
+            interactiveClassMessage.classList.remove('text-slate-500', 'text-violet-700', 'text-amber-700');
+            interactiveClassMessage.classList.add(found ? 'text-violet-700' : 'text-amber-700');
+            interactiveClassMessage.innerHTML = `
+                <i class="fa-solid fa-circle-info ${found ? 'text-violet-500' : 'text-amber-500'}"></i>
+                <span>${message || 'Nilai Interactive Class akan terisi otomatis jika arsipnya ditemukan.'}</span>
+            `;
+        }
+    };
+
+    const setInteractiveArabicState = ({ scores = {}, found = false, message = '', loading = false, clearAutoFilled = false, replaceAll = false } = {}) => {
+        interactiveArabicInputs.forEach((input) => {
+            const semester = parseInt(input.dataset.semester || '0', 10);
+            const hasIncoming = Object.prototype.hasOwnProperty.call(scores, semester);
+            const hasAutoFilled = input.dataset.autofilled === '1';
+
+            if (hasIncoming) {
+                input.value = scores[semester];
+                input.dataset.autofilled = '1';
+            } else if (replaceAll) {
+                input.value = '';
+                input.dataset.autofilled = '0';
+            } else if (clearAutoFilled && hasAutoFilled) {
+                input.value = '';
+                input.dataset.autofilled = '0';
+            }
+
+            input.classList.remove('bg-emerald-50', 'border-emerald-300', 'text-emerald-700', 'bg-slate-50', 'text-slate-700', 'border-slate-300');
+            const activeAutoFill = (hasIncoming || input.dataset.autofilled === '1') && String(input.value || '').trim() !== '';
+            input.classList.add(activeAutoFill ? 'bg-emerald-50' : 'bg-slate-50');
+            input.classList.add(activeAutoFill ? 'border-emerald-300' : 'border-slate-300');
+            input.classList.add(activeAutoFill ? 'text-emerald-700' : 'text-slate-700');
+        });
+
+        if (interactiveArabicLoading) {
+            interactiveArabicLoading.style.display = loading ? '' : 'none';
+        }
+
+        if (interactiveArabicMessage) {
+            const resolvedCount = interactiveArabicInputs.filter((input) => String(input.value || '').trim() !== '').length;
+            const messageTone = resolvedCount === 2 ? 'success' : (resolvedCount > 0 ? 'partial' : 'empty');
+            const defaultMessage = messageTone === 'success'
+                ? 'Bahasa Arab 1 dan 2 ditemukan. Nilai sudah terisi otomatis.'
+                : messageTone === 'partial'
+                    ? `Sebagian nilai sudah ditemukan. Periksa kolom yang masih kosong.`
+                    : 'Masukkan NPM lengkap untuk mengecek nilai Bahasa Arab 1 dan 2 secara otomatis.';
+
+            interactiveArabicMessage.style.display = loading ? 'none' : '';
+            interactiveArabicMessage.classList.remove(
+                'border-slate-200',
+                'bg-slate-50',
+                'text-slate-600',
+                'border-emerald-200',
+                'bg-emerald-50',
+                'text-emerald-700',
+                'border-amber-200',
+                'bg-amber-50',
+                'text-amber-700',
+            );
+
+            if (messageTone === 'success') {
+                interactiveArabicMessage.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+            } else if (messageTone === 'partial') {
+                interactiveArabicMessage.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-700');
+            } else {
+                interactiveArabicMessage.classList.add('border-slate-200', 'bg-slate-50', 'text-slate-600');
+            }
+
+            interactiveArabicMessage.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5 ${messageTone === 'success' ? 'text-emerald-500' : (messageTone === 'partial' ? 'text-amber-500' : 'text-slate-400')}"></i>
+                    <span>${message || defaultMessage}</span>
+                </div>
+            `;
         }
     };
 
@@ -966,14 +1105,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const getFlags = () => {
         const year = parseInt(yearSelect.value || '0', 10);
         const prodiName = getSelectedProdiName();
+        const normalizedProdiName = String(prodiName || '').trim().toLowerCase().replace(/\s+/g, ' ');
         const isS2 = prodiName.startsWith('S2');
         const isEnglish = prodiName === 'Pendidikan Bahasa Inggris';
         const isIslamic = prodiIslam.includes(prodiName);
+        const isGeneralStudy = ['umum', 'program studi umum'].includes(normalizedProdiName);
 
         return {
             year,
             prodiName,
-            needsLegacy: !!year && year <= 2024 && !isS2 && !isEnglish,
+            needsLegacy: !!year && year <= 2024 && !isS2 && !isEnglish && !isGeneralStudy,
             needsInteractiveClass: !!year && year <= 2024 && isEnglish,
             needsInteractiveArabic: !!year && year <= 2024 && isIslamic,
         };
@@ -995,6 +1136,58 @@ document.addEventListener('DOMContentLoaded', () => {
         return normalized.length > legacyLookupMinLength;
     };
 
+    const inferEnrollmentYearFromSrn = (rawSrn) => {
+        const normalized = String(rawSrn || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (normalized.length < 2) {
+            return null;
+        }
+
+        const prefix = normalized.slice(0, 2);
+        if (!/^\d{2}$/.test(prefix)) {
+            return null;
+        }
+
+        const shortYear = parseInt(prefix, 10);
+        const currentYear = new Date().getFullYear();
+        const currentCenturyBase = Math.floor(currentYear / 100) * 100;
+        const futureThreshold = (currentYear % 100) + 1;
+        let inferredYear = currentCenturyBase + shortYear;
+
+        if (shortYear > futureThreshold) {
+            inferredYear -= 100;
+        }
+
+        const inferredYearString = String(inferredYear);
+
+        return availableYears.has(inferredYearString) ? inferredYearString : null;
+    };
+
+    const applyAutoYearFromSrn = () => {
+        const inferredYear = inferEnrollmentYearFromSrn(srnInput.value);
+        if (!inferredYear) {
+            return false;
+        }
+
+        const currentYearValue = String(yearSelect.value || '').trim();
+        const wasAutofilled = yearSelect.dataset.autofilled === '1';
+
+        if (yearManualOverride && currentYearValue !== '' && !wasAutofilled) {
+            return false;
+        }
+
+        if (currentYearValue === inferredYear && wasAutofilled) {
+            return false;
+        }
+
+        isApplyingAutoYear = true;
+        yearSelect.value = inferredYear;
+        yearSelect.dataset.autofilled = '1';
+        yearSelect.dispatchEvent(new Event('input', { bubbles: true }));
+        isApplyingAutoYear = false;
+
+        return true;
+    };
+
     const validateSrnInput = ({ report = false } = {}) => {
         const rawValue = String(srnInput.value || '').trim();
         const digitCount = String(rawValue).replace(/\D+/g, '').length;
@@ -1014,6 +1207,71 @@ document.addEventListener('DOMContentLoaded', () => {
         return isValid;
     };
 
+    const setInputValidity = (input, valid, message = '') => {
+        if (!input) {
+            return;
+        }
+
+        input.setCustomValidity(valid ? '' : message);
+    };
+
+    const validateAcademicFields = ({ report = false } = {}) => {
+        const flags = getFlags();
+        const invalidInputs = [];
+
+        if (legacyInput) {
+            const needsLegacy = flags.needsLegacy;
+            const hasValue = String(legacyInput.value || '').trim() !== '';
+            legacyInput.required = needsLegacy;
+            setInputValidity(legacyInput, !needsLegacy || hasValue, 'Nilai Basic Listening wajib terisi.');
+            if (needsLegacy && !hasValue) {
+                invalidInputs.push(legacyInput);
+            }
+        }
+
+        interactiveClassInputs.forEach((input) => {
+            const semester = input.dataset.semester || '?';
+            const hasValue = String(input.value || '').trim() !== '';
+            input.required = flags.needsInteractiveClass;
+            setInputValidity(
+                input,
+                !flags.needsInteractiveClass || hasValue,
+                `Nilai Interactive Class Semester ${semester} wajib terisi otomatis.`,
+            );
+            if (flags.needsInteractiveClass && !hasValue) {
+                invalidInputs.push(input);
+            }
+        });
+
+        interactiveArabicInputs.forEach((input) => {
+            const semester = input.dataset.semester || '?';
+            if (!input) {
+                return;
+            }
+
+            const hasValue = String(input.value || '').trim() !== '';
+            input.required = flags.needsInteractiveArabic;
+            setInputValidity(input, !flags.needsInteractiveArabic || hasValue, `Nilai Interactive Bahasa Arab ${semester} wajib terisi otomatis.`);
+            if (flags.needsInteractiveArabic && !hasValue) {
+                invalidInputs.push(input);
+            }
+        });
+
+        if (submitButton) {
+            const valid = invalidInputs.length === 0 && validateSrnInput();
+            submitButton.disabled = !valid;
+            submitButton.style.opacity = valid ? '' : '0.6';
+            submitButton.style.cursor = valid ? '' : 'not-allowed';
+            submitButton.title = valid ? '' : 'Lengkapi field wajib terlebih dahulu.';
+        }
+
+        if (report && invalidInputs.length > 0) {
+            invalidInputs[0].reportValidity();
+        }
+
+        return invalidInputs.length === 0;
+    };
+
     const applyAcademicSections = () => {
         const flags = getFlags();
         setVisible(legacySection, flags.needsLegacy);
@@ -1024,8 +1282,28 @@ document.addEventListener('DOMContentLoaded', () => {
             setLegacyState({
                 score: '',
                 found: false,
-                message: 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.',
+                message: 'Nilai Basic Listening belum tersedia di arsip. Jika Anda sudah mengikuti dan lulus kelas, silakan konfirmasi ke kantor Lembaga Bahasa.',
                 loading: false,
+            });
+        }
+
+        if (!flags.needsInteractiveClass) {
+            setInteractiveClassState({
+                scores: {},
+                found: false,
+                message: 'Nilai Interactive Class akan terisi otomatis jika arsipnya ditemukan.',
+                loading: false,
+                clearAutoFilled: true,
+            });
+        }
+
+        if (!flags.needsInteractiveArabic) {
+            setInteractiveArabicState({
+                scores: {},
+                found: false,
+                message: 'Masukkan NPM lengkap untuk mengecek nilai Bahasa Arab 1 dan 2 secara otomatis.',
+                loading: false,
+                clearAutoFilled: true,
             });
         }
 
@@ -1034,28 +1312,89 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const lookupLegacyScore = async () => {
         const flags = applyAcademicSections();
-        if (!flags.needsLegacy) {
+        if (!flags.needsLegacy && !flags.needsInteractiveClass && !flags.needsInteractiveArabic) {
             return;
         }
 
         const srn = String(srnInput.value || '').trim();
         const normalizedSrn = srn.replace(/\D+/g, '');
         if (!srn || normalizedSrn.length < legacyLookupMinLength) {
-            setLegacyState({
-                score: '',
-                found: false,
-                message: 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Basic Listening.',
-                loading: false,
-            });
+            if (flags.needsLegacy) {
+                setLegacyState({
+                    score: '',
+                    found: false,
+                    message: 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Basic Listening.',
+                    loading: false,
+                });
+            }
+            if (flags.needsInteractiveClass) {
+                setInteractiveClassState({
+                    scores: {},
+                    found: false,
+                    message: 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Interactive Class.',
+                    loading: false,
+                    clearAutoFilled: true,
+                });
+            }
+            if (flags.needsInteractiveArabic) {
+                setInteractiveArabicState({
+                    scores: {},
+                    found: false,
+                    message: 'Lengkapi NPM terlebih dahulu untuk mengecek nilai Bahasa Arab 1 dan 2.',
+                    loading: false,
+                    clearAutoFilled: true,
+                });
+            }
+            validateAcademicFields();
             return;
         }
 
-        setLegacyState({
-            score: legacyInput?.value || '',
-            found: false,
-            message: '',
-            loading: true,
-        });
+        if (flags.needsLegacy) {
+            setLegacyState({
+                score: legacyInput?.value || '',
+                found: false,
+                message: '',
+                loading: true,
+            });
+        }
+
+        if (flags.needsInteractiveClass) {
+            const currentScores = interactiveClassInputs.reduce((carry, input) => {
+                const semester = parseInt(input.dataset.semester || '0', 10);
+                const value = String(input.value || '').trim();
+                if (semester && value !== '') {
+                    carry[semester] = value;
+                }
+
+                return carry;
+            }, {});
+
+            setInteractiveClassState({
+                scores: currentScores,
+                found: false,
+                message: '',
+                loading: true,
+            });
+        }
+
+        if (flags.needsInteractiveArabic) {
+            const currentScores = interactiveArabicInputs.reduce((carry, input) => {
+                const semester = parseInt(input.dataset.semester || '0', 10);
+                const value = String(input.value || '').trim();
+                if (semester && value !== '') {
+                    carry[semester] = value;
+                }
+
+                return carry;
+            }, {});
+
+            setInteractiveArabicState({
+                scores: currentScores,
+                found: false,
+                message: '',
+                loading: true,
+            });
+        }
 
         try {
             const params = new URLSearchParams({
@@ -1075,43 +1414,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await response.json();
 
-            if (!result.applicable) {
+            if (flags.needsLegacy && !result.applicable) {
                 setLegacyState({
                     score: '',
                     found: false,
-                    message: 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.',
+                    message: 'Nilai Basic Listening belum tersedia di arsip. Jika Anda sudah mengikuti dan lulus kelas, silakan konfirmasi ke kantor Lembaga Bahasa.',
                     loading: false,
                 });
                 return;
             }
 
-            if (result.found && result.score !== null) {
-                setLegacyState({
-                    score: result.score,
-                    found: true,
-                    message: result.message || 'Nilai ditemukan dari data manual.',
+            if (flags.needsLegacy) {
+                if (result.found && result.score !== null) {
+                    setLegacyState({
+                        score: result.score,
+                        found: true,
+                        message: result.message || 'Nilai ditemukan dari data manual.',
+                        loading: false,
+                    });
+                } else {
+                    setLegacyState({
+                        score: '',
+                        found: false,
+                        message: result.message || 'Nilai belum ditemukan. Hubungi admin agar data manual diimport.',
+                        loading: false,
+                    });
+                }
+            }
+
+            if (flags.needsInteractiveClass) {
+                setInteractiveClassState({
+                    scores: result.interactive_class_scores || {},
+                    found: !!result.interactive_class_found,
+                    message: result.interactive_class_message || 'Nilai Interactive Class belum ditemukan. Silakan ke kantor Lembaga Bahasa.',
                     loading: false,
+                    clearAutoFilled: !result.interactive_class_found,
+                    replaceAll: true,
                 });
-            } else {
+            }
+
+            if (flags.needsInteractiveArabic) {
+                setInteractiveArabicState({
+                    scores: result.interactive_arabic_scores || {},
+                    found: !!result.interactive_arabic_found,
+                    message: result.interactive_arabic_message || 'Nilai Bahasa Arab 1 dan 2 belum ditemukan di arsip. Jika Anda sudah mengikuti dan lulus kelas, silakan konfirmasi ke kantor Lembaga Bahasa.',
+                    loading: false,
+                    clearAutoFilled: !result.interactive_arabic_found,
+                    replaceAll: true,
+                });
+            }
+
+            validateAcademicFields();
+        } catch (error) {
+            if (flags.needsLegacy) {
                 setLegacyState({
                     score: '',
                     found: false,
-                    message: result.message || 'Nilai belum ditemukan. Hubungi admin agar data manual diimport.',
+                    message: error?.message || 'Terjadi kesalahan saat mencari nilai.',
                     loading: false,
                 });
             }
-        } catch (error) {
-            setLegacyState({
-                score: '',
-                found: false,
-                message: error?.message || 'Terjadi kesalahan saat mencari nilai.',
-                loading: false,
-            });
+
+            if (flags.needsInteractiveClass) {
+                setInteractiveClassState({
+                    scores: {},
+                    found: false,
+                    message: error?.message || 'Terjadi kesalahan saat mencari nilai Interactive Class.',
+                    loading: false,
+                    clearAutoFilled: true,
+                });
+            }
+
+            if (flags.needsInteractiveArabic) {
+                setInteractiveArabicState({
+                    scores: {},
+                    found: false,
+                    message: error?.message || 'Terjadi kesalahan saat mengecek nilai Bahasa Arab 1 dan 2.',
+                    loading: false,
+                    clearAutoFilled: true,
+                });
+            }
+
+            validateAcademicFields();
         }
     };
 
     srnInput.addEventListener('input', () => {
         validateSrnInput();
+        applyAutoYearFromSrn();
         window.clearTimeout(lookupTimer);
         if (!shouldLookupWhileTyping(srnInput.value)) {
             const flags = applyAcademicSections();
@@ -1123,6 +1513,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     loading: false,
                 });
             }
+            if (flags.needsInteractiveClass) {
+                setInteractiveClassState({
+                    scores: {},
+                    found: false,
+                    message: 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Interactive Class.',
+                    loading: false,
+                    clearAutoFilled: true,
+                });
+            }
+            if (flags.needsInteractiveArabic) {
+                setInteractiveArabicState({
+                    scores: {},
+                    found: false,
+                    message: 'Lengkapi NPM terlebih dahulu untuk mengecek nilai Bahasa Arab 1 dan 2.',
+                    loading: false,
+                    clearAutoFilled: true,
+                });
+            }
+            validateAcademicFields();
             return;
         }
 
@@ -1132,12 +1541,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     srnInput.addEventListener('blur', () => {
+        applyAutoYearFromSrn();
         validateSrnInput({ report: String(srnInput.value || '').trim().length > 0 });
         lookupLegacyScore();
     });
 
     yearSelect.addEventListener('change', () => {
+        if (!isApplyingAutoYear) {
+            yearManualOverride = String(yearSelect.value || '').trim() !== '';
+            yearSelect.dataset.autofilled = '0';
+        }
         lookupLegacyScore();
+        validateAcademicFields();
     });
 
     window.addEventListener('biodata-prodi-changed', (event) => {
@@ -1148,16 +1563,28 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedProdyName = event.detail.prodiName;
         }
         lookupLegacyScore();
+        validateAcademicFields();
     });
 
-    srnInput.form?.addEventListener('submit', (event) => {
-        if (!validateSrnInput({ report: true })) {
+    [interactiveArabicInput1, interactiveArabicInput2].forEach((input) => {
+        input?.addEventListener('input', () => {
+            validateAcademicFields();
+        });
+    });
+
+    profileForm?.addEventListener('submit', (event) => {
+        const srnValid = validateSrnInput({ report: true });
+        const academicValid = validateAcademicFields({ report: srnValid });
+
+        if (!srnValid || !academicValid) {
             event.preventDefault();
         }
     });
 
+    applyAutoYearFromSrn();
     applyAcademicSections();
     validateSrnInput();
+    validateAcademicFields();
     lookupLegacyScore();
 });
 </script>

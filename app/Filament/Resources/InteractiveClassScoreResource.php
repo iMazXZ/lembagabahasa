@@ -2,8 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\BasicListeningLegacyScoreResource\Pages;
-use App\Models\BasicListeningLegacyScore;
+use App\Filament\Resources\InteractiveClassScoreResource\Pages;
+use App\Models\InteractiveClassScore;
+use App\Support\InteractiveClassScores;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -11,16 +12,46 @@ use Filament\Tables;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
-class BasicListeningLegacyScoreResource extends Resource
+class InteractiveClassScoreResource extends Resource
 {
-    protected static ?string $model = BasicListeningLegacyScore::class;
+    protected static ?string $model = InteractiveClassScore::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-magnifying-glass-circle';
+    protected static ?string $navigationIcon = 'heroicon-o-language';
     protected static ?string $navigationGroup = 'Sertifikat';
-    protected static ?string $navigationLabel = 'Nilai Manual';
-    protected static ?string $modelLabel = 'Nilai Manual';
-    protected static ?string $pluralModelLabel = 'Nilai Manual';
-    protected static ?int $navigationSort = 3;
+    protected static ?string $navigationLabel = 'Nilai Interactive';
+    protected static ?string $modelLabel = 'Nilai Interactive';
+    protected static ?string $pluralModelLabel = 'Nilai Interactive';
+    protected static ?int $navigationSort = 4;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAnyRole(['Admin', 'super_admin', 'Staf Administrasi']) ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canEdit($record): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canDelete($record): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::canViewAny();
+    }
 
     public static function form(Form $form): Form
     {
@@ -28,6 +59,12 @@ class BasicListeningLegacyScoreResource extends Resource
             Forms\Components\Section::make('Identitas')
                 ->columns(2)
                 ->schema([
+                    Forms\Components\Select::make('track')
+                        ->label('Jenis Interactive')
+                        ->options(InteractiveClassScore::trackOptions())
+                        ->default(InteractiveClassScore::TRACK_ENGLISH)
+                        ->required()
+                        ->native(false),
                     Forms\Components\TextInput::make('srn')
                         ->label('NPM / SRN')
                         ->maxLength(50),
@@ -42,20 +79,25 @@ class BasicListeningLegacyScoreResource extends Resource
                         ->numeric()
                         ->minValue(2010)
                         ->maxValue((int) now()->year + 1),
+                    Forms\Components\TextInput::make('semester')
+                        ->label('Semester / Tahap')
+                        ->required()
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(fn (Forms\Get $get): int => InteractiveClassScores::maxSemester((string) $get('track'))),
                 ]),
             Forms\Components\Section::make('Nilai')
                 ->columns(3)
                 ->schema([
                     Forms\Components\TextInput::make('score')
-                        ->label('Nilai')
+                        ->label('Nilai Average')
                         ->required()
                         ->numeric()
                         ->minValue(0)
                         ->maxValue(100),
                     Forms\Components\TextInput::make('grade')
                         ->label('Grade')
-                        ->disabled()
-                        ->dehydrated(false),
+                        ->maxLength(10),
                     Forms\Components\TextInput::make('source_file')
                         ->label('File Sumber')
                         ->maxLength(255),
@@ -80,6 +122,16 @@ class BasicListeningLegacyScoreResource extends Resource
                     ->label('Program Studi')
                     ->searchable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('track')
+                    ->label('Jenis')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => InteractiveClassScores::trackLabel((string) $state))
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('semester')
+                    ->label('Semester / Tahap')
+                    ->badge()
+                    ->formatStateUsing(fn ($state, InteractiveClassScore $record): string => InteractiveClassScores::semesterLabel((string) $record->track, is_numeric($state) ? (int) $state : null) ?? '-')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('source_year')
                     ->label('Tahun')
                     ->sortable(),
@@ -98,25 +150,27 @@ class BasicListeningLegacyScoreResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('source_year')
-                    ->label('Tahun')
-                    ->options(fn () => BasicListeningLegacyScore::query()
+                    ->label('Tahun Data')
+                    ->options(fn () => InteractiveClassScore::query()
                         ->whereNotNull('source_year')
                         ->distinct()
                         ->orderByDesc('source_year')
                         ->pluck('source_year', 'source_year')
                         ->all()),
-                SelectFilter::make('study_program')
-                    ->label('Program Studi')
-                    ->options(fn () => BasicListeningLegacyScore::query()
-                        ->whereNotNull('study_program')
-                        ->where('study_program', '!=', '')
+                SelectFilter::make('track')
+                    ->label('Jenis Interactive')
+                    ->options(InteractiveClassScore::trackOptions()),
+                SelectFilter::make('semester')
+                    ->label('Semester / Tahap')
+                    ->options(fn () => InteractiveClassScore::query()
+                        ->whereNotNull('semester')
                         ->distinct()
-                        ->orderBy('study_program')
-                        ->pluck('study_program', 'study_program')
-                        ->all())
-                    ->searchable(),
+                        ->orderBy('semester')
+                        ->pluck('semester', 'semester')
+                        ->mapWithKeys(fn ($value) => [$value => 'Tahap ' . $value])
+                        ->all()),
                 SelectFilter::make('grade')
-                    ->options(fn () => BasicListeningLegacyScore::query()
+                    ->options(fn () => InteractiveClassScore::query()
                         ->whereNotNull('grade')
                         ->distinct()
                         ->orderBy('grade')
@@ -138,9 +192,9 @@ class BasicListeningLegacyScoreResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListBasicListeningLegacyScores::route('/'),
-            'create' => Pages\CreateBasicListeningLegacyScore::route('/create'),
-            'edit' => Pages\EditBasicListeningLegacyScore::route('/{record}/edit'),
+            'index' => Pages\ListInteractiveClassScores::route('/'),
+            'create' => Pages\CreateInteractiveClassScore::route('/create'),
+            'edit' => Pages\EditInteractiveClassScore::route('/{record}/edit'),
         ];
     }
 }

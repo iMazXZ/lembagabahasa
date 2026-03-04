@@ -13,6 +13,13 @@ class LegacyBasicListeningScoresTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+    }
+
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_preserves_suffix_when_normalizing_srn(): void
     {
@@ -34,6 +41,8 @@ class LegacyBasicListeningScoresTest extends TestCase
 
         $this->assertFalse(LegacyBasicListeningScores::requiresLegacyScore(2024, 'Pendidikan Bahasa Inggris'));
         $this->assertFalse(LegacyBasicListeningScores::requiresLegacyScore(2024, 'S2 Pendidikan Bahasa Inggris'));
+        $this->assertFalse(LegacyBasicListeningScores::requiresLegacyScore(2024, 'Umum'));
+        $this->assertFalse(LegacyBasicListeningScores::requiresLegacyScore(2024, 'Program Studi Umum'));
         $this->assertFalse(LegacyBasicListeningScores::requiresLegacyScore(2025, 'Ilmu Komputer'));
     }
 

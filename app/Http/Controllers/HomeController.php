@@ -20,7 +20,9 @@ class HomeController extends Controller
                 })->count(),
                 
                 // Instruktur = users dengan role tutor atau penerjemah
-                'instruktur' => User::role(['tutor', 'Penerjemah'])->count(),
+                'instruktur' => User::whereHas('roles', function ($q) {
+                    $q->whereIn('name', ['tutor', 'Tutor', 'Penerjemah', 'penerjemah']);
+                })->count(),
                 
                 // Tahun pengalaman dihitung dari 2009
                 'tahun_pengalaman' => now()->year - 2009,

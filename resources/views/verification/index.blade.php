@@ -4,8 +4,9 @@
 
 @php
     $initialQuery = (string) ($lookupQuery ?? request('code', ''));
-    $initialResults = collect($legacyResults ?? [])->values()->all();
-    $initialLookupPerformed = (bool) ($legacyLookupPerformed ?? false);
+    $initialResults = collect($lookupResults ?? [])->values()->all();
+    $initialLookupPerformed = (bool) ($lookupPerformed ?? false);
+    $initialSummary = $lookupSummary ?? null;
 @endphp
 
 @section('content')
@@ -28,7 +29,7 @@
                     Cek <span class="text-blue-300">Keaslian</span> Dokumen
                 </h1>
                 <p class="text-blue-100 text-sm lg:text-lg leading-relaxed mb-4 lg:mb-8 max-w-xl">
-                    Verifikasi keaslian sertifikat, surat rekomendasi, hasil terjemahan, sekaligus pencarian arsip nilai Basic Listening manual.
+                    Verifikasi keaslian sertifikat, surat rekomendasi, hasil terjemahan, sekaligus pencarian arsip nilai Basic Listening, Interactive Class, dan Interactive Bahasa Arab.
                 </p>
 
                 <div class="flex flex-wrap gap-3 justify-center lg:justify-start">
@@ -48,6 +49,14 @@
                         <i class="fa-solid fa-check-circle text-emerald-400 text-[10px]"></i>
                         Nilai Basic Listening
                     </div>
+                    <div class="flex items-center gap-1.5 text-xs text-blue-200">
+                        <i class="fa-solid fa-check-circle text-emerald-400 text-[10px]"></i>
+                        Nilai Interactive Class
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs text-blue-200">
+                        <i class="fa-solid fa-check-circle text-emerald-400 text-[10px]"></i>
+                        Nilai Interactive Bahasa Arab
+                    </div>
                 </div>
             </div>
 
@@ -59,7 +68,7 @@
 
                     <div class="text-center mb-4 lg:mb-6">
                         <h2 class="text-lg lg:text-xl font-bold text-white mb-1">Masukkan Kode, NPM, atau Nama</h2>
-                        <p class="text-blue-200 text-xs lg:text-sm">Kode verifikasi akan diprioritaskan. Jika tidak cocok, sistem mencari nilai Basic Listening manual.</p>
+                        <p class="text-blue-200 text-xs lg:text-sm">Kode verifikasi akan diprioritaskan. Jika tidak cocok, sistem mencari nilai Basic Listening, Interactive Class, dan Interactive Bahasa Arab.</p>
                     </div>
 
                     @if (session('verification_error'))
@@ -98,7 +107,7 @@
                     </form>
 
                     <p class="text-center text-blue-200/70 text-xs mt-4">
-                        Tekan <kbd class="px-1.5 py-0.5 bg-white/10 rounded text-xs">Enter</kbd> untuk cari dokumen atau nilai manual
+                        Tekan <kbd class="px-1.5 py-0.5 bg-white/10 rounded text-xs">Enter</kbd> untuk cari dokumen atau arsip nilai
                     </p>
                 </div>
             </div>
@@ -112,9 +121,9 @@
             <div class="px-6 lg:px-8 py-6 border-b border-slate-200 bg-slate-50/70">
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold mb-3">
                     <i class="fa-solid fa-table-list text-[10px]"></i>
-                    Nilai Manual
+                    Arsip Nilai
                 </div>
-                <h2 class="text-xl lg:text-2xl font-bold text-slate-900">Hasil Pencarian Basic Listening</h2>
+                <h2 class="text-xl lg:text-2xl font-bold text-slate-900">Hasil Pencarian Nilai</h2>
                 <p id="lookup-results-meta" class="mt-2 text-sm text-slate-500">
                     @if ($initialLookupPerformed)
                         {{ count($initialResults) }} hasil untuk &quot;{{ $initialQuery }}&quot;
@@ -127,36 +136,79 @@
 
             <div class="px-6 lg:px-8 py-6">
                 <div id="lookup-feedback" class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500 {{ $initialLookupPerformed && count($initialResults) === 0 ? '' : 'hidden' }}">
-                    Data tidak ditemukan. Gunakan kode verifikasi untuk dokumen, atau NPM untuk hasil nilai manual yang paling akurat.
+                    Data tidak ditemukan. Gunakan kode verifikasi untuk dokumen, atau NPM untuk hasil nilai yang paling akurat.
+                </div>
+
+                <div id="lookup-summary" class="mb-5 {{ $initialSummary ? '' : 'hidden' }}">
+                    @if ($initialSummary)
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Peserta</p>
+                                    <h3 class="mt-1 text-xl font-bold text-slate-900 break-words">{{ $initialSummary['name'] ?? '-' }}</h3>
+                                    <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                                        <span><span class="font-medium text-slate-900">NPM</span> {{ $initialSummary['srn'] ?? '-' }}</span>
+                                        <span><span class="font-medium text-slate-900">Program Studi</span> {{ $initialSummary['study_program'] ?? '-' }}</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach (($initialSummary['result_labels'] ?? []) as $label)
+                                        <span class="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                                            {{ $label }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 <div id="lookup-results" class="grid grid-cols-1 lg:grid-cols-2 gap-4 {{ count($initialResults) > 0 ? '' : 'hidden' }}">
                     @foreach ($initialResults as $item)
                         <article class="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                             <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">{{ $item['source_year'] ?? 'ARSIP' }}</p>
-                                    <h4 class="mt-1 text-lg font-semibold text-slate-900 leading-snug">{{ $item['name'] ?? 'Tanpa nama' }}</h4>
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">{{ $item['source_year'] ?? 'ARSIP' }}</p>
+                                        <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                            {{ $item['result_label'] ?? 'Nilai' }}
+                                        </span>
+                                        @if (!empty($item['semester']))
+                                            <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                                                {{ $item['semester_label'] ?? ('Semester ' . $item['semester']) }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    @if (! $initialSummary)
+                                        <h4 class="mt-2 text-lg font-semibold text-slate-900 leading-snug break-words">{{ $item['name'] ?? 'Tanpa nama' }}</h4>
+                                    @endif
                                 </div>
-                                <div class="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-right ring-1 ring-blue-100">
+                                <div class="shrink-0 rounded-2xl bg-blue-50 px-3 py-2 text-center ring-1 ring-blue-100 min-w-[62px]">
                                     <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-500">Nilai</div>
                                     <div class="mt-0.5 text-2xl font-bold leading-none text-blue-700">{{ $item['score'] ?? '-' }}</div>
                                 </div>
                             </div>
-                            <dl class="mt-4 space-y-2 text-sm">
-                                <div class="flex justify-between gap-3">
+                            @if ($initialSummary)
+                                <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                    <div class="rounded-xl bg-slate-50 px-3 py-2">
+                                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Tahun</dt>
+                                        <dd class="mt-1 font-semibold text-slate-900">{{ $item['source_year'] ?? '-' }}</dd>
+                                    </div>
+                                    <div class="rounded-xl bg-slate-50 px-3 py-2">
+                                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Grade</dt>
+                                        <dd class="mt-1 font-semibold text-slate-900">{{ $item['grade'] ?? '-' }}</dd>
+                                    </div>
+                                </dl>
+                            @else
+                                <dl class="mt-4 grid grid-cols-[98px_1fr] gap-y-2 gap-x-3 text-sm">
                                     <dt class="text-slate-500">NPM</dt>
-                                    <dd class="font-medium text-slate-900 text-right">{{ $item['srn'] ?? '-' }}</dd>
-                                </div>
-                                <div class="flex justify-between gap-3">
+                                    <dd class="font-medium text-slate-900 break-words">{{ $item['srn'] ?? '-' }}</dd>
                                     <dt class="text-slate-500">Program Studi</dt>
-                                    <dd class="font-medium text-slate-900 text-right">{{ $item['study_program'] ?? '-' }}</dd>
-                                </div>
-                                <div class="flex justify-between gap-3">
+                                    <dd class="font-medium text-slate-900 break-words">{{ $item['study_program'] ?? '-' }}</dd>
                                     <dt class="text-slate-500">Grade</dt>
-                                    <dd class="font-medium text-slate-900 text-right">{{ $item['grade'] ?? '-' }}</dd>
-                                </div>
-                            </dl>
+                                    <dd class="font-medium text-slate-900 break-words">{{ $item['grade'] ?? '-' }}</dd>
+                                </dl>
+                            @endif
                         </article>
                     @endforeach
                 </div>
@@ -195,6 +247,7 @@
   const button = document.getElementById('lookup-go');
   const resultsSection = document.getElementById('lookup-results-section');
   const resultsGrid = document.getElementById('lookup-results');
+  const resultsSummary = document.getElementById('lookup-summary');
   const resultsMeta = document.getElementById('lookup-results-meta');
   const feedback = document.getElementById('lookup-feedback');
   const lookupEndpoint = @json(route('verification.lookup'));
@@ -226,18 +279,53 @@
     feedback.classList.remove('hidden');
   }
 
-  function renderLegacyResults(payload) {
+  function renderLookupSummary(summary) {
+    if (!resultsSummary) {
+      return;
+    }
+
+    if (!summary) {
+      resultsSummary.innerHTML = '';
+      resultsSummary.classList.add('hidden');
+      return;
+    }
+
+    const labels = Array.isArray(summary.result_labels) ? summary.result_labels : [];
+
+    resultsSummary.classList.remove('hidden');
+    resultsSummary.innerHTML = `
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Peserta</p>
+            <h3 class="mt-1 text-xl font-bold text-slate-900 break-words">${escapeHtml(summary.name ?? '-')}</h3>
+            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+              <span><span class="font-medium text-slate-900">NPM</span> ${escapeHtml(summary.srn ?? '-')}</span>
+              <span><span class="font-medium text-slate-900">Program Studi</span> ${escapeHtml(summary.study_program ?? '-')}</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${labels.map((label) => `<span class="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">${escapeHtml(label)}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderLookupResults(payload) {
     if (!resultsSection || !resultsGrid || !resultsMeta) {
       return;
     }
 
     const items = Array.isArray(payload?.items) ? payload.items : [];
     const query = payload?.query ?? '';
+    const summary = payload?.summary ?? null;
 
     resultsSection.classList.remove('hidden');
     resultsMeta.textContent = `${items.length} hasil untuk "${query}"`;
 
     if (!items.length) {
+      renderLookupSummary(null);
       resultsGrid.innerHTML = '';
       resultsGrid.classList.add('hidden');
       setFeedback('Data tidak ditemukan. Gunakan kode verifikasi untuk dokumen, atau NPM untuk hasil paling akurat.');
@@ -245,33 +333,45 @@
     }
 
     setFeedback('');
+    renderLookupSummary(summary);
     resultsGrid.classList.remove('hidden');
     resultsGrid.innerHTML = items.map((item) => `
       <article class="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">${escapeHtml(item.source_year ?? 'ARSIP')}</p>
-            <h4 class="mt-1 text-lg font-semibold text-slate-900 leading-snug">${escapeHtml(item.name ?? 'Tanpa nama')}</h4>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">${escapeHtml(item.source_year ?? 'ARSIP')}</p>
+              <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">${escapeHtml(item.result_label ?? 'Nilai')}</span>
+              ${(item.semester ?? null) ? `<span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">${escapeHtml(item.semester_label ?? ('Semester ' + item.semester))}</span>` : ''}
+            </div>
+            ${summary ? '' : `<h4 class="mt-2 text-lg font-semibold text-slate-900 leading-snug break-words">${escapeHtml(item.name ?? 'Tanpa nama')}</h4>`}
           </div>
-          <div class="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-right ring-1 ring-blue-100">
+          <div class="shrink-0 rounded-2xl bg-blue-50 px-3 py-2 text-center ring-1 ring-blue-100 min-w-[62px]">
             <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-500">Nilai</div>
             <div class="mt-0.5 text-2xl font-bold leading-none text-blue-700">${escapeHtml(item.score ?? '-')}</div>
           </div>
         </div>
-        <dl class="mt-4 space-y-2 text-sm">
-          <div class="flex justify-between gap-3">
+        ${summary ? `
+          <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div class="rounded-xl bg-slate-50 px-3 py-2">
+              <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Tahun</dt>
+              <dd class="mt-1 font-semibold text-slate-900">${escapeHtml(item.source_year ?? '-')}</dd>
+            </div>
+            <div class="rounded-xl bg-slate-50 px-3 py-2">
+              <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Grade</dt>
+              <dd class="mt-1 font-semibold text-slate-900">${escapeHtml(item.grade ?? '-')}</dd>
+            </div>
+          </dl>
+        ` : `
+          <dl class="mt-4 grid grid-cols-[98px_1fr] gap-y-2 gap-x-3 text-sm">
             <dt class="text-slate-500">NPM</dt>
-            <dd class="font-medium text-slate-900 text-right">${escapeHtml(item.srn ?? '-')}</dd>
-          </div>
-          <div class="flex justify-between gap-3">
+            <dd class="font-medium text-slate-900 break-words">${escapeHtml(item.srn ?? '-')}</dd>
             <dt class="text-slate-500">Program Studi</dt>
-            <dd class="font-medium text-slate-900 text-right">${escapeHtml(item.study_program ?? '-')}</dd>
-          </div>
-          <div class="flex justify-between gap-3">
+            <dd class="font-medium text-slate-900 break-words">${escapeHtml(item.study_program ?? '-')}</dd>
             <dt class="text-slate-500">Grade</dt>
-            <dd class="font-medium text-slate-900 text-right">${escapeHtml(item.grade ?? '-')}</dd>
-          </div>
-        </dl>
+            <dd class="font-medium text-slate-900 break-words">${escapeHtml(item.grade ?? '-')}</dd>
+          </dl>
+        `}
       </article>
     `).join('');
   }
@@ -316,7 +416,7 @@
         return;
       }
 
-      renderLegacyResults(payload);
+      renderLookupResults(payload);
       resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
       resultsSection?.classList.remove('hidden');

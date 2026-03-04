@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Models\BasicListeningGrade;
+use App\Models\InteractiveClassScore;
 use App\Models\Prody;
 use App\Support\BlGrading;
+use App\Support\InteractiveClassScores;
 use App\Support\LegacyBasicListeningScores;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ImageTransformer;
@@ -113,6 +115,98 @@ class BasicListeningProfileController extends Controller
         return (float) $user->nilaibasiclistening;
     }
 
+    /** @return array<int, int> */
+    private function resolveInteractiveScoresBySrn(null|string|int $srn, string $track): array
+    {
+        $normalizedSrn = InteractiveClassScores::normalizeSrn($srn);
+        if ($normalizedSrn === null) {
+            return [];
+        }
+
+        $track = InteractiveClassScores::normalizeTrack($track);
+
+        return InteractiveClassScore::query()
+            ->where('track', $track)
+            ->where('srn_normalized', $normalizedSrn)
+            ->whereBetween('semester', [1, InteractiveClassScores::maxSemester($track)])
+            ->orderBy('semester')
+            ->get(['semester', 'score'])
+            ->filter(fn (InteractiveClassScore $row): bool => is_numeric($row->score))
+            ->mapWithKeys(fn (InteractiveClassScore $row): array => [
+                (int) $row->semester => (int) round((float) $row->score),
+            ])
+            ->all();
+    }
+
+    /** @return array<int, int> */
+    private function resolveInteractiveScoresFromRequest(Request $request, string $track): array
+    {
+        return $this->resolveInteractiveScoresBySrn($request->input('srn'), $track);
+    }
+
+    /** @return array<int, int> */
+    private function resolveExistingStoredInteractiveScores(User $user, null|string|int $srn, string $track): array
+    {
+        if (
+            InteractiveClassScores::normalizeSrn($user->srn)
+            !== InteractiveClassScores::normalizeSrn($srn)
+        ) {
+            return [];
+        }
+
+        $track = InteractiveClassScores::normalizeTrack($track);
+        $scores = [];
+        for ($semester = 1; $semester <= InteractiveClassScores::maxSemester($track); $semester++) {
+            $field = InteractiveClassScores::fieldName($track, $semester);
+            if ($field === null) {
+                continue;
+            }
+            if (is_numeric($user->{$field})) {
+                $scores[$semester] = (int) round((float) $user->{$field});
+            }
+        }
+
+        return $scores;
+    }
+
+    /** @return array<int, int> */
+    private function effectiveInteractiveClassScoresForUser(User $user): array
+    {
+        $prodyName = $user->prody?->name;
+        $year = (int) ($user->year ?? 0);
+
+        if ($year > 2024 || $prodyName !== 'Pendidikan Bahasa Inggris') {
+            return [];
+        }
+
+        $imported = $this->resolveInteractiveScoresBySrn($user->srn, InteractiveClassScore::TRACK_ENGLISH);
+
+        return $imported !== [] ? $imported : $this->resolveExistingStoredInteractiveScores(
+            $user,
+            $user->srn,
+            InteractiveClassScore::TRACK_ENGLISH,
+        );
+    }
+
+    /** @return array<int, int> */
+    private function effectiveInteractiveArabicScoresForUser(User $user): array
+    {
+        $prodyName = $user->prody?->name;
+        $year = (int) ($user->year ?? 0);
+
+        if ($year > 2024 || ! in_array($prodyName, self::PRODI_ISLAM, true)) {
+            return [];
+        }
+
+        $imported = $this->resolveInteractiveScoresBySrn($user->srn, InteractiveClassScore::TRACK_ARABIC);
+
+        return $imported !== [] ? $imported : $this->resolveExistingStoredInteractiveScores(
+            $user,
+            $user->srn,
+            InteractiveClassScore::TRACK_ARABIC,
+        );
+    }
+
     public function updateGroupNumber(Request $request)
     {
         $user = $request->user();
@@ -150,6 +244,41 @@ class BasicListeningProfileController extends Controller
     {
         $user = $request->user();
         $next = $request->input('next', route('bl.index'));
+
+        if ($this->isPendidikanBahasaInggris($request)) {
+            $resolvedInteractiveScores = $this->resolveInteractiveScoresFromRequest($request, InteractiveClassScore::TRACK_ENGLISH);
+            $storedInteractiveScores = $this->resolveExistingStoredInteractiveScores(
+                $user,
+                $request->input('srn'),
+                InteractiveClassScore::TRACK_ENGLISH,
+            );
+
+            $merge = [];
+            for ($semester = 1; $semester <= 6; $semester++) {
+                $field = 'interactive_class_' . $semester;
+                $merge[$field] = $resolvedInteractiveScores[$semester]
+                    ?? $storedInteractiveScores[$semester]
+                    ?? null;
+            }
+
+            if ($merge !== []) {
+                $request->merge($merge);
+            }
+        }
+
+        if ($this->isProdiIslam($request)) {
+            $resolvedArabicScores = $this->resolveInteractiveScoresFromRequest($request, InteractiveClassScore::TRACK_ARABIC);
+            $storedArabicScores = $this->resolveExistingStoredInteractiveScores(
+                $user,
+                $request->input('srn'),
+                InteractiveClassScore::TRACK_ARABIC,
+            );
+
+            $request->merge([
+                'interactive_bahasa_arab_1' => $resolvedArabicScores[1] ?? $storedArabicScores[1] ?? null,
+                'interactive_bahasa_arab_2' => $resolvedArabicScores[2] ?? $storedArabicScores[2] ?? null,
+            ]);
+        }
 
         $data = $request->validate([
             // ===== Field akun (opsional, dipakai di dashboard biodata) =====
@@ -336,6 +465,8 @@ class BasicListeningProfileController extends Controller
             'user' => $user,
             'prodis' => $prodis,
             'legacyAutoScore' => $legacyAutoScore,
+            'interactiveAutoScores' => $this->effectiveInteractiveClassScoresForUser($user),
+            'interactiveArabicAutoScores' => $this->effectiveInteractiveArabicScoresForUser($user),
         ]);
     }
 
@@ -349,46 +480,111 @@ class BasicListeningProfileController extends Controller
         ]);
 
         $prodyName = LegacyBasicListeningScores::resolveProdyName(isset($data['prody_id']) ? (int) $data['prody_id'] : null);
-        $applicable = LegacyBasicListeningScores::requiresLegacyScore(
+        $legacyApplicable = LegacyBasicListeningScores::requiresLegacyScore(
             isset($data['year']) ? (int) $data['year'] : null,
             $prodyName,
         );
-
-        if (! $applicable) {
-            return response()->json([
-                'success' => true,
-                'applicable' => false,
-                'found' => false,
-                'score' => null,
-                'message' => 'Nilai manual tidak diperlukan untuk kombinasi angkatan dan prodi ini.',
-            ]);
-        }
+        $interactiveApplicable = $this->isPendidikanBahasaInggris($request);
+        $interactiveArabicApplicable = $this->isProdiIslam($request);
 
         $normalizedSrn = preg_replace('/\D+/', '', (string) $data['srn']);
         if (mb_strlen((string) $normalizedSrn) < 8) {
             return response()->json([
                 'success' => true,
-                'applicable' => true,
+                'applicable' => $legacyApplicable,
                 'found' => false,
                 'score' => null,
                 'grade' => null,
-                'message' => 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Basic Listening.',
+                'message' => $legacyApplicable
+                    ? 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Basic Listening.'
+                    : 'Nilai manual tidak diperlukan untuk kombinasi angkatan dan prodi ini.',
+                'interactive_class_applicable' => $interactiveApplicable,
+                'interactive_class_found' => false,
+                'interactive_class_scores' => [],
+                'interactive_class_message' => $interactiveApplicable
+                    ? 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Interactive Class.'
+                    : 'Nilai Interactive Class tidak diperlukan untuk kombinasi angkatan dan prodi ini.',
+                'interactive_arabic_applicable' => $interactiveArabicApplicable,
+                'interactive_arabic_found' => false,
+                'interactive_arabic_scores' => [],
+                'interactive_arabic_message' => $interactiveArabicApplicable
+                    ? 'Lengkapi NPM terlebih dahulu untuk mengecek nilai Bahasa Arab 1 dan 2.'
+                    : 'Nilai Interactive Bahasa Arab tidak diperlukan untuk kombinasi angkatan dan prodi ini.',
             ]);
         }
 
-        $record = LegacyBasicListeningScores::findByIdentity(
-            srn: $data['srn'],
-            name: $data['name'] ?? null,
-            year: isset($data['year']) ? (int) $data['year'] : null,
-        );
+        $record = $legacyApplicable
+            ? LegacyBasicListeningScores::findByIdentity(
+                srn: $data['srn'],
+                name: $data['name'] ?? null,
+                year: isset($data['year']) ? (int) $data['year'] : null,
+            )
+            : null;
 
-        $storedScore = $record === null
+        $storedScore = $legacyApplicable && $record === null
             ? $this->resolveExistingStoredLegacyScore($request->user(), $data)
             : null;
 
+        $interactiveScores = [];
+        $interactiveStoredScores = [];
+        $interactiveMessage = $interactiveApplicable
+            ? 'Nilai Interactive Class belum ditemukan. Silakan ke kantor Lembaga Bahasa.'
+            : 'Nilai Interactive Class tidak diperlukan untuk kombinasi angkatan dan prodi ini.';
+        $interactiveArabicScores = [];
+        $interactiveArabicStoredScores = [];
+        $interactiveArabicMessage = $interactiveArabicApplicable
+            ? 'Nilai Bahasa Arab 1 dan 2 belum ditemukan di arsip. Jika Anda sudah mengikuti kelas, silakan ke kantor Lembaga Bahasa.'
+            : 'Nilai Interactive Bahasa Arab tidak diperlukan untuk kombinasi angkatan dan prodi ini.';
+
+        if ($interactiveApplicable && mb_strlen((string) $normalizedSrn) >= 8) {
+            $interactiveScores = $this->resolveInteractiveScoresFromRequest($request, InteractiveClassScore::TRACK_ENGLISH);
+
+            if ($interactiveScores === []) {
+                $interactiveStoredScores = $this->resolveExistingStoredInteractiveScores(
+                    $request->user(),
+                    $data['srn'] ?? null,
+                    InteractiveClassScore::TRACK_ENGLISH,
+                );
+            }
+
+            $effectiveInteractiveScores = $interactiveScores !== [] ? $interactiveScores : $interactiveStoredScores;
+
+            if ($effectiveInteractiveScores !== []) {
+                $missingSemesters = array_values(array_diff(range(1, 6), array_keys($effectiveInteractiveScores)));
+                $interactiveMessage = $missingSemesters === []
+                    ? 'Nilai Interactive Class berhasil ditemukan otomatis untuk semua semester.'
+                    : 'Nilai ditemukan untuk semester ' . implode(', ', array_keys($effectiveInteractiveScores)) . '. Semester ' . implode(', ', $missingSemesters) . ' belum ada.';
+            }
+        } elseif ($interactiveApplicable) {
+            $interactiveMessage = 'Lengkapi NPM terlebih dahulu untuk mendeteksi nilai Interactive Class.';
+        }
+
+        if ($interactiveArabicApplicable && mb_strlen((string) $normalizedSrn) >= 8) {
+            $interactiveArabicScores = $this->resolveInteractiveScoresFromRequest($request, InteractiveClassScore::TRACK_ARABIC);
+
+            if ($interactiveArabicScores === []) {
+                $interactiveArabicStoredScores = $this->resolveExistingStoredInteractiveScores(
+                    $request->user(),
+                    $data['srn'] ?? null,
+                    InteractiveClassScore::TRACK_ARABIC,
+                );
+            }
+
+            $effectiveArabicScores = $interactiveArabicScores !== [] ? $interactiveArabicScores : $interactiveArabicStoredScores;
+
+            if ($effectiveArabicScores !== []) {
+                $missingArabic = array_values(array_diff([1, 2], array_keys($effectiveArabicScores)));
+                $interactiveArabicMessage = $missingArabic === []
+                    ? 'Bahasa Arab 1 dan 2 ditemukan. Nilai sudah terisi otomatis.'
+                    : 'Sebagian nilai ditemukan. Bahasa Arab ' . implode(', ', array_keys($effectiveArabicScores)) . ' sudah tersedia, Bahasa Arab ' . implode(', ', $missingArabic) . ' belum ada di arsip.';
+            }
+        } elseif ($interactiveArabicApplicable) {
+            $interactiveArabicMessage = 'Lengkapi NPM terlebih dahulu untuk mengecek nilai Bahasa Arab 1 dan 2.';
+        }
+
         return response()->json([
             'success' => true,
-            'applicable' => true,
+            'applicable' => $legacyApplicable,
             'found' => $record !== null || $storedScore !== null,
             'score' => $record?->score !== null
                 ? (int) round((float) $record->score)
@@ -397,9 +593,19 @@ class BasicListeningProfileController extends Controller
             'source' => $record !== null
                 ? 'legacy_import'
                 : ($storedScore !== null ? 'existing_user_manual' : null),
-            'message' => ($record !== null || $storedScore !== null)
+            'message' => ! $legacyApplicable
+                ? 'Nilai manual tidak diperlukan untuk kombinasi angkatan dan prodi ini.'
+                : (($record !== null || $storedScore !== null)
                 ? null
-                : 'Jika nilai Basic Listening terdeteksi tidak ada, silakan ke kantor Lembaga Bahasa.',
+                : 'Nilai Basic Listening belum tersedia di arsip. Jika Anda sudah mengikuti kelas, silakan ke kantor Lembaga Bahasa.'),
+            'interactive_class_applicable' => $interactiveApplicable,
+            'interactive_class_found' => ($interactiveScores !== [] || $interactiveStoredScores !== []),
+            'interactive_class_scores' => $interactiveScores !== [] ? $interactiveScores : $interactiveStoredScores,
+            'interactive_class_message' => $interactiveMessage,
+            'interactive_arabic_applicable' => $interactiveArabicApplicable,
+            'interactive_arabic_found' => ($interactiveArabicScores !== [] || $interactiveArabicStoredScores !== []),
+            'interactive_arabic_scores' => $interactiveArabicScores !== [] ? $interactiveArabicScores : $interactiveArabicStoredScores,
+            'interactive_arabic_message' => $interactiveArabicMessage,
         ]);
     }
 }

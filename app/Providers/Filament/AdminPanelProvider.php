@@ -73,8 +73,8 @@ class AdminPanelProvider extends PanelProvider
                 'Layanan Lembaga Bahasa',
                 'EPT',
                 'Basic Listening',
-                'Sistem',
                 'Sertifikat',
+                'Sistem',
             ])
             ->middleware([
                 EncryptCookies::class,

@@ -9,7 +9,9 @@ use App\Models\Penerjemahan;
 use App\Models\EptSubmission;
 use App\Models\BasicListeningGrade;
 use App\Models\BasicListeningLegacyScore;
+use App\Models\InteractiveClassScore;
 use App\Models\ManualCertificate;
+use App\Support\InteractiveClassScores;
 use App\Support\LegacyBasicListeningScores;
 
 class VerificationController extends Controller
@@ -26,14 +28,15 @@ class VerificationController extends Controller
             }
         }
 
-        $legacyResults = $query !== ''
-            ? $this->searchLegacyScoreRecords($query)
+        $lookupResults = $query !== ''
+            ? $this->searchVerificationResults($query)
             : collect();
 
         return view('verification.index', [
             'lookupQuery' => $query,
-            'legacyLookupPerformed' => $query !== '',
-            'legacyResults' => $legacyResults->map(fn (BasicListeningLegacyScore $score): array => $this->mapLegacyScore($score))->all(),
+            'lookupPerformed' => $query !== '',
+            'lookupResults' => $lookupResults->all(),
+            'lookupSummary' => $this->buildLookupSummary($lookupResults),
         ]);
     }
 
@@ -55,14 +58,15 @@ class VerificationController extends Controller
             ]);
         }
 
-        $results = $this->searchLegacyScoreRecords($query);
+        $results = $this->searchVerificationResults($query);
 
         return response()->json([
             'success' => true,
-            'mode' => 'legacy_scores',
+            'mode' => 'score_results',
             'query' => $query,
             'count' => $results->count(),
-            'items' => $results->map(fn (BasicListeningLegacyScore $score): array => $this->mapLegacyScore($score))->all(),
+            'items' => $results->all(),
+            'summary' => $this->buildLookupSummary($results),
         ]);
     }
 
@@ -331,7 +335,7 @@ class VerificationController extends Controller
     {
         return BasicListeningLegacyScore::query()
             ->search($query)
-            ->limit(20)
+            ->limit(10)
             ->get([
                 'id',
                 'srn',
@@ -343,14 +347,112 @@ class VerificationController extends Controller
             ]);
     }
 
+    private function searchInteractiveClassRecords(string $query)
+    {
+        return InteractiveClassScore::query()
+            ->search($query)
+            ->limit(12)
+            ->get([
+                'id',
+                'track',
+                'srn',
+                'name',
+                'study_program',
+                'source_year',
+                'semester',
+                'score',
+                'grade',
+            ]);
+    }
+
+    private function searchVerificationResults(string $query)
+    {
+        $legacy = $this->searchLegacyScoreRecords($query)
+            ->map(fn (BasicListeningLegacyScore $score): array => $this->mapLegacyScore($score));
+
+        $interactive = $this->searchInteractiveClassRecords($query)
+            ->map(fn (InteractiveClassScore $score): array => $this->mapInteractiveScore($score));
+
+        if ($this->hasSingleIdentity($interactive)) {
+            $interactive = $interactive
+                ->sortBy([
+                    ['track_sort', 'asc'],
+                    ['semester', 'asc'],
+                    ['source_year', 'asc'],
+                ])
+                ->values();
+        }
+
+        return $legacy
+            ->concat($interactive)
+            ->values();
+    }
+
+    private function buildLookupSummary($results): ?array
+    {
+        if (! $this->hasSingleIdentity($results)) {
+            return null;
+        }
+
+        $first = $results->first();
+
+        return [
+            'name' => $first['name'] ?? null,
+            'srn' => $first['srn'] ?? null,
+            'study_program' => $first['study_program'] ?? null,
+            'total_results' => $results->count(),
+            'result_labels' => $results->pluck('result_label')->filter()->unique()->values()->all(),
+        ];
+    }
+
+    private function hasSingleIdentity($results): bool
+    {
+        if (! $results || $results->isEmpty()) {
+            return false;
+        }
+
+        return $results
+            ->map(fn (array $item): string => implode('|', [
+                (string) ($item['srn'] ?? ''),
+                (string) ($item['name'] ?? ''),
+                (string) ($item['study_program'] ?? ''),
+            ]))
+            ->unique()
+            ->count() === 1;
+    }
+
     private function mapLegacyScore(BasicListeningLegacyScore $score): array
     {
         return [
             'id' => $score->id,
+            'result_type' => 'basic_listening',
+            'result_label' => 'Basic Listening',
             'srn' => $score->srn,
             'name' => $score->name,
             'study_program' => $score->study_program,
             'source_year' => $score->source_year,
+            'semester' => null,
+            'score' => $score->score !== null ? (int) round((float) $score->score) : null,
+            'grade' => $score->grade,
+        ];
+    }
+
+    private function mapInteractiveScore(InteractiveClassScore $score): array
+    {
+        $track = InteractiveClassScores::normalizeTrack($score->track);
+
+        return [
+            'id' => $score->id,
+            'result_type' => $track === InteractiveClassScore::TRACK_ARABIC ? 'interactive_arabic' : 'interactive_class',
+            'result_label' => InteractiveClassScores::trackLabel($track),
+            'srn' => $score->srn,
+            'name' => $score->name,
+            'study_program' => $score->study_program,
+            'track' => $track,
+            'track_sort' => $track === InteractiveClassScore::TRACK_ARABIC ? 1 : 0,
+            'source_year' => $score->source_year,
+            'semester' => $score->semester,
+            'semester_label' => InteractiveClassScores::semesterLabel($track, is_numeric($score->semester) ? (int) $score->semester : null),
             'score' => $score->score !== null ? (int) round((float) $score->score) : null,
             'grade' => $score->grade,
         ];

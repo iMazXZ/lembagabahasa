@@ -37,7 +37,7 @@
     @endif
 
     {{-- KONDISI 1: Belum daftar atau Ditolak --}}
-    @if(!$registration || $registration->status === 'rejected')
+    @if(!$registration || ! $registration->blocksNewRegistration())
         
         @if($registration && $registration->status === 'rejected')
             <div class="bg-red-50 rounded-xl border-2 border-red-200 p-6">
@@ -64,46 +64,110 @@
                 </h2>
             </div>
             <div class="p-6 sm:p-8">
-                <form action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
+                    <div class="flex items-center gap-4 px-5 py-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400">
+                            <i class="fa-solid fa-user text-lg"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="truncate text-base font-bold uppercase text-slate-900">{{ $user->name }}</p>
+                            <p class="mt-0.5 text-sm text-slate-500">
+                                {{ $user->srn ?? '-' }} <span class="mx-1.5 text-slate-300">&bull;</span> {{ $user->prody->name ?? '-' }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                @php
+                    $studentStatusOptions = \App\Models\EptRegistration::studentStatusOptions();
+                    $studentStatusDescriptions = [
+                        'regular' => 'Mahasiswa S1/D3 Reguler',
+                        'magister' => 'Mahasiswa S2',
+                        'konversi' => 'Mahasiswa S1 RPL/Pindahan',
+                        'general' => 'Umum (bukan mahasiswa UM Metro)',
+                    ];
+                    $selectedStudentStatus = old('student_status');
+                @endphp
+                <form action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
-                    
-                    {{-- Label Bukti Pembayaran --}}
-                    <label class="block text-sm font-bold text-slate-800 mb-3">
-                        Bukti Pembayaran <span class="text-red-500">*</span>
-                    </label>
+                    <div class="space-y-4">
+                        {{-- Label Bukti Pembayaran --}}
+                        <label class="block text-sm font-bold text-slate-800 mb-3">
+                            Bukti Pembayaran <span class="text-red-500">*</span>
+                        </label>
 
-                    {{-- Info Box Biru --}}
-                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-100 -mt-1">
-                        <p class="text-sm text-blue-800 flex items-start gap-2">
-                            <i class="fa-solid fa-info-circle text-blue-500 mt-0.5"></i>
-                            <span>Lakukan pembayaran terlebih dahulu, kemudian unggah bukti pembayaran di bawah ini.</span>
+                        {{-- Info Box Biru --}}
+                        <div class="bg-blue-50 rounded-xl p-4 border border-blue-100 -mt-1">
+                            <p class="text-sm text-blue-800 flex items-start gap-2">
+                                <i class="fa-solid fa-info-circle text-blue-500 mt-0.5"></i>
+                                <span>Buat Tagihan dan Bayar <strong>UANG TOEFL/EPT</strong> terlebih dahulu di <strong><a href="https://siakad.ummetro.ac.id/app/keuangan/buat-tagihan" target="_blank" class="underline hover:text-blue-600">SIAKAD</a></strong>, kemudian unggah bukti pembayaran di bawah ini.</span>
+                            </p>
+                        </div>
+
+                        {{-- Warning Box Kuning --}}
+                        <div class="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                            <p class="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                                Perhatian! Pastikan foto bukti pembayaran:
+                            </p>
+                            <ul class="text-sm text-amber-700 space-y-1 ml-6 list-disc">
+                                <li>Pastikan foto jelas, <strong>tidak buram</strong> atau ada bayangan</li>
+                                <li>NPM dan jumlah pembayaran harus <strong>terlihat dengan jelas</strong></li>
+                                <li>Gunakan hasil scan (CamScanner/scanner dokumen) atau <strong>screenshot langsung dari aplikasi bank</strong></li>
+                            </ul>
+                            <p class="text-sm text-amber-700 mt-4 flex items-center gap-2">
+                                Pendaftaran akan Ditolak jika Bukti Pembayaran yang dilampirkan Tidak Valid / Tidak Terlihat Jelas.
+                            </p>
+                        </div>
+
+                        <div class="h-4 sm:h-5"></div>
+
+                        {{-- Status Peserta --}}
+                        <div class="space-y-3">
+                        <label class="block text-sm font-bold text-slate-800">
+                            Status Peserta <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-sm text-slate-500">
+                            Pilih status Anda terlebih dahulu sebelum mengunggah bukti pembayaran.
                         </p>
-                    </div>
+                        <div id="student-status-options-ept" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            @foreach($studentStatusOptions as $value => $label)
+                                <label class="student-status-option-ept relative block">
+                                    <input
+                                        type="radio"
+                                        name="student_status"
+                                        value="{{ $value }}"
+                                        class="sr-only peer"
+                                        {{ $selectedStudentStatus === $value ? 'checked' : '' }}
+                                    >
+                                    <span class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 transition-all peer-checked:border-um-blue peer-checked:bg-blue-50 hover:border-slate-300 hover:bg-slate-50">
+                                        <span class="min-w-0">
+                                            <span class="block text-sm font-semibold text-slate-700 peer-checked:text-um-blue">{{ $label }}</span>
+                                            <span class="mt-1 block text-xs text-slate-500">
+                                                {{ $studentStatusDescriptions[$value] ?? '' }}
+                                            </span>
+                                        </span>
+                                        <i class="fa-solid fa-circle-check mt-0.5 text-slate-300 peer-checked:text-um-blue"></i>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('student_status')
+                            <p class="text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                        </div>
 
-                    {{-- Warning Box Kuning --}}
-                    <div class="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                        <p class="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
-                            Perhatian! Pastikan foto bukti pembayaran:
-                        </p>
-                        <ul class="text-sm text-amber-700 space-y-1 ml-6 list-disc">
-                            <li>Pastikan foto jelas, <strong>tidak buram</strong> atau ada bayangan</li>
-                            <li>NPM dan jumlah pembayaran harus <strong>terlihat dengan jelas</strong></li>
-                            <li>Gunakan hasil scan (CamScanner/scanner dokumen) atau <strong>screenshot langsung dari aplikasi bank</strong></li>
-                        </ul>
-                    </div>
+                        {{-- Tombol Mengerti --}}
+                        <div id="understand-button-wrapper-ept" class="flex justify-center {{ $selectedStudentStatus ? 'hidden' : '' }}">
+                            <button type="button" id="btn-understand-ept"
+                                    class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-um-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 hover:bg-um-dark-blue transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none disabled:hover:scale-100"
+                                    {{ $selectedStudentStatus ? '' : 'disabled' }}>
+                                <i class="fa-solid fa-circle-check"></i>
+                                Mengerti dan Unggah Bukti
+                            </button>
+                        </div>
 
-                    {{-- Tombol Mengerti --}}
-                    <div id="understand-button-wrapper-ept" class="flex justify-center">
-                        <button type="button" id="btn-understand-ept"
-                                class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-um-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 hover:bg-um-dark-blue transition-all hover:scale-[1.02]">
-                            <i class="fa-solid fa-circle-check"></i>
-                            Mengerti dan Unggah Bukti
-                        </button>
-                    </div>
-
-                    {{-- Upload Area (hidden initially) --}}
-                    <div id="upload-wrapper-ept" class="hidden space-y-6">
+                        {{-- Upload Area (hidden initially) --}}
+                        <div id="upload-wrapper-ept" class="{{ $selectedStudentStatus ? '' : 'hidden' }} space-y-6">
                         <div>
                             <div class="relative group">
                                 <div id="payment-dropzone-ept"
@@ -160,6 +224,7 @@
                                 <i class="fa-solid fa-paper-plane"></i>
                                 Daftar EPT
                             </button>
+                        </div>
                         </div>
                     </div>
                 </form>
@@ -232,11 +297,12 @@
         {{-- Schedule Cards --}}
         <div class="grid gap-4">
             @php
-                $grups = [
-                    ['num' => 1, 'grup' => $registration->grup1, 'label' => 'Tes Pertama'],
+                $singleAttempt = $registration->requiredGroupCount() === 1;
+                $grups = array_slice([
+                    ['num' => 1, 'grup' => $registration->grup1, 'label' => $singleAttempt ? 'Tes EPT' : 'Tes Pertama'],
                     ['num' => 2, 'grup' => $registration->grup2, 'label' => 'Tes Kedua'],
                     ['num' => 3, 'grup' => $registration->grup3, 'label' => 'Tes Ketiga'],
-                ];
+                ], 0, $registration->requiredGroupCount());
             @endphp
 
             @foreach($grups as $item)
@@ -402,6 +468,13 @@
         const btnUnderstand = document.getElementById('btn-understand-ept');
         const buttonWrapper = document.getElementById('understand-button-wrapper-ept');
         const uploadWrapper = document.getElementById('upload-wrapper-ept');
+        const statusOptions = document.querySelectorAll('input[name="student_status"]');
+
+        function toggleUnderstandButton() {
+            if (!btnUnderstand) return;
+            const hasSelectedStatus = Array.from(statusOptions).some((option) => option.checked);
+            btnUnderstand.disabled = !hasSelectedStatus;
+        }
 
         if (btnUnderstand && buttonWrapper && uploadWrapper) {
             btnUnderstand.addEventListener('click', function () {
@@ -409,6 +482,12 @@
                 uploadWrapper.classList.remove('hidden');
             });
         }
+
+        statusOptions.forEach((option) => {
+            option.addEventListener('change', toggleUnderstandButton);
+        });
+
+        toggleUnderstandButton();
 
         // === Preview Bukti Pembayaran ===
         const dropzone   = document.getElementById('payment-dropzone-ept');

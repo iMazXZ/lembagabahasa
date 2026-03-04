@@ -80,6 +80,9 @@
                                                 @if (filled($row['source_year'] ?? null))
                                                     • {{ $row['source_year'] }}
                                                 @endif
+                                                @if (filled($row['semester'] ?? null))
+                                                    • Semester {{ $row['semester'] }}
+                                                @endif
                                             </div>
                                         </td>
                                         <td class="px-3 py-2">
@@ -159,6 +162,9 @@
                                                 @if (filled($row['study_program'] ?? null))
                                                     • {{ $row['study_program'] }}
                                                 @endif
+                                                @if (filled($row['semester'] ?? null))
+                                                    • Semester {{ $row['semester'] }}
+                                                @endif
                                             </div>
                                         </td>
                                         <td class="px-3 py-2">{{ $row['source_year'] ?? '-' }}</td>
@@ -191,6 +197,9 @@
                                                             @endif
                                                             @if (filled($match['score'] ?? null))
                                                                 • {{ $match['score'] }}
+                                                            @endif
+                                                            @if (filled($match['semester'] ?? null))
+                                                                • Semester {{ $match['semester'] }}
                                                             @endif
                                                         </div>
                                                     @endforeach
@@ -230,7 +239,12 @@
                                         <td class="px-3 py-2">{{ $row['row'] ?? '-' }}</td>
                                         <td class="px-3 py-2">
                                             <div class="font-medium text-slate-900">{{ $row['name'] ?? '-' }}</div>
-                                            <div class="text-xs text-slate-500">{{ $row['srn'] ?? 'Tanpa NPM' }} • {{ $row['source_year'] ?? '-' }}</div>
+                                            <div class="text-xs text-slate-500">
+                                                {{ $row['srn'] ?? 'Tanpa NPM' }} • {{ $row['source_year'] ?? '-' }}
+                                                @if (filled($row['semester'] ?? null))
+                                                    • Semester {{ $row['semester'] }}
+                                                @endif
+                                            </div>
                                         </td>
                                         <td class="px-3 py-2">{{ $row['score'] ?? '-' }}{{ filled($row['grade'] ?? null) ? ' (' . $row['grade'] . ')' : '' }}</td>
                                         <td class="px-3 py-2">

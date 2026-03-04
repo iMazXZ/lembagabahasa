@@ -9,6 +9,7 @@ use App\Support\ImageTransformer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EptRegistrationController extends Controller
@@ -17,11 +18,21 @@ class EptRegistrationController extends Controller
     {
         $user = Auth::user();
 
-        $registration = EptRegistration::where('user_id', $user->id)
+        $latestRegistration = EptRegistration::with(['grup1', 'grup2', 'grup3'])
+            ->where('user_id', $user->id)
             ->latest()
             ->first();
 
-        if (! $registration) {
+        $blockingRegistration = EptRegistration::with(['grup1', 'grup2', 'grup3'])
+            ->where('user_id', $user->id)
+            ->active()
+            ->latest('id')
+            ->get()
+            ->first(fn (EptRegistration $registration) => $registration->blocksNewRegistration());
+
+        $registration = $blockingRegistration ?? $latestRegistration;
+
+        if (! $registration || ! $registration->blocksNewRegistration()) {
             $this->ensureEligibility($user);
         }
         
@@ -36,43 +47,65 @@ class EptRegistrationController extends Controller
         $user = Auth::user();
 
         $this->ensureEligibility($user);
-        
-        $existing = EptRegistration::where('user_id', $user->id)
-            ->whereIn('status', ['pending', 'approved'])
-            ->exists();
-            
-        if ($existing) {
-            return back()->with('error', 'Anda sudah memiliki pendaftaran aktif.');
-        }
-        
+
         $request->validate([
+            'student_status' => ['required', 'in:' . implode(',', array_keys(EptRegistration::studentStatusOptions()))],
             'bukti_pembayaran' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:8192'],
         ], [
+            'student_status.required' => 'Status peserta wajib dipilih.',
+            'student_status.in' => 'Status peserta tidak valid.',
             'bukti_pembayaran.required' => 'Bukti pembayaran wajib diunggah.',
             'bukti_pembayaran.image' => 'File harus berupa gambar.',
             'bukti_pembayaran.mimes' => 'Format gambar harus JPG, PNG, atau WebP.',
             'bukti_pembayaran.max' => 'Ukuran file maksimal 8MB.',
         ]);
-        
-        $file = $request->file('bukti_pembayaran');
-        $basename = 'ept_payment_' . Str::of($user->id)->padLeft(6, '0') . '_' . time() . '.webp';
-        
-        $result = ImageTransformer::toWebpFromUploaded(
-            uploaded: $file,
-            targetDisk: 'public',
-            targetDir: 'ept-registrations/payments',
-            quality: 85,
-            maxWidth: 1600,
-            maxHeight: null,
-            basename: $basename
-        );
-        
-        EptRegistration::create([
-            'user_id' => $user->id,
-            'bukti_pembayaran' => $result['path'],
-            'status' => 'pending',
-        ]);
-        
+
+        $created = DB::transaction(function () use ($request, $user): bool {
+            $user->newQuery()
+                ->whereKey($user->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            $blockingRegistration = EptRegistration::query()
+                ->with(['grup1', 'grup2', 'grup3'])
+                ->where('user_id', $user->id)
+                ->active()
+                ->latest('id')
+                ->lockForUpdate()
+                ->get()
+                ->first(fn (EptRegistration $registration) => $registration->blocksNewRegistration());
+
+            if ($blockingRegistration) {
+                return false;
+            }
+
+            $file = $request->file('bukti_pembayaran');
+            $basename = 'ept_payment_' . Str::of($user->id)->padLeft(6, '0') . '_' . time() . '.webp';
+
+            $result = ImageTransformer::toWebpFromUploaded(
+                uploaded: $file,
+                targetDisk: 'public',
+                targetDir: 'ept-registrations/payments',
+                quality: 85,
+                maxWidth: 1600,
+                maxHeight: null,
+                basename: $basename
+            );
+
+            EptRegistration::create([
+                'user_id' => $user->id,
+                'student_status' => $request->string('student_status')->toString(),
+                'bukti_pembayaran' => $result['path'],
+                'status' => 'pending',
+            ]);
+
+            return true;
+        });
+
+        if (! $created) {
+            return back()->with('error', 'Anda sudah memiliki pendaftaran aktif.');
+        }
+
         return redirect()->route('dashboard.ept-registration.index')
             ->with('success', 'Pendaftaran berhasil! Silakan tunggu verifikasi dari admin.');
     }

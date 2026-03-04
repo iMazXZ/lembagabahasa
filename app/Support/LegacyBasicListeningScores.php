@@ -44,6 +44,15 @@ class LegacyBasicListeningScores
             return true;
         }
 
+        $normalizedProdyName = Str::of($prodyName)
+            ->lower()
+            ->squish()
+            ->value();
+
+        if (in_array($normalizedProdyName, ['umum', 'program studi umum'], true)) {
+            return false;
+        }
+
         if (str_starts_with($prodyName, 'S2')) {
             return false;
         }
