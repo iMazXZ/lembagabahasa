@@ -4,6 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\EptRegistrationResource\Pages;
 use App\Models\EptRegistration;
+use App\Models\SiteSetting;
+use App\Support\LegacyBasicListeningScores;
 use App\Services\WhatsAppService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -52,6 +54,59 @@ class EptRegistrationResource extends Resource
                     ->label('Status Peserta')
                     ->content(fn ($record) => $record?->student_status_label ?? '-'),
             ])->columns(3),
+
+            Forms\Components\Section::make('Nilai Pendukung EPT')
+                ->description('Ringkasan nilai biodata yang dipakai untuk evaluasi syarat EPT.')
+                ->schema([
+                    Forms\Components\Placeholder::make('ept_biodata_status')
+                        ->label('Status Biodata EPT')
+                        ->content(fn (EptRegistration $record): string => SiteSetting::isEptBiodataComplete($record->user)
+                            ? 'Lengkap'
+                            : 'Belum lengkap'),
+                    Forms\Components\Placeholder::make('ept_requirement_scheme')
+                        ->label('Skema Syarat Nilai')
+                        ->content(fn (EptRegistration $record): string => static::eptRequirementScheme($record)),
+                    Forms\Components\Placeholder::make('basic_listening_score')
+                        ->label('Nilai Basic Listening')
+                        ->content(fn (EptRegistration $record): string => static::basicListeningSummary($record)),
+
+                    Forms\Components\Grid::make(6)
+                        ->schema([
+                            Forms\Components\Placeholder::make('interactive_class_1')
+                                ->label('IC Sem 1')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_1)),
+                            Forms\Components\Placeholder::make('interactive_class_2')
+                                ->label('IC Sem 2')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_2)),
+                            Forms\Components\Placeholder::make('interactive_class_3')
+                                ->label('IC Sem 3')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_3)),
+                            Forms\Components\Placeholder::make('interactive_class_4')
+                                ->label('IC Sem 4')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_4)),
+                            Forms\Components\Placeholder::make('interactive_class_5')
+                                ->label('IC Sem 5')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_5)),
+                            Forms\Components\Placeholder::make('interactive_class_6')
+                                ->label('IC Sem 6')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_6)),
+                        ])
+                        ->columnSpanFull()
+                        ->visible(fn (EptRegistration $record): bool => static::isPbiUser($record)),
+
+                    Forms\Components\Grid::make(2)
+                        ->schema([
+                            Forms\Components\Placeholder::make('interactive_bahasa_arab_1')
+                                ->label('Bahasa Arab 1')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_bahasa_arab_1)),
+                            Forms\Components\Placeholder::make('interactive_bahasa_arab_2')
+                                ->label('Bahasa Arab 2')
+                                ->content(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_bahasa_arab_2)),
+                        ])
+                        ->columnSpanFull()
+                        ->visible(fn (EptRegistration $record): bool => static::isIslamicProgramUser($record)),
+                ])
+                ->columns(3),
 
             Forms\Components\Section::make('Bukti Pembayaran')->schema([
                 Forms\Components\Placeholder::make('bukti')
@@ -408,5 +463,94 @@ class EptRegistrationResource extends Resource
             'index' => Pages\ListEptRegistrations::route('/'),
             'view' => Pages\ViewEptRegistration::route('/{record}'),
         ];
+    }
+
+    protected static function eptRequirementScheme(EptRegistration $record): string
+    {
+        $user = $record->user;
+        if (! $user) {
+            return 'Data user tidak tersedia.';
+        }
+
+        $prodyName = $user?->prody?->name ?? '';
+        $year = (int) ($user?->year ?? 0);
+
+        if (! $year || $year > 2024) {
+            return 'Tidak memakai syarat nilai legacy.';
+        }
+
+        if ($prodyName !== '' && str_starts_with($prodyName, 'S2')) {
+            return 'Mahasiswa S2 tidak memakai syarat nilai legacy.';
+        }
+
+        if ($prodyName === 'Pendidikan Bahasa Inggris') {
+            return 'Wajib Interactive Bahasa Inggris semester 1 sampai 6.';
+        }
+
+        if (in_array($prodyName, [
+            'Komunikasi dan Penyiaran Islam',
+            'Pendidikan Agama Islam',
+            'Pendidikan Islam Anak Usia Dini',
+        ], true)) {
+            return 'Wajib Basic Listening dan Interactive Bahasa Arab 1-2.';
+        }
+
+        if (in_array(strtolower(trim($prodyName)), ['umum', 'program studi umum'], true)) {
+            return 'Program Studi Umum tidak memakai Basic Listening.';
+        }
+
+        return 'Wajib Basic Listening.';
+    }
+
+    protected static function basicListeningSummary(EptRegistration $record): string
+    {
+        $user = $record->user;
+        if (! $user) {
+            return 'Belum tersedia';
+        }
+
+        $prodyName = $user?->prody?->name ?? null;
+        $year = (int) ($user?->year ?? 0);
+
+        if (! LegacyBasicListeningScores::requiresLegacyScore($year, $prodyName)) {
+            return 'Tidak diwajibkan';
+        }
+
+        return static::scoreText(LegacyBasicListeningScores::effectiveScoreForUser($user));
+    }
+
+    protected static function isPbiUser(EptRegistration $record): bool
+    {
+        $user = $record->user;
+
+        return (int) ($user?->year ?? 0) > 0
+            && (int) ($user?->year ?? 0) <= 2024
+            && ($user?->prody?->name ?? null) === 'Pendidikan Bahasa Inggris';
+    }
+
+    protected static function isIslamicProgramUser(EptRegistration $record): bool
+    {
+        $user = $record->user;
+
+        return (int) ($user?->year ?? 0) > 0
+            && (int) ($user?->year ?? 0) <= 2024
+            && in_array($user?->prody?->name ?? null, [
+                'Komunikasi dan Penyiaran Islam',
+                'Pendidikan Agama Islam',
+                'Pendidikan Islam Anak Usia Dini',
+            ], true);
+    }
+
+    protected static function scoreText(mixed $value): string
+    {
+        if (! is_numeric($value) || (float) $value <= 0) {
+            return 'Belum tersedia';
+        }
+
+        $score = (float) $value;
+
+        return fmod($score, 1.0) === 0.0
+            ? (string) (int) $score
+            : number_format($score, 2, ',', '.');
     }
 }

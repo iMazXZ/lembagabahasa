@@ -31,22 +31,28 @@ class EptRegistrationController extends Controller
             ->first(fn (EptRegistration $registration) => $registration->blocksNewRegistration());
 
         $registration = $blockingRegistration ?? $latestRegistration;
+        [$allowed, $reason] = SiteSetting::checkEptEligibility($user);
+        $canCreateRegistration = ($allowed ?? false) && (! $registration || ! $registration->blocksNewRegistration());
 
-        if (! $registration || ! $registration->blocksNewRegistration()) {
-            $this->ensureEligibility($user);
+        if (! $registration && ! $allowed) {
+            abort(403, $reason ?? 'Anda tidak memenuhi syarat pendaftaran EPT.');
         }
-        
+
         return view('dashboard.ept-registration.index', [
             'user' => $user,
             'registration' => $registration,
+            'canCreateRegistration' => $canCreateRegistration,
+            'eligibilityReason' => $reason,
         ]);
     }
 
     public function store(Request $request)
     {
         $user = Auth::user();
-
-        $this->ensureEligibility($user);
+        [$allowed, $reason] = SiteSetting::checkEptEligibility($user);
+        if (! $allowed) {
+            return back()->with('error', $reason ?? 'Anda tidak memenuhi syarat pendaftaran EPT.');
+        }
 
         $request->validate([
             'student_status' => ['required', 'in:' . implode(',', array_keys(EptRegistration::studentStatusOptions()))],
@@ -149,11 +155,4 @@ class EptRegistrationController extends Controller
         return $pdf->download('Kartu_Peserta_EPT_' . Str::slug($user->name) . '_Jadwal' . $jadwalNum . '.pdf');
     }
 
-    private function ensureEligibility($user): void
-    {
-        [$allowed, $reason] = SiteSetting::checkEptEligibility($user);
-        if (! $allowed) {
-            abort(403, $reason ?? 'Anda tidak memenuhi syarat pendaftaran EPT.');
-        }
-    }
 }

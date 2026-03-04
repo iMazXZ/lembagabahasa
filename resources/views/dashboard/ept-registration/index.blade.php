@@ -56,40 +56,60 @@
             </div>
         @endif
 
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
-            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-file-invoice text-slate-400"></i>
-                    Formulir Pendaftaran
-                </h2>
-            </div>
-            <div class="p-6 sm:p-8">
-                <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
-                    <div class="flex items-center gap-4 px-5 py-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400">
-                            <i class="fa-solid fa-user text-lg"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="truncate text-base font-bold uppercase text-slate-900">{{ $user->name }}</p>
-                            <p class="mt-0.5 text-sm text-slate-500">
-                                {{ $user->srn ?? '-' }} <span class="mx-1.5 text-slate-300">&bull;</span> {{ $user->prody->name ?? '-' }}
-                            </p>
-                        </div>
+        @if($registration && $registration->status === 'approved' && ! $registration->blocksNewRegistration())
+            <div class="bg-emerald-50 rounded-xl border border-emerald-200 p-6">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-circle-check text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-emerald-800">Pendaftaran Terakhir Selesai</h3>
+                        <p class="text-sm text-emerald-700 mt-1">
+                            Pendaftaran terakhir Anda sudah selesai dijalankan pada siklus sebelumnya.
+                        </p>
+                        <p class="text-sm text-emerald-600 mt-2">
+                            Diajukan pada {{ $registration->created_at->translatedFormat('d F Y, H:i') }}
+                        </p>
                     </div>
                 </div>
-                @php
-                    $studentStatusOptions = \App\Models\EptRegistration::studentStatusOptions();
-                    $studentStatusDescriptions = [
-                        'regular' => 'Mahasiswa S1/D3 Reguler',
-                        'magister' => 'Mahasiswa S2',
-                        'konversi' => 'Mahasiswa S1 RPL/Pindahan',
-                        'general' => 'Umum (bukan mahasiswa UM Metro)',
-                    ];
-                    $selectedStudentStatus = old('student_status');
-                @endphp
-                <form action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <div class="space-y-4">
+            </div>
+        @endif
+
+        @if($canCreateRegistration)
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-file-invoice text-slate-400"></i>
+                        Formulir Pendaftaran
+                    </h2>
+                </div>
+                <div class="p-6 sm:p-8">
+                    <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
+                        <div class="flex items-center gap-4 px-5 py-4">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400">
+                                <i class="fa-solid fa-user text-lg"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="truncate text-base font-bold uppercase text-slate-900">{{ $user->name }}</p>
+                                <p class="mt-0.5 text-sm text-slate-500">
+                                    {{ $user->srn ?? '-' }} <span class="mx-1.5 text-slate-300">&bull;</span> {{ $user->prody->name ?? '-' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    @php
+                        $studentStatusOptions = \App\Models\EptRegistration::studentStatusOptions();
+                        $studentStatusDescriptions = [
+                            'regular' => 'Mahasiswa S1/D3 Reguler',
+                            'magister' => 'Mahasiswa S2',
+                            'konversi' => 'Mahasiswa S1 RPL/Pindahan',
+                            'general' => 'Umum (bukan mahasiswa UM Metro)',
+                        ];
+                        $selectedStudentStatus = old('student_status');
+                    @endphp
+                    <form action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="space-y-4">
                         {{-- Label Bukti Pembayaran --}}
                         <label class="block text-sm font-bold text-slate-800 mb-3">
                             Bukti Pembayaran <span class="text-red-500">*</span>
@@ -226,10 +246,28 @@
                             </button>
                         </div>
                         </div>
-                    </div>
-                </form>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        @else
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
+                <div class="flex items-start gap-3">
+                    <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-slate-600 shrink-0">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800">Pendaftaran Baru Tidak Tersedia</h2>
+                        <p class="mt-1 text-sm text-slate-600">
+                            {{ $eligibilityReason ?? 'Pendaftaran EPT belum bisa dibuat saat ini.' }}
+                        </p>
+                        <p class="mt-2 text-xs text-slate-500">
+                            Anda masih bisa melihat status pendaftaran terakhir di halaman ini.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @endif
 
     {{-- KONDISI 2: Pending --}}
     @elseif($registration->status === 'pending')

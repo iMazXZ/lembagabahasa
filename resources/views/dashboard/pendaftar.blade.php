@@ -32,10 +32,11 @@
     $showBasicListening = $hasBasicInfo && $yearInt >= 2025 && !$isS2;
 
     // EPT Registration eligibility (configurable via SiteSettings)
+    $eptRegistrationOpen = \App\Models\SiteSetting::isEptRegistrationOpen();
     $eptEligibility = \App\Models\SiteSetting::checkEptEligibility($user);
     $canRegisterEpt = $eptEligibility[0] ?? false;
     $eptRegistration = \App\Models\EptRegistration::where('user_id', $user->id)->latest()->first();
-    $showEptWidget = $canRegisterEpt || $eptRegistration;
+    $showEptWidget = ($eptRegistrationOpen && $canRegisterEpt) || ! $eptRegistrationOpen || $eptRegistration;
 @endphp
 
 <div class="space-y-6">
@@ -382,30 +383,55 @@
     {{-- SECTION: EPT Registration Widget --}}
     @if($showEptWidget)
         @if(!$eptRegistration)
-            {{-- Belum Daftar - Banner Biru Mencolok --}}
-            <div class="relative overflow-hidden bg-um-blue rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
-                <div class="absolute right-0 top-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full"></div>
-                <div class="absolute left-0 bottom-0 -mb-8 -ml-8 w-32 h-32 bg-white opacity-5 rounded-full"></div>
-                
-                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div class="flex items-start gap-4">
-                        <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
-                            <i class="fa-solid fa-clipboard-list text-2xl"></i>
+            @if(!$eptRegistrationOpen)
+                <div class="relative overflow-hidden bg-slate-700 rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
+                    <div class="absolute right-0 top-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full"></div>
+                    <div class="absolute left-0 bottom-0 -mb-8 -ml-8 w-32 h-32 bg-white opacity-5 rounded-full"></div>
+
+                    <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center text-white shrink-0">
+                                <i class="fa-solid fa-lock text-2xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-bold text-white mb-1">Sementara Pendaftaran EPT Ditutup</h4>
+                                <p class="text-slate-200 text-sm leading-relaxed max-w-md">
+                                    Pendaftaran baru sedang tidak dibuka. Silakan tunggu informasi berikutnya dari Lembaga Bahasa.
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 class="text-xl font-bold text-white mb-1">Pendaftaran Tes EPT</h4>
-                            <p class="text-blue-100 text-sm leading-relaxed max-w-md">
-                                Daftarkan diri Anda untuk mengikuti Tes EPT dengan mengunggah bukti pembayaran.
-                            </p>
-                        </div>
+                        <span class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 text-white font-bold text-sm border border-white/15 shrink-0">
+                            <i class="fa-solid fa-clock"></i>
+                            Menunggu Dibuka
+                        </span>
                     </div>
-                    <a href="{{ route('dashboard.ept-registration.index') }}"
-                       class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-um-blue font-bold text-sm shadow-lg hover:bg-blue-50 transition-all hover:scale-[1.02] shrink-0">
-                        Daftar Sekarang
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </a>
                 </div>
-            </div>
+            @else
+                {{-- Belum Daftar - Banner Biru Mencolok --}}
+                <div class="relative overflow-hidden bg-um-blue rounded-2xl shadow-lg p-6 lg:p-8 mb-6">
+                    <div class="absolute right-0 top-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full"></div>
+                    <div class="absolute left-0 bottom-0 -mb-8 -ml-8 w-32 h-32 bg-white opacity-5 rounded-full"></div>
+
+                    <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                                <i class="fa-solid fa-clipboard-list text-2xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-bold text-white mb-1">Pendaftaran Tes EPT</h4>
+                                <p class="text-blue-100 text-sm leading-relaxed max-w-md">
+                                    Daftarkan diri Anda untuk mengikuti Tes EPT dengan mengunggah bukti pembayaran.
+                                </p>
+                            </div>
+                        </div>
+                        <a href="{{ route('dashboard.ept-registration.index') }}"
+                           class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-um-blue font-bold text-sm shadow-lg hover:bg-blue-50 transition-all hover:scale-[1.02] shrink-0">
+                            Daftar Sekarang
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            @endif
 
         @elseif($eptRegistration->status === 'pending')
             {{-- Status: Menunggu Verifikasi --}}
@@ -457,8 +483,8 @@
                     </div>
                     <a href="{{ route('dashboard.ept-registration.index') }}"
                        class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-red-600 font-semibold text-sm hover:bg-red-50 transition shrink-0">
-                        <i class="fa-solid fa-redo"></i>
-                        Daftar Ulang
+                        <i class="fa-solid {{ $canRegisterEpt ? 'fa-redo' : 'fa-arrow-right' }}"></i>
+                        {{ $canRegisterEpt ? 'Daftar Ulang' : 'Lihat Detail' }}
                     </a>
                 </div>
             </div>

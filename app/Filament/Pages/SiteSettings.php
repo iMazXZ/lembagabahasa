@@ -56,6 +56,7 @@ class SiteSettings extends Page implements HasForms
             'bl_quiz_enabled' => SiteSetting::isBlQuizEnabled(),
             'bl_period_start_date' => SiteSetting::getBlPeriodStartDate(),
             'bl_active_batch' => SiteSetting::get('bl_active_batch', now()->format('y')),
+            'ept_registration_open' => SiteSetting::isEptRegistrationOpen(),
             'ept_all_prody' => SiteSetting::get('ept_all_prody', false),
             'ept_allowed_prody_ids' => SiteSetting::get('ept_allowed_prody_ids', []),
             'ept_allowed_prody_prefixes' => SiteSetting::get('ept_allowed_prody_prefixes', ['S2']),
@@ -138,6 +139,12 @@ class SiteSettings extends Page implements HasForms
                     ->description('Atur syarat pendaftaran EPT dari dashboard pendaftar')
                     ->icon('heroicon-o-clipboard-document-check')
                     ->schema([
+                        Toggle::make('ept_registration_open')
+                            ->label('Pendaftaran EPT Dibuka')
+                            ->helperText('Jika nonaktif, user baru tidak bisa membuat pendaftaran EPT. User yang sudah pernah daftar tetap bisa melihat status pendaftarannya.')
+                            ->onColor('success')
+                            ->offColor('danger'),
+
                         Toggle::make('ept_all_prody')
                             ->label('Semua Prodi Boleh Daftar')
                             ->helperText('Jika aktif, semua prodi bisa mendaftar EPT.')
@@ -217,6 +224,7 @@ class SiteSettings extends Page implements HasForms
         SiteSetting::set('bl_quiz_enabled', $data['bl_quiz_enabled'] ?? true);
         SiteSetting::set('bl_period_start_date', $data['bl_period_start_date'] ?? null);
         SiteSetting::set('bl_active_batch', $data['bl_active_batch'] ?? now()->format('y'));
+        SiteSetting::set('ept_registration_open', $data['ept_registration_open'] ?? true);
         SiteSetting::set('ept_all_prody', $data['ept_all_prody'] ?? false);
         SiteSetting::set('ept_allowed_prody_ids', $data['ept_allowed_prody_ids'] ?? []);
         SiteSetting::set('ept_allowed_prody_prefixes', $data['ept_allowed_prody_prefixes'] ?? []);

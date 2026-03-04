@@ -224,4 +224,61 @@ class EptRegistrationFlowTest extends TestCase
 
         Storage::disk('public')->assertMissing($path);
     }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_blocks_new_user_from_accessing_ept_registration_page_when_global_toggle_is_closed(): void
+    {
+        SiteSetting::query()->updateOrCreate(
+            ['key' => 'ept_registration_open'],
+            [
+                'value' => '0',
+                'type' => 'boolean',
+                'group' => 'ept_registration',
+                'label' => 'Pendaftaran EPT Dibuka',
+                'description' => 'Aktif untuk test',
+            ],
+        );
+
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('dashboard.ept-registration.index'));
+
+        $response->assertForbidden();
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_still_shows_existing_registration_when_global_toggle_is_closed(): void
+    {
+        SiteSetting::query()->updateOrCreate(
+            ['key' => 'ept_registration_open'],
+            [
+                'value' => '0',
+                'type' => 'boolean',
+                'group' => 'ept_registration',
+                'label' => 'Pendaftaran EPT Dibuka',
+                'description' => 'Aktif untuk test',
+            ],
+        );
+
+        $user = User::factory()->create();
+
+        EptRegistration::query()->create([
+            'user_id' => $user->id,
+            'student_status' => EptRegistration::STUDENT_STATUS_REGULAR,
+            'bukti_pembayaran' => 'ept-registrations/payments/existing.webp',
+            'status' => 'rejected',
+            'rejection_reason' => 'Bukti sebelumnya kurang jelas.',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('dashboard.ept-registration.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('Pendaftaran Ditolak');
+        $response->assertSeeText('Pendaftaran Baru Tidak Tersedia');
+        $response->assertSeeText('Pendaftaran EPT sedang ditutup.');
+    }
 }

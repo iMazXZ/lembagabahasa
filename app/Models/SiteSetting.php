@@ -153,6 +153,11 @@ class SiteSetting extends Model
         return (bool) static::get('ept_all_prody', false);
     }
 
+    public static function isEptRegistrationOpen(): bool
+    {
+        return (bool) static::get('ept_registration_open', true);
+    }
+
     public static function getEptAllowedProdyIds(): array
     {
         $ids = static::get('ept_allowed_prody_ids', []);
@@ -235,6 +240,10 @@ class SiteSetting extends Model
 
     public static function checkEptEligibility(User $user): array
     {
+        if (! static::isEptRegistrationOpen()) {
+            return [false, 'Pendaftaran EPT sedang ditutup.'];
+        }
+
         if (static::isEptRequireRolePendaftar() && ! $user->hasRole('pendaftar')) {
             return [false, 'Fitur ini hanya untuk role pendaftar.'];
         }
