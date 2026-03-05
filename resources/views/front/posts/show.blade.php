@@ -5,8 +5,10 @@
 @section('meta')
   @php
       $metaDescription = $post->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($body ?? ''), 160);
-      $metaCanonical = route('front.post.show', $post->slug);
-      $metaRobots = ($post->type ?? null) === 'news' ? 'index,follow' : 'noindex,follow';
+      $metaCanonical = ($post->type ?? null) === 'career'
+          ? route('front.career.show', $post->slug)
+          : route('front.post.show', $post->slug);
+      $metaRobots = in_array(($post->type ?? null), ['news', 'career'], true) ? 'index,follow' : 'noindex,follow';
       $metaImage = $post->cover_url;
   @endphp
   <meta name="description" content="{{ $metaDescription }}">
@@ -48,10 +50,11 @@
     $backHref = ($prevUrl && $prevUrl !== url()->current()) ? $prevUrl : $fallbackIndex;
 
     $typeLabel = \App\Models\Post::TYPES[$post->type] ?? ucfirst((string) $post->type);
+    $postType = (string) ($post->type ?? 'news');
     $newsCategorySlug = null;
     $newsCategoryLabel = null;
     $newsCategoryUrl = null;
-    if (($post->type ?? null) === 'news') {
+    if ($postType === 'news') {
         $newsCategorySlug = \App\Models\Post::normalizeNewsCategory($post->news_category ?? null);
         $newsCategoryLabel = \App\Models\Post::newsCategoryLabel($newsCategorySlug);
 
@@ -59,11 +62,27 @@
             $newsCategoryUrl = route('front.news.category', ['newsCategory' => $newsCategorySlug]);
         }
     }
+    $sectionRootLabel = $postType === 'career' ? 'Karier' : 'Berita';
+    $sectionRootUrl = $postType === 'career' ? route('front.career') : route('front.news');
 
     $authorName = trim((string) ($post->author?->name ?? 'Redaksi'));
     $authorInitial = mb_strtoupper(mb_substr($authorName, 0, 1));
     $editorName = 'Admin';
     $editorInitial = 'ED';
+    $careerDeadline = null;
+    if ($postType === 'career' && ! empty($post->career_deadline)) {
+        $careerDeadline = $post->career_deadline instanceof \Carbon\CarbonInterface
+            ? $post->career_deadline
+            : \Carbon\Carbon::parse($post->career_deadline);
+    }
+    $careerApplyUrl = $postType === 'career' ? trim((string) ($post->career_apply_url ?? '')) : '';
+    $careerIsOpen = $postType === 'career'
+        ? ((bool) ($post->career_is_open ?? true) && ($careerDeadline === null || $careerDeadline->greaterThanOrEqualTo(now())))
+        : false;
+    $careerStatusLabel = $careerIsOpen ? 'Lowongan Dibuka' : 'Lowongan Ditutup';
+    $careerStatusClass = $careerIsOpen
+        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+        : 'bg-rose-50 border-rose-200 text-rose-700';
     $shareUrl = rawurlencode($metaCanonical);
     $shareText = rawurlencode((string) ($post->title ?? ''));
     $shareLinks = [
@@ -78,6 +97,13 @@
             fn ($item) => (int) ($item->id ?? 0) !== (int) ($post->id ?? 0)
         );
     }
+    $postDetailUrl = function ($item): string {
+        if (($item->type ?? null) === 'career') {
+            return route('front.career.show', $item->slug);
+        }
+
+        return route('front.post.show', $item->slug);
+    };
 
     /**
      * Fallback sanitizer untuk $body
@@ -204,6 +230,29 @@
   }
   #post-toc-list .toc-text {
     line-height: 1.35;
+  }
+
+  /* ================== NORMALISASI JARAK LIST ================== */
+  /* Tiptap sering menghasilkan <li><p>...</p></li>, margin <p> membuat jarak terlalu jauh. */
+  #post-body :is(ul, ol) {
+    margin-top: .65rem;
+    margin-bottom: .9rem;
+    padding-left: 1.2rem;
+  }
+  #post-body :is(ul, ol) > li {
+    margin-top: .25rem;
+    margin-bottom: .25rem;
+  }
+  #post-body :is(ul, ol) > li + li {
+    margin-top: .35rem;
+  }
+  #post-body :is(ul, ol) > li > p {
+    margin: 0;
+    line-height: 1.65;
+  }
+  #post-body li :is(ul, ol) {
+    margin-top: .35rem;
+    margin-bottom: .35rem;
   }
 
   /* ================== NEWS DETAIL ================== */
@@ -369,7 +418,7 @@
     <nav class="mb-3 text-sm text-gray-500">
       <a href="{{ url('/') }}" class="hover:underline">Home</a>
       <span class="mx-1">›</span>
-      <a href="{{ route('front.news') }}" class="hover:underline">Berita</a>
+      <a href="{{ $sectionRootUrl }}" class="hover:underline">{{ $sectionRootLabel }}</a>
       @if($newsCategoryLabel)
         <span class="mx-1">›</span>
         @if($newsCategoryUrl)
@@ -390,35 +439,53 @@
       </div>
 
       <div class="mb-4">
-        <div class="news-byline">
-          <div class="flex items-center">
-            <span class="news-avatar bg-blue-900">{{ $authorInitial }}</span>
-            <span class="news-avatar bg-red-600">{{ $editorInitial }}</span>
+        @if($postType === 'career')
+          <div class="rounded-xl border p-4 {{ $careerStatusClass }}">
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold {{ $careerStatusClass }}">
+                {{ strtoupper($careerStatusLabel) }}
+              </span>
+              @if($careerDeadline)
+                <span class="text-sm font-medium">
+                  Deadline: {{ $careerDeadline->translatedFormat('d M Y, H:i') }} WIB
+                </span>
+              @endif
+            </div>
+            <p class="text-sm opacity-90">
+              Informasi pendaftaran tersedia di bagian bawah artikel ini.
+            </p>
           </div>
-          <div class="news-byline-text">
-            Penulis: <span class="name-author">{{ $authorName }}</span>
-            <span class="text-gray-400">|</span>
-            Editor: <span class="name-editor">{{ $editorName }}</span>
+        @else
+          <div class="news-byline">
+            <div class="flex items-center">
+              <span class="news-avatar bg-blue-900">{{ $authorInitial }}</span>
+              <span class="news-avatar bg-red-600">{{ $editorInitial }}</span>
+            </div>
+            <div class="news-byline-text">
+              Penulis: <span class="name-author">{{ $authorName }}</span>
+              <span class="text-gray-400">|</span>
+              Editor: <span class="name-editor">{{ $editorName }}</span>
+            </div>
           </div>
-        </div>
 
-        <div class="news-share-row">
-          <a href="{{ $shareLinks['facebook'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--fb" aria-label="Bagikan ke Facebook">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 8H16V5h-2.5C11.57 5 10 6.57 10 8.5V11H8v3h2v5h3v-5h2.5l.5-3H13v-2.5c0-.28.22-.5.5-.5z"/></svg>
-          </a>
-          <a href="{{ $shareLinks['x'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--x" aria-label="Bagikan ke X">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 3H21l-6.5 7.4L22 21h-5.9l-4.6-6-5.2 6H4.2l6.9-7.9L2 3h6l4.1 5.4L18.9 3z"/></svg>
-          </a>
-          <a href="{{ $shareLinks['whatsapp'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--wa" aria-label="Bagikan ke WhatsApp">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.7 7l-4.3 1.1 1.2-4.2A8 8 0 1 1 20 12zm-4.7 2.3c-.2-.1-1.3-.6-1.5-.6s-.3-.1-.5.1c-.1.2-.6.6-.7.8-.1.1-.3.2-.5 0s-.9-.3-1.8-1.1c-.7-.6-1.1-1.4-1.2-1.6-.1-.2 0-.3.1-.4l.3-.3c.1-.1.1-.2.2-.3.1-.1.1-.2.2-.4s0-.3 0-.4-.5-1.3-.7-1.8c-.2-.4-.4-.4-.5-.4h-.4c-.1 0-.4.1-.6.3s-.8.8-.8 1.9.8 2.2.9 2.3c.1.1 1.6 2.5 3.9 3.5.5.2.9.3 1.2.4.5.2 1 .1 1.4.1.4-.1 1.3-.5 1.5-.9.2-.5.2-.9.2-1 0-.1-.2-.1-.4-.2z"/></svg>
-          </a>
-          <a href="{{ $shareLinks['telegram'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--tg" aria-label="Bagikan ke Telegram">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.7 15.5l-.4 4c.6 0 .9-.3 1.2-.6l2.9-2.8 6-4.4c.3-.2-.1-.3-.4-.2l-7.4 2.3-3.2-1c-.7-.2-.7-.7.1-1l12.6-4.9c.6-.2 1 .1.8.9l-2.1 10c-.2.7-.6.9-1.2.6l-3.4-2.5-1.6 1.6c-.2.2-.4.4-.8.4z"/></svg>
-          </a>
-          <button type="button" id="copy-share-link" class="news-share-btn news-share-btn--copy" aria-label="Salin tautan">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 6h9v12h-9V6zm-5 4h3v10h8v3H5V10zm2-7h12v2H7V3z"/></svg>
-          </button>
-        </div>
+          <div class="news-share-row">
+            <a href="{{ $shareLinks['facebook'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--fb" aria-label="Bagikan ke Facebook">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 8H16V5h-2.5C11.57 5 10 6.57 10 8.5V11H8v3h2v5h3v-5h2.5l.5-3H13v-2.5c0-.28.22-.5.5-.5z"/></svg>
+            </a>
+            <a href="{{ $shareLinks['x'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--x" aria-label="Bagikan ke X">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 3H21l-6.5 7.4L22 21h-5.9l-4.6-6-5.2 6H4.2l6.9-7.9L2 3h6l4.1 5.4L18.9 3z"/></svg>
+            </a>
+            <a href="{{ $shareLinks['whatsapp'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--wa" aria-label="Bagikan ke WhatsApp">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.7 7l-4.3 1.1 1.2-4.2A8 8 0 1 1 20 12zm-4.7 2.3c-.2-.1-1.3-.6-1.5-.6s-.3-.1-.5.1c-.1.2-.6.6-.7.8-.1.1-.3.2-.5 0s-.9-.3-1.8-1.1c-.7-.6-1.1-1.4-1.2-1.6-.1-.2 0-.3.1-.4l.3-.3c.1-.1.1-.2.2-.3.1-.1.1-.2.2-.4s0-.3 0-.4-.5-1.3-.7-1.8c-.2-.4-.4-.4-.5-.4h-.4c-.1 0-.4.1-.6.3s-.8.8-.8 1.9.8 2.2.9 2.3c.1.1 1.6 2.5 3.9 3.5.5.2.9.3 1.2.4.5.2 1 .1 1.4.1.4-.1 1.3-.5 1.5-.9.2-.5.2-.9.2-1 0-.1-.2-.1-.4-.2z"/></svg>
+            </a>
+            <a href="{{ $shareLinks['telegram'] }}" target="_blank" rel="noopener noreferrer nofollow" class="news-share-btn news-share-btn--tg" aria-label="Bagikan ke Telegram">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.7 15.5l-.4 4c.6 0 .9-.3 1.2-.6l2.9-2.8 6-4.4c.3-.2-.1-.3-.4-.2l-7.4 2.3-3.2-1c-.7-.2-.7-.7.1-1l12.6-4.9c.6-.2 1 .1.8.9l-2.1 10c-.2.7-.6.9-1.2.6l-3.4-2.5-1.6 1.6c-.2.2-.4.4-.8.4z"/></svg>
+            </a>
+            <button type="button" id="copy-share-link" class="news-share-btn news-share-btn--copy" aria-label="Salin tautan">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 6h9v12h-9V6zm-5 4h3v10h8v3H5V10zm2-7h12v2H7V3z"/></svg>
+            </button>
+          </div>
+        @endif
       </div>
     </header>
   @endif
@@ -511,10 +578,36 @@
             {!! $renderBody($body) !!}
           </div>
 
+          @if($postType === 'career' && $careerApplyUrl !== '')
+            <div class="mt-8 rounded-xl border p-4 {{ $careerStatusClass }}">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p class="font-semibold">
+                    {{ $careerIsOpen ? 'Pendaftaran masih dibuka.' : 'Pendaftaran sudah ditutup.' }}
+                  </p>
+                  @if($careerDeadline)
+                    <p class="text-sm opacity-90 mt-1">
+                      Deadline: {{ $careerDeadline->translatedFormat('d M Y, H:i') }} WIB
+                    </p>
+                  @endif
+                </div>
+
+                @if($careerIsOpen)
+                  <a href="{{ $careerApplyUrl }}"
+                     target="_blank"
+                     rel="noopener noreferrer nofollow"
+                     class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-6 py-2.5 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors">
+                    Daftar Sekarang
+                  </a>
+                @endif
+              </div>
+            </div>
+          @endif
+
           @if($inlineReadMore)
             <div id="inline-readmore-data"
                  class="hidden"
-                 data-url="{{ route('front.post.show', $inlineReadMore->slug) }}"
+                 data-url="{{ $postDetailUrl($inlineReadMore) }}"
                  data-title="{{ $inlineReadMore->title }}"
                  aria-hidden="true"></div>
           @endif
@@ -532,7 +625,7 @@
             <ol class="border-y border-dashed border-gray-300">
               @foreach($related->take(5) as $r)
                 <li class="border-b border-dashed border-gray-300 last:border-b-0 py-4">
-                  <a href="{{ route('front.post.show', $r->slug) }}" class="grid grid-cols-[2.25rem,1fr] gap-3 group">
+                  <a href="{{ $postDetailUrl($r) }}" class="grid grid-cols-[2.25rem,1fr] gap-3 group">
                     <span class="text-4xl font-extrabold leading-none text-blue-900">{{ $loop->iteration }}</span>
                     <span class="text-lg font-semibold leading-snug text-gray-900 group-hover:text-blue-700 transition-colors">
                       {{ $r->title }}

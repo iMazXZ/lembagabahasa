@@ -42,6 +42,9 @@
         <a href="{{ route('layanan.index') }}" class="{{ request()->routeIs('layanan.*') ? $activeLink : $baseLink }}">
             Layanan
         </a>
+        <a href="{{ route('front.career') }}" class="{{ request()->routeIs('front.career*') ? $activeLink : $baseLink }}">
+            Karier
+        </a>
         <a href="{{ route('bl.index') }}" class="{{ request()->routeIs('bl.*') ? $activeLink : $baseLink }}">
             Basic Listening
         </a>
@@ -113,6 +116,7 @@
        class="lg:hidden bg-white border-t border-gray-100 shadow-lg overflow-hidden">
     <div class="px-4 pt-2 pb-6 space-y-1">
       <a href="{{ route('layanan.index') }}" class="block py-3 text-gray-600 hover:text-um-blue font-medium border-b border-gray-50">Layanan</a>
+      <a href="{{ route('front.career') }}" class="block py-3 text-gray-600 hover:text-um-blue font-medium border-b border-gray-50">Karier</a>
       <a href="{{ route('bl.index') }}" class="block py-3 text-gray-600 hover:text-um-blue font-medium border-b border-gray-50">Basic Listening</a>
       <a href="{{ route('verification.index') }}" class="block py-3 text-gray-600 hover:text-um-blue font-medium border-b border-gray-50">Verifikasi Dokumen</a>
       

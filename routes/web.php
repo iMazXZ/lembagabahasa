@@ -107,6 +107,12 @@ Route::get('/berita', [PostController::class, 'index'])
     ->defaults('type', 'news')
     ->name('front.news');
 
+Route::redirect('/carier', '/career', 301);
+
+Route::get('/career', [PostController::class, 'index'])
+    ->defaults('type', 'career')
+    ->name('front.career');
+
 Route::get('/berita/kategori/{newsCategory}', [PostController::class, 'newsCategory'])
     ->where('newsCategory', '[a-z0-9\-]+')
     ->name('front.news.category');
@@ -118,6 +124,10 @@ Route::get('/jadwal-ujian', [PostController::class, 'index'])
 Route::get('/nilai-ujian', [PostController::class, 'index'])
     ->defaults('type', 'scores')
     ->name('front.scores');
+
+Route::get('/career/{post:slug}', [PostController::class, 'showCareer'])
+    ->middleware(CountPostView::class)
+    ->name('front.career.show');
 
 Route::get('/post/{post:slug}', [PostController::class, 'show'])
     ->middleware(CountPostView::class)

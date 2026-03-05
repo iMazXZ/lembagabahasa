@@ -13,14 +13,15 @@ class PostController extends Controller
     }
 
     /**
-     * List postingan per kategori (news|schedule|scores)
+     * List postingan per kategori (news|career|schedule|scores)
      * + dukung ?q=search & ?sort=new|old|az
      */
     public function index(Request $request, string $type, ?string $newsCategory = null)
     {
-        abort_unless(in_array($type, ['news', 'schedule', 'scores'], true), 404);
+        abort_unless(in_array($type, ['news', 'career', 'schedule', 'scores'], true), 404);
 
         $activeNewsCategory = null;
+        $careerStatus = null;
         if ($type === 'news') {
             $requestedNewsCategory = $newsCategory ?: trim((string) $request->query('kategori'));
 
@@ -28,6 +29,11 @@ class PostController extends Controller
                 abort_unless(Post::isValidNewsCategory($requestedNewsCategory), 404);
                 $activeNewsCategory = $requestedNewsCategory;
             }
+        } elseif ($type === 'career') {
+            $requestedStatus = strtolower(trim((string) $request->query('status', 'open')));
+            $careerStatus = in_array($requestedStatus, ['open', 'closed', 'all'], true)
+                ? $requestedStatus
+                : 'open';
         }
 
         $query = Post::published()
@@ -46,12 +52,23 @@ class PostController extends Controller
                 'event_date',
                 'event_time',
                 'event_location',
+                'career_is_open',
+                'career_deadline',
+                'career_apply_url',
                 'related_post_id',
             ])
             ->with(['author:id,name']);
 
         if ($type === 'news' && $activeNewsCategory !== null) {
             $query->newsCategory($activeNewsCategory);
+        }
+
+        if ($type === 'career') {
+            if ($careerStatus === 'open') {
+                $query->careerOpen();
+            } elseif ($careerStatus === 'closed') {
+                $query->careerClosed();
+            }
         }
 
         if ($type === 'schedule') {
@@ -101,6 +118,7 @@ class PostController extends Controller
         // untuk komponen card di index
         $category = $type;
         $newsCategoryMenu = [];
+        $careerStatusMenu = [];
         if ($type === 'news') {
             $newsCounts = Post::published()
                 ->type('news')
@@ -122,15 +140,82 @@ class PostController extends Controller
                     'active' => $activeNewsCategory === $slug,
                 ];
             }
+        } elseif ($type === 'career') {
+            $careerBaseQuery = Post::published()->type('career');
+
+            $counts = [
+                'all' => (clone $careerBaseQuery)->count(),
+                'open' => (clone $careerBaseQuery)->careerOpen()->count(),
+                'closed' => (clone $careerBaseQuery)->careerClosed()->count(),
+            ];
+
+            $buildCareerUrl = function (string $status) use ($request): string {
+                $params = $request->query();
+                unset($params['page'], $params['status']);
+
+                if ($status !== 'open') {
+                    $params['status'] = $status;
+                }
+
+                return route('front.career', $params);
+            };
+
+            $careerStatusMenu = [
+                [
+                    'key' => 'open',
+                    'label' => 'Dibuka',
+                    'count' => (int) $counts['open'],
+                    'url' => $buildCareerUrl('open'),
+                    'active' => $careerStatus === 'open',
+                ],
+                [
+                    'key' => 'closed',
+                    'label' => 'Ditutup',
+                    'count' => (int) $counts['closed'],
+                    'url' => $buildCareerUrl('closed'),
+                    'active' => $careerStatus === 'closed',
+                ],
+                [
+                    'key' => 'all',
+                    'label' => 'Semua',
+                    'count' => (int) $counts['all'],
+                    'url' => $buildCareerUrl('all'),
+                    'active' => $careerStatus === 'all',
+                ],
+            ];
         }
 
         return view(
             'front.posts.index',
-            compact('posts', 'title', 'category', 'activeNewsCategory', 'newsCategoryMenu')
+            compact(
+                'posts',
+                'title',
+                'category',
+                'activeNewsCategory',
+                'newsCategoryMenu',
+                'careerStatus',
+                'careerStatusMenu'
+            )
         );
     }
 
     public function show(Post $post)
+    {
+        if ($post->type === 'career') {
+            return redirect()->route('front.career.show', ['post' => $post], 301);
+        }
+
+        return $this->renderPost($post);
+    }
+
+    public function showCareer(Post $post)
+    {
+        abort_unless($post->type === 'career', 404);
+
+        return $this->renderPost($post);
+    }
+
+    private function renderPost(Post $post)
     {
         // Lengkapi relasi bila belum dimuat
         $post->loadMissing(['author:id,name']);
@@ -147,6 +232,9 @@ class PostController extends Controller
             'event_date',
             'event_time',
             'event_location',
+            'career_is_open',
+            'career_deadline',
+            'career_apply_url',
         ];
 
         $relatedBaseQuery = Post::published()

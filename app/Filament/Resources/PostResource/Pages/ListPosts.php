@@ -34,6 +34,10 @@ class ListPosts extends ListRecords
                 'icon' => 'heroicon-o-document-text',
                 'badgeColor' => 'info',
             ],
+            'career' => [
+                'icon' => 'heroicon-o-briefcase',
+                'badgeColor' => 'primary',
+            ],
             'schedule' => [
                 'icon' => 'heroicon-o-calendar-days',
                 'badgeColor' => 'warning',

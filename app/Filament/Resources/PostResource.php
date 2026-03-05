@@ -58,10 +58,10 @@ class PostResource extends Resource
                         ->rows(3)
                         ->maxLength(180)
                         ->columnSpanFull()
-                        ->helperText('Teks singkat yang muncul di daftar berita (Maks. 180 karakter).'),
+                        ->helperText('Teks singkat yang muncul di daftar posting (Maks. 180 karakter).'),
 
                     TiptapEditor::make('body')
-                        ->label('Isi Berita')
+                        ->label('Isi Konten')
                         ->required()
                         ->columnSpanFull()
                         ->formatStateUsing(fn ($state): string => static::normalizeEditorBody($state))
@@ -177,8 +177,32 @@ class PostResource extends Resource
                                 Storage::disk('public')->delete($file);
                             }
                         })
-                        ->helperText('Khusus kategori Berita.')
-                        ->visible(fn (Get $get): bool => $get('type') === 'news'),
+                        ->helperText('Khusus kategori Berita dan Karier.')
+                        ->visible(fn (Get $get): bool => in_array($get('type'), ['news', 'career'], true)),
+
+                    Toggle::make('career_is_open')
+                        ->label('Status Lowongan Dibuka')
+                        ->onColor('success')
+                        ->offColor('danger')
+                        ->default(true)
+                        ->visible(fn (Get $get): bool => $get('type') === 'career')
+                        ->live(),
+
+                    DateTimePicker::make('career_deadline')
+                        ->label('Deadline Lamaran')
+                        ->seconds(false)
+                        ->native(false)
+                        ->visible(fn (Get $get): bool => $get('type') === 'career')
+                        ->helperText('Kosongkan jika lowongan tidak memiliki batas waktu.'),
+
+                    TextInput::make('career_apply_url')
+                        ->label('Link Daftar (CTA)')
+                        ->url()
+                        ->maxLength(500)
+                        ->placeholder('https://...')
+                        ->visible(fn (Get $get): bool => $get('type') === 'career')
+                        ->required(fn (Get $get): bool => $get('type') === 'career')
+                        ->helperText('Tautan tombol "Daftar Sekarang" di halaman karier.'),
 
                     // Grid untuk Nomor Grup dan Tanggal (2 kolom)
                     Grid::make(2)
@@ -355,6 +379,7 @@ class PostResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'news'         => 'info',
+                        'career'       => 'primary',
                         'schedule'     => 'warning',
                         'scores'       => 'success',
                         'service'      => 'primary',
@@ -363,6 +388,22 @@ class PostResource extends Resource
                         default        => 'gray',
                     })
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('career_status')
+                    ->label('Status Karier')
+                    ->state(function (Post $record): string {
+                        if ($record->type !== 'career') {
+                            return '-';
+                        }
+
+                        return $record->isCareerOpen() ? 'Dibuka' : 'Ditutup';
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Dibuka' => 'success',
+                        'Ditutup' => 'danger',
+                        default => 'gray',
+                    }),
 
                 Tables\Columns\TextColumn::make('news_category')
                     ->label('Kategori Berita')
@@ -526,7 +567,13 @@ class PostResource extends Resource
                 Tables\Actions\Action::make('view_public')
                         ->label('Lihat Post')
                         ->icon('heroicon-m-arrow-top-right-on-square')
-                        ->url(fn (Post $record): string => route('front.post.show', ['post' => $record]))
+                        ->url(function (Post $record): string {
+                            if ($record->type === 'career') {
+                                return route('front.career.show', ['post' => $record]);
+                            }
+
+                            return route('front.post.show', ['post' => $record]);
+                        })
                         ->openUrlInNewTab(),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),

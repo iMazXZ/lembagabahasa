@@ -31,6 +31,9 @@ class Post extends Model
         'excerpt',
         'body',
         'cover_path',
+        'career_is_open',
+        'career_deadline',
+        'career_apply_url',
         'is_published',
         'published_at',
     ];
@@ -40,12 +43,15 @@ class Post extends Model
         'published_at' => 'datetime',
         'event_date' => 'date',
         'event_time' => 'datetime:H:i',
+        'career_is_open' => 'boolean',
+        'career_deadline' => 'datetime',
         'views' => 'integer',
     ];
 
     // Konstanta label untuk dropdown / tampilan
     public const TYPES = [
         'news'     => 'Berita',
+        'career'   => 'Karier',
         'schedule' => 'Jadwal Ujian',
         'scores'   => 'Nilai Ujian',
         'service'  => 'Informasi Layanan',
@@ -77,6 +83,51 @@ class Post extends Model
     public function scopeType(Builder $q, string $type): Builder
     {
         return $q->where('type', $type);
+    }
+
+    public function scopeCareerOpen(Builder $q): Builder
+    {
+        $now = now();
+
+        return $q
+            ->where('career_is_open', true)
+            ->where(function (Builder $query) use ($now): void {
+                $query
+                    ->whereNull('career_deadline')
+                    ->orWhere('career_deadline', '>=', $now);
+            });
+    }
+
+    public function scopeCareerClosed(Builder $q): Builder
+    {
+        $now = now();
+
+        return $q->where(function (Builder $query) use ($now): void {
+            $query
+                ->where('career_is_open', false)
+                ->orWhere(function (Builder $deadlineQuery) use ($now): void {
+                    $deadlineQuery
+                        ->whereNotNull('career_deadline')
+                        ->where('career_deadline', '<', $now);
+                });
+        });
+    }
+
+    public function isCareerOpen(): bool
+    {
+        if ($this->type !== 'career') {
+            return false;
+        }
+
+        if (! (bool) $this->career_is_open) {
+            return false;
+        }
+
+        if ($this->career_deadline === null) {
+            return true;
+        }
+
+        return $this->career_deadline->greaterThanOrEqualTo(now());
     }
 
     /**

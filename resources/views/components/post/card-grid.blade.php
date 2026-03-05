@@ -34,6 +34,9 @@
         @foreach($allItems as $item)
           @php
             $isSchedule = ($item->type ?? null) === 'schedule';
+            $itemUrl = ($item->type ?? null) === 'career'
+              ? route('front.career.show', $item->slug)
+              : route('front.post.show', $item->slug);
             $eventDate = $item->event_date ?? null;
             $eventTime = $item->event_time ?? null;
             
@@ -115,7 +118,7 @@
               </div>
 
               {{-- Title (strip date in parentheses for schedule) --}}
-              <a href="{{ route('front.post.show', $item->slug) }}" class="block mb-3">
+              <a href="{{ $itemUrl }}" class="block mb-3">
                 <h3 class="font-bold text-slate-900 text-lg leading-snug tracking-tight group-hover:{{ $colors['accent'] }} transition-colors line-clamp-2">
                   @if($isSchedule)
                     {{ preg_replace('/\s*\([^)]+\)\s*$/', '', $item->title) }}
@@ -157,7 +160,7 @@
 
               {{-- Footer: Link --}}
               <div class="mt-4 pt-4 border-t border-slate-200">
-                <a href="{{ route('front.post.show', $item->slug) }}" 
+                <a href="{{ $itemUrl }}"
                    class="inline-flex items-center gap-2 {{ $colors['accent'] }} text-sm font-bold hover:gap-3 transition-all">
                   <span>Lihat Daftar Peserta</span>
                   <i class="fas fa-arrow-right text-xs"></i>

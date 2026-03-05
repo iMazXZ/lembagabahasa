@@ -15,6 +15,11 @@ class CountPostView
         // Lanjutkan request dulu supaya 404/abort tetap bekerja normal
         $response = $next($request);
 
+        // Jangan hitung view untuk response non-sukses/redirect.
+        if (method_exists($response, 'isSuccessful') && ! $response->isSuccessful()) {
+            return $response;
+        }
+
         // Ambil model Post dari parameter route (implicit binding)
         // Pastikan nama parameter route kamu adalah {post}
         $routeParam = $request->route('post');

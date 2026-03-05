@@ -30,6 +30,9 @@
         <div class="lg:col-span-7">
           @php
             $isSchedule = ($featured->type ?? null) === 'schedule';
+            $featuredUrl = ($featured->type ?? null) === 'career'
+              ? route('front.career.show', $featured->slug)
+              : route('front.post.show', $featured->slug);
             $eventDate = $featured->event_date ?? null;
             $isUpcoming = $eventDate && Carbon::parse($eventDate)->isFuture();
             $daysLeft = $eventDate ? Carbon::now()->startOfDay()->diffInDays(Carbon::parse($eventDate)->startOfDay(), false) : null;
@@ -37,7 +40,7 @@
 
           <article class="relative group bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 overflow-hidden border border-slate-100">
             {{-- Image --}}
-            <a href="{{ route('front.post.show', $featured->slug) }}" class="block relative aspect-video overflow-hidden">
+            <a href="{{ $featuredUrl }}" class="block relative aspect-video overflow-hidden">
               @php $cover = $featured->cover_url ?? ''; @endphp
               @if($cover)
                 <img src="{{ $cover }}" alt="{{ $featured->title }}"
@@ -72,7 +75,7 @@
               </div>
 
               {{-- Title --}}
-              <a href="{{ route('front.post.show', $featured->slug) }}"
+              <a href="{{ $featuredUrl }}"
                  class="block text-2xl lg:text-3xl font-bold text-slate-900 hover:text-blue-600 transition-colors mb-4 leading-tight tracking-tight">
                 {{ $featured->title }}
               </a>
@@ -82,7 +85,7 @@
                 <p class="text-slate-500 text-base leading-relaxed mb-6 line-clamp-2">{{ $featured->excerpt }}</p>
               @endif
 
-              <a href="{{ route('front.post.show', $featured->slug) }}"
+              <a href="{{ $featuredUrl }}"
                  class="inline-flex items-center gap-2 text-blue-600 font-bold hover:gap-3 transition-all group/btn">
                 <span>Selengkapnya</span>
                 <svg class="w-5 h-5 transform group-hover/btn:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,6 +108,9 @@
               @foreach($others as $index => $p)
                 @php
                   $pIsSchedule = ($p->type ?? null) === 'schedule';
+                  $pUrl = ($p->type ?? null) === 'career'
+                    ? route('front.career.show', $p->slug)
+                    : route('front.post.show', $p->slug);
                   $pEventDate = $p->event_date ?? null;
                   $pIsUpcoming = $pEventDate && Carbon::parse($pEventDate)->isFuture();
                   $pDaysLeft = $pEventDate ? Carbon::now()->startOfDay()->diffInDays(Carbon::parse($pEventDate)->startOfDay(), false) : null;
@@ -142,7 +148,7 @@
                         </span>
                       @endif
                     </div>
-                    <a href="{{ route('front.post.show', $p->slug) }}"
+                    <a href="{{ $pUrl }}"
                        class="block font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-snug tracking-tight">
                       {{ $p->title }}
                     </a>

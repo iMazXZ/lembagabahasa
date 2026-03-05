@@ -4,14 +4,33 @@
     $type = $post->type ?? $post->category ?? 'news';
     $newsCategorySlug = \App\Models\Post::normalizeNewsCategory($post->news_category ?? null);
     $newsCategoryLabel = \App\Models\Post::newsCategoryLabel($newsCategorySlug);
+    $postUrl = $type === 'career'
+        ? route('front.career.show', $post->slug)
+        : route('front.post.show', $post->slug);
+    $careerDeadline = null;
+    if ($type === 'career' && !empty($post->career_deadline)) {
+        $careerDeadline = $post->career_deadline instanceof \Carbon\CarbonInterface
+            ? $post->career_deadline
+            : \Carbon\Carbon::parse($post->career_deadline);
+    }
+    $careerApplyUrl = $type === 'career' ? trim((string) ($post->career_apply_url ?? '')) : '';
+    $isCareerOpen = $type === 'career'
+        ? ((bool) ($post->career_is_open ?? true) && ($careerDeadline === null || $careerDeadline->greaterThanOrEqualTo(now())))
+        : false;
+    $careerStatusLabel = $isCareerOpen ? 'Dibuka' : 'Ditutup';
+    $careerStatusClass = $isCareerOpen
+        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        : 'bg-rose-50 text-rose-700 border-rose-200';
 
     $chipClass = match ($type) {
+        'career'   => 'bg-amber-50 text-amber-700',
         'schedule' => 'bg-emerald-50 text-emerald-700',
         'scores'   => 'bg-violet-50 text-violet-700',
         default    => 'bg-blue-50 text-blue-700',
     };
 
     $chipLabel = match ($type) {
+        'career'   => 'Karier',
         'schedule' => 'Jadwal',
         'scores'   => 'Nilai',
         default    => $newsCategoryLabel,
@@ -66,7 +85,7 @@
             @endif
           </div>
 
-          <a href="{{ route('front.post.show', $post->slug) }}"
+          <a href="{{ $postUrl }}"
              class="block text-lg lg:text-xl font-extrabold text-slate-900 mb-3 line-clamp-2 sm:group-hover:text-blue-700 transition-colors"
              aria-label="Baca {{ $post->title }}">
             {{ preg_replace('/\s*\([^)]+\)\s*$/', '', $post->title) }}
@@ -102,7 +121,7 @@
       </div>
 
       <div class="mt-5 flex flex-wrap gap-2">
-        <a href="{{ route('front.post.show', $post->slug) }}"
+        <a href="{{ $postUrl }}"
            class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors">
           Detail Jadwal
         </a>
@@ -117,7 +136,7 @@
     </div>
   @else
     @unless($compact)
-      <a href="{{ route('front.post.show', $post->slug) }}"
+      <a href="{{ $postUrl }}"
          aria-label="Baca {{ $post->title }}"
          class="block relative h-56 overflow-hidden bg-gray-200">
         @if(!empty($post->cover_url))
@@ -145,6 +164,12 @@
           {{ strtoupper($chipLabel) }}
         </span>
 
+        @if($type === 'career')
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium {{ $careerStatusClass }}">
+            {{ strtoupper($careerStatusLabel) }}
+          </span>
+        @endif
+
         @if($post->published_at)
           <span class="text-slate-400">•</span>
           <time datetime="{{ $post->published_at->toDateString() }}">
@@ -153,8 +178,14 @@
         @endif
       </div>
 
+      @if($type === 'career' && $careerDeadline)
+        <div class="mb-3 text-xs font-medium {{ $isCareerOpen ? 'text-emerald-700' : 'text-rose-700' }}">
+          Deadline: {{ $careerDeadline->translatedFormat('d M Y, H:i') }} WIB
+        </div>
+      @endif
+
       {{-- Title --}}
-      <a href="{{ route('front.post.show', $post->slug) }}"
+      <a href="{{ $postUrl }}"
          class="block text-lg lg:text-xl font-bold text-gray-900 mb-3 line-clamp-2 sm:group-hover:text-blue-600 transition-colors duration-300"
          aria-label="Baca {{ $post->title }}">
         {{ $post->title }}
@@ -169,15 +200,38 @@
         @endif
       @endunless
 
-      {{-- Read more --}}
-      <a href="{{ route('front.post.show', $post->slug) }}"
-         class="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm sm:hover:gap-3 transition-all duration-300"
-         aria-label="Baca {{ $post->title }}">
-        <span>Baca Selengkapnya</span>
-        <svg class="w-4 h-4 sm:group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-      </a>
+      @if($type === 'career')
+        <div class="flex flex-wrap items-center gap-2">
+          @if($isCareerOpen && $careerApplyUrl !== '')
+            <a href="{{ $careerApplyUrl }}"
+               target="_blank"
+               rel="noopener noreferrer nofollow"
+               class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors"
+               aria-label="Daftar sekarang untuk {{ $post->title }}">
+              <span>Daftar Sekarang</span>
+            </a>
+          @endif
+
+          <a href="{{ $postUrl }}"
+             class="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm sm:hover:gap-3 transition-all duration-300"
+             aria-label="Lihat detail {{ $post->title }}">
+            <span>Lihat Detail</span>
+            <svg class="w-4 h-4 sm:group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      @else
+        {{-- Read more --}}
+        <a href="{{ $postUrl }}"
+           class="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm sm:hover:gap-3 transition-all duration-300"
+           aria-label="Baca {{ $post->title }}">
+          <span>Baca Selengkapnya</span>
+          <svg class="w-4 h-4 sm:group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+      @endif
     </div>
   @endif
 </article>

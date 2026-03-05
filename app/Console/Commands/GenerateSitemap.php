@@ -45,6 +45,12 @@ class GenerateSitemap extends Command
                     ->setLastModificationDate($now)
             )
             ->add(
+                SitemapUrl::create(route('front.career'))
+                    ->setPriority(0.85)
+                    ->setChangeFrequency(SitemapUrl::CHANGE_FREQUENCY_DAILY)
+                    ->setLastModificationDate($now)
+            )
+            ->add(
                 SitemapUrl::create(route('front.schedule'))
                     ->setPriority(0.8)
                     ->setChangeFrequency(SitemapUrl::CHANGE_FREQUENCY_WEEKLY)
@@ -78,17 +84,21 @@ class GenerateSitemap extends Command
             );
         }
 
-        // ===== Detail Post indexable (news only) =====
+        // ===== Detail Post indexable (news + career) =====
         // Schedule/scores detail mengikuti kebijakan noindex, jadi tidak dimasukkan ke sitemap.
         Post::query()
             ->published()
-            ->where('type', 'news')
+            ->whereIn('type', ['news', 'career'])
             ->orderByDesc('updated_at')
             ->chunk(500, function ($posts) use ($sitemap) {
                 /** @var \App\Models\Post $post */
                 foreach ($posts as $post) {
+                    $detailUrl = $post->type === 'career'
+                        ? route('front.career.show', $post->slug)
+                        : route('front.post.show', $post->slug);
+
                     $sitemap->add(
-                        SitemapUrl::create(route('front.post.show', $post->slug))
+                        SitemapUrl::create($detailUrl)
                             ->setPriority(0.8)
                             ->setChangeFrequency(SitemapUrl::CHANGE_FREQUENCY_DAILY)
                             ->setLastModificationDate($post->updated_at ?? $post->published_at ?? $post->created_at)

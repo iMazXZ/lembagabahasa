@@ -14,6 +14,7 @@
         'news' => $newsCategoryLabel
             ? route('front.news.category', ['newsCategory' => $activeNewsCategory])
             : route('front.news'),
+        'career' => route('front.career'),
         'schedule' => route('front.schedule'),
         'scores'   => route('front.scores'),
         default    => route('front.news'),
@@ -22,13 +23,15 @@
     $metaHasVariants = request()->has('page')
         || trim((string) request('q')) !== ''
         || request()->has('sort')
-        || ($metaCategory === 'news' && trim((string) request('kategori')) !== '');
+        || ($metaCategory === 'news' && trim((string) request('kategori')) !== '')
+        || ($metaCategory === 'career' && trim((string) request('status')) !== '' && request('status') !== 'open');
 
-    $metaRobots = in_array($metaCategory, ['news', 'schedule', 'scores'], true) && !$metaHasVariants
+    $metaRobots = in_array($metaCategory, ['news', 'career', 'schedule', 'scores'], true) && !$metaHasVariants
         ? 'index,follow'
         : 'noindex,follow';
 
     $metaDescription = match ($metaCategory) {
+        'career' => 'Informasi lowongan dan peluang karier terbaru dari Lembaga Bahasa UM Metro.',
         'schedule' => 'Jadwal tes EPT terbaru dari Lembaga Bahasa UM Metro.',
         'scores'   => 'Informasi nilai tes EPT terbaru dari Lembaga Bahasa UM Metro.',
         default    => $newsCategoryLabel
@@ -47,11 +50,13 @@
   @php
     $heroCategory = $category ?? '';
     $heroBadge = match ($heroCategory) {
+        'career' => 'Karier',
         'schedule' => 'Jadwal EPT',
         'scores'   => 'Nilai EPT',
         default    => $newsCategoryLabel ? 'Kategori: ' . $newsCategoryLabel : 'Informasi Lembaga',
     };
     $heroSubtitle = match ($heroCategory) {
+        'career' => 'Lihat lowongan terbaru, status rekrutmen, dan tautan pendaftaran.',
         'schedule' => 'Pantau jadwal tes EPT terbaru dan informasi pelaksanaan.',
         'scores'   => 'Cek pengumuman nilai EPT terbaru di sini.',
         default    => $newsCategoryLabel
@@ -106,8 +111,26 @@
       </div>
     @endif
 
+    @if(($category ?? '') === 'career' && !empty($careerStatusMenu ?? []))
+      <div class="mb-6">
+        <div class="flex flex-wrap gap-2">
+          @foreach($careerStatusMenu as $item)
+            <a href="{{ $item['url'] }}"
+               class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium transition {{ $item['active'] ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700' }}">
+              <span>{{ $item['label'] }}</span>
+              <span class="text-xs {{ $item['active'] ? 'text-blue-100' : 'text-gray-500' }}">({{ $item['count'] }})</span>
+            </a>
+          @endforeach
+        </div>
+      </div>
+    @endif
+
     {{-- FILTER BAR (q + sort). Tipe mengikuti route, jadi tidak dipilih ulang di sini --}}
     <form method="GET" class="mb-8">
+      @if(($category ?? '') === 'career' && filled($careerStatus ?? null) && $careerStatus !== 'open')
+        <input type="hidden" name="status" value="{{ $careerStatus }}">
+      @endif
+
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
         {{-- Cari --}}
         <div class="flex-1">
@@ -160,7 +183,7 @@
       </div>
 
       {{-- Chip info filter aktif (opsional) --}}
-      @if(request('q') || request('sort'))
+      @if(request('q') || request('sort') || (($category ?? '') === 'career' && filled($careerStatus ?? null)))
         <div class="mt-3 flex flex-wrap gap-2 text-xs">
           @if(request('q'))
             <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700">
@@ -170,6 +193,11 @@
           @if(request('sort'))
             <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700">
               Sort: {{ strtoupper(request('sort')) }}
+            </span>
+          @endif
+          @if(($category ?? '') === 'career' && filled($careerStatus ?? null))
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
+              Status: {{ strtoupper($careerStatus) }}
             </span>
           @endif
         </div>
