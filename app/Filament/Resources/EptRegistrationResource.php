@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\EptRegistrationResource\Pages;
 use App\Models\EptRegistration;
-use App\Models\SiteSetting;
 use App\Support\LegacyBasicListeningScores;
 use App\Services\WhatsAppService;
 use Filament\Forms;
@@ -53,19 +52,25 @@ class EptRegistrationResource extends Resource
                 Forms\Components\Placeholder::make('student_status')
                     ->label('Status Peserta')
                     ->content(fn ($record) => $record?->student_status_label ?? '-'),
+                Forms\Components\Placeholder::make('registration_status')
+                    ->label('Status Pendaftaran')
+                    ->content(function ($record): string {
+                        return match ($record->status) {
+                            'pending' => 'Menunggu',
+                            'approved' => 'Disetujui',
+                            'rejected' => 'Ditolak',
+                            default => (string) $record->status,
+                        };
+                    }),
+                Forms\Components\Placeholder::make('rejection_reason')
+                    ->label('Alasan Ditolak')
+                    ->content(fn ($record) => filled($record->rejection_reason) ? $record->rejection_reason : '-')
+                    ->visible(fn ($record): bool => $record->status === 'rejected'),
             ])->columns(3),
 
             Forms\Components\Section::make('Nilai Pendukung EPT')
                 ->description('Ringkasan nilai biodata yang dipakai untuk evaluasi syarat EPT.')
                 ->schema([
-                    Forms\Components\Placeholder::make('ept_biodata_status')
-                        ->label('Status Biodata EPT')
-                        ->content(fn (EptRegistration $record): string => SiteSetting::isEptBiodataComplete($record->user)
-                            ? 'Lengkap'
-                            : 'Belum lengkap'),
-                    Forms\Components\Placeholder::make('ept_requirement_scheme')
-                        ->label('Skema Syarat Nilai')
-                        ->content(fn (EptRegistration $record): string => static::eptRequirementScheme($record)),
                     Forms\Components\Placeholder::make('basic_listening_score')
                         ->label('Nilai Basic Listening')
                         ->content(fn (EptRegistration $record): string => static::basicListeningSummary($record)),
@@ -114,6 +119,14 @@ class EptRegistrationResource extends Resource
                     ->content(fn ($record) => view('filament.components.image-preview', [
                         'url' => Storage::url($record->bukti_pembayaran),
                     ])),
+                Forms\Components\Actions::make([
+                    Forms\Components\Actions\Action::make('download_bukti_pembayaran')
+                        ->label('Download Bukti Pembayaran')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('info')
+                        ->visible(fn (?EptRegistration $record): bool => filled($record?->bukti_pembayaran))
+                        ->action(fn (?EptRegistration $record) => $record ? static::downloadPaymentProof($record) : null),
+                ]),
             ]),
         ]);
     }
@@ -125,13 +138,16 @@ class EptRegistrationResource extends Resource
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Nama')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('user.srn')
                     ->label('NPM')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('user.prody.name')
                     ->label('Prodi')
-                    ->limit(20),
+                    ->limit(20)
+                    ->toggleable(),
                 Tables\Columns\BadgeColumn::make('student_status')
                     ->label('Status Peserta')
                     ->color(fn (?string $state): string => match ($state) {
@@ -142,7 +158,8 @@ class EptRegistrationResource extends Resource
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (?string $state) => filled($state) ? EptRegistration::studentStatusLabel($state) : 'Belum diisi')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Status')
                     ->colors([
@@ -155,7 +172,8 @@ class EptRegistrationResource extends Resource
                         'approved' => 'Disetujui',
                         'rejected' => 'Ditolak',
                         default => $state,
-                    }),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('assigned_groups')
                     ->label('Grup Tes')
                     ->getStateUsing(function (EptRegistration $record): string {
@@ -174,18 +192,20 @@ class EptRegistrationResource extends Resource
                         ])->filter()->implode(' / ');
 
                         return $groups !== '' ? $groups : null;
-                    }),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('Tanggal Disetujui')
                     ->dateTime('d M Y, H:i')
                     ->sortable()
-                    ->toggleable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->getStateUsing(fn ($record) => $record->status === 'approved' ? $record->updated_at : null)
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Tanggal Daftar')
                     ->dateTime('d M Y, H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
@@ -227,29 +247,70 @@ class EptRegistrationResource extends Resource
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('info')
                         ->visible(fn ($record) => !empty($record->bukti_pembayaran))
-                        ->action(function ($record) {
-                            $publicDisk = Storage::disk('public');
+                        ->action(fn (EptRegistration $record) => static::downloadPaymentProof($record)),
+                    Tables\Actions\Action::make('edit_student_status')
+                        ->label('Ubah Status Peserta')
+                        ->icon('heroicon-o-identification')
+                        ->color('gray')
+                        ->form(function (EptRegistration $record): array {
+                            return [
+                                Forms\Components\Select::make('student_status')
+                                    ->label('Status Peserta')
+                                    ->options(EptRegistration::studentStatusOptions())
+                                    ->default($record->student_status)
+                                    ->required()
+                                    ->native(false),
+                            ];
+                        })
+                        ->action(function (EptRegistration $record, array $data): void {
+                            $newStatus = (string) ($data['student_status'] ?? '');
+                            $oldStatus = (string) $record->student_status;
 
-                            if (!$publicDisk->exists($record->bukti_pembayaran)) {
+                            if ($newStatus === '' || $newStatus === $oldStatus) {
                                 Notification::make()
-                                    ->danger()
-                                    ->title('File tidak ditemukan')
+                                    ->info()
+                                    ->title('Tidak ada perubahan')
+                                    ->body('Status peserta tetap sama.')
                                     ->send();
+
                                 return;
                             }
 
-                            $filePath = $publicDisk->path($record->bukti_pembayaran);
-                            $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
-                            $image = $manager->read($filePath);
-                            $pngData = $image->toPng();
+                            $oldGroup2 = $record->grup_2_id;
+                            $oldGroup3 = $record->grup_3_id;
 
-                            $filename = 'bukti_pembayaran_' . $record->user->srn . '_' . now()->format('Ymd') . '.png';
+                            $payload = [
+                                'student_status' => $newStatus,
+                            ];
 
-                            return response()->streamDownload(function () use ($pngData) {
-                                echo $pngData;
-                            }, $filename, [
-                                'Content-Type' => 'image/png',
-                            ]);
+                            if ($newStatus === EptRegistration::STUDENT_STATUS_GENERAL) {
+                                $payload['grup_2_id'] = null;
+                                $payload['grup_3_id'] = null;
+                            }
+
+                            $record->update($payload);
+                            $record->refresh();
+
+                            $body = 'Status peserta berhasil diperbarui.';
+
+                            if (
+                                $newStatus === EptRegistration::STUDENT_STATUS_GENERAL
+                                && ($oldGroup2 !== null || $oldGroup3 !== null)
+                            ) {
+                                $body .= ' Grup tes 2 dan 3 dikosongkan karena peserta General hanya 1 grup.';
+                            } elseif (
+                                $record->status === 'approved'
+                                && $newStatus !== EptRegistration::STUDENT_STATUS_GENERAL
+                                && ($record->grup_2_id === null || $record->grup_3_id === null)
+                            ) {
+                                $body .= ' Lengkapi penetapan Grup Tes 2 dan 3 lewat aksi "Ubah Grup".';
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title('Status Peserta Diperbarui')
+                                ->body($body)
+                                ->send();
                         }),
                     Tables\Actions\Action::make('approve')
                         ->label('Setujui')
@@ -340,6 +401,82 @@ class EptRegistrationResource extends Resource
                                 ->success()
                                 ->title('Pendaftaran Disetujui')
                                 ->body('Peserta berhasil ditambahkan ke grup. Notifikasi WA telah dikirim.')
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('edit_groups')
+                        ->label('Ubah Grup')
+                        ->icon('heroicon-o-pencil-square')
+                        ->color('warning')
+                        ->visible(fn ($record) => $record->status === 'approved')
+                        ->form(function (EptRegistration $record): array {
+                            $isGeneral = $record->isGeneralParticipant();
+                            $groupOptions = \App\Models\EptGroup::query()
+                                ->latest('id')
+                                ->pluck('name', 'id')
+                                ->all();
+
+                            return [
+                                Forms\Components\Placeholder::make('participant_rule')
+                                    ->label('Skema Tes')
+                                    ->content($isGeneral
+                                        ? 'Peserta General hanya dijadwalkan ke 1 grup tes.'
+                                        : 'Peserta kampus dijadwalkan ke 3 grup tes yang berbeda.'),
+                                Forms\Components\Select::make('grup_1_id')
+                                    ->label($isGeneral ? 'Grup Tes' : 'Grup Tes 1')
+                                    ->options($groupOptions)
+                                    ->default($record->grup_1_id)
+                                    ->searchable()
+                                    ->preload()
+                                    ->required(),
+                                Forms\Components\Select::make('grup_2_id')
+                                    ->label('Grup Tes 2')
+                                    ->options($groupOptions)
+                                    ->default($record->grup_2_id)
+                                    ->searchable()
+                                    ->preload()
+                                    ->helperText('Grup Tes 1, 2, dan 3 wajib berbeda.')
+                                    ->hidden($isGeneral)
+                                    ->dehydrated(! $isGeneral)
+                                    ->required(! $isGeneral),
+                                Forms\Components\Select::make('grup_3_id')
+                                    ->label('Grup Tes 3')
+                                    ->options($groupOptions)
+                                    ->default($record->grup_3_id)
+                                    ->searchable()
+                                    ->preload()
+                                    ->hidden($isGeneral)
+                                    ->dehydrated(! $isGeneral)
+                                    ->required(! $isGeneral),
+                            ];
+                        })
+                        ->action(function ($record, array $data) {
+                            $groupAssignments = [
+                                $data['grup_1_id'] ?? null,
+                            ];
+
+                            if (! $record->isGeneralParticipant()) {
+                                $groupAssignments[] = $data['grup_2_id'] ?? null;
+                                $groupAssignments[] = $data['grup_3_id'] ?? null;
+                            }
+
+                            if (! EptRegistration::hasDistinctGroupAssignments($groupAssignments)) {
+                                throw ValidationException::withMessages([
+                                    'grup_1_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
+                                    'grup_2_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
+                                    'grup_3_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
+                                ]);
+                            }
+
+                            $record->update([
+                                'grup_1_id' => $data['grup_1_id'],
+                                'grup_2_id' => $record->isGeneralParticipant() ? null : ($data['grup_2_id'] ?? null),
+                                'grup_3_id' => $record->isGeneralParticipant() ? null : ($data['grup_3_id'] ?? null),
+                            ]);
+
+                            Notification::make()
+                                ->success()
+                                ->title('Grup Tes Diperbarui')
+                                ->body('Penetapan grup tes berhasil diubah.')
                                 ->send();
                         }),
                     Tables\Actions\Action::make('reject')
@@ -465,41 +602,33 @@ class EptRegistrationResource extends Resource
         ];
     }
 
-    protected static function eptRequirementScheme(EptRegistration $record): string
+    protected static function downloadPaymentProof(EptRegistration $record)
     {
-        $user = $record->user;
-        if (! $user) {
-            return 'Data user tidak tersedia.';
+        $proofPath = (string) ($record->bukti_pembayaran ?? '');
+        $publicDisk = Storage::disk('public');
+
+        if ($proofPath === '' || ! $publicDisk->exists($proofPath)) {
+            Notification::make()
+                ->danger()
+                ->title('File tidak ditemukan')
+                ->send();
+
+            return null;
         }
 
-        $prodyName = $user?->prody?->name ?? '';
-        $year = (int) ($user?->year ?? 0);
-
-        if (! $year || $year > 2024) {
-            return 'Tidak memakai syarat nilai legacy.';
+        $extension = strtolower((string) pathinfo($proofPath, PATHINFO_EXTENSION));
+        if ($extension === '') {
+            $extension = 'jpg';
         }
 
-        if ($prodyName !== '' && str_starts_with($prodyName, 'S2')) {
-            return 'Mahasiswa S2 tidak memakai syarat nilai legacy.';
-        }
+        $filename = sprintf(
+            'bukti_pembayaran_%s_%s.%s',
+            $record->user?->srn ?? $record->id,
+            now()->format('Ymd_His'),
+            $extension
+        );
 
-        if ($prodyName === 'Pendidikan Bahasa Inggris') {
-            return 'Wajib Interactive Bahasa Inggris semester 1 sampai 6.';
-        }
-
-        if (in_array($prodyName, [
-            'Komunikasi dan Penyiaran Islam',
-            'Pendidikan Agama Islam',
-            'Pendidikan Islam Anak Usia Dini',
-        ], true)) {
-            return 'Wajib Basic Listening dan Interactive Bahasa Arab 1-2.';
-        }
-
-        if (in_array(strtolower(trim($prodyName)), ['umum', 'program studi umum'], true)) {
-            return 'Program Studi Umum tidak memakai Basic Listening.';
-        }
-
-        return 'Wajib Basic Listening.';
+        return response()->download($publicDisk->path($proofPath), $filename);
     }
 
     protected static function basicListeningSummary(EptRegistration $record): string
