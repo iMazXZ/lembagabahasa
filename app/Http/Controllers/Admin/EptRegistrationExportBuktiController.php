@@ -19,6 +19,7 @@ class EptRegistrationExportBuktiController extends Controller
     private const MAX_ITEMS = 20;
     private const MAX_ITEMS_PER_PDF = 8;
     private const MAX_ROWS_PER_PAGE = 10;
+    private const DEFAULT_ROWS_PER_PAGE = 4;
     private const TOKEN_TTL_SECONDS = 21600;
     private const TEMP_CROP_TTL_SECONDS = 21600;
     private const TEMP_CROP_BASE_DIR = 'exports/ept-registration-bukti-crops';
@@ -79,6 +80,7 @@ class EptRegistrationExportBuktiController extends Controller
             'cropSaveRoute' => route('admin.ept-registration-export-bukti.crop-save'),
             'downloadButtonText' => 'Download ZIP (PDF Batch)',
             'processingText' => 'Membuat ZIP PDF...',
+            'defaultRowsPerPage' => self::DEFAULT_ROWS_PER_PAGE,
         ]);
     }
 
@@ -108,7 +110,7 @@ class EptRegistrationExportBuktiController extends Controller
         }
 
         $rowsData = json_decode($request->input('rows'), true);
-        $rowsPerPage = (int) $request->input('rows_per_page', 3);
+        $rowsPerPage = (int) $request->input('rows_per_page', self::DEFAULT_ROWS_PER_PAGE);
 
         if (!is_array($rowsData) || empty($rowsData)) {
             return response()->json(['error' => 'Data baris tidak valid.'], 422);

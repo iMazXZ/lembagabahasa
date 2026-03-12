@@ -8,6 +8,17 @@
     $generateRoute = $generateRoute ?? route('admin.export-bukti.generate');
     $downloadButtonText = $downloadButtonText ?? 'Preview PDF';
     $processingText = $processingText ?? 'Membuat PDF...';
+    $rowsPerPageOptions = $rowsPerPageOptions ?? [2, 3, 4, 5];
+    $rowsPerPageOptions = collect($rowsPerPageOptions)
+        ->map(fn ($value) => (int) $value)
+        ->filter(fn ($value) => $value > 0)
+        ->unique()
+        ->values()
+        ->all();
+    $defaultRowsPerPage = (int) ($defaultRowsPerPage ?? 3);
+    if (!in_array($defaultRowsPerPage, $rowsPerPageOptions, true)) {
+        $defaultRowsPerPage = $rowsPerPageOptions[0] ?? 3;
+    }
 @endphp
 <head>
     <meta charset="UTF-8">
@@ -40,6 +51,25 @@
                 <a href="{{ $backUrl }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
                     <i class="fa-solid fa-arrow-left mr-1"></i> {{ $backLabel }}
                 </a>
+            </div>
+        </div>
+
+        {{-- Quick Export Settings --}}
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <label for="rowsPerPage" class="font-medium text-gray-700">Baris per Halaman:</label>
+                    <select id="rowsPerPage" class="border rounded-lg px-3 py-2 text-sm">
+                        @foreach($rowsPerPageOptions as $option)
+                            <option value="{{ $option }}" @selected($option === $defaultRowsPerPage)>
+                                {{ $option }} Baris
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="button" onclick="previewPdf()" id="downloadBtn" class="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition disabled:opacity-50">
+                    <i class="fa-solid fa-eye mr-2"></i> {{ $downloadButtonText }}
+                </button>
             </div>
         </div>
 
@@ -92,24 +122,6 @@
             <button onclick="addRow()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition">
                 <i class="fa-solid fa-plus mr-2"></i> Tambah Baris
             </button>
-        </div>
-
-        {{-- PDF Settings & Download --}}
-        <div class="bg-white rounded-lg shadow p-4 mb-6">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center gap-4">
-                    <span class="font-medium text-gray-700">Baris per Halaman:</span>
-                    <select id="rowsPerPage" class="border rounded-lg px-3 py-2 text-sm">
-                        <option value="2">2 Baris</option>
-                        <option value="3" selected>3 Baris</option>
-                        <option value="4">4 Baris</option>
-                        <option value="5">5 Baris</option>
-                    </select>
-                </div>
-                <button type="button" onclick="previewPdf()" id="downloadBtn" class="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition disabled:opacity-50">
-                    <i class="fa-solid fa-eye mr-2"></i> {{ $downloadButtonText }}
-                </button>
-            </div>
         </div>
 
         {{-- Loading Overlay --}}
@@ -177,6 +189,9 @@
         const cropSaveRoute = @json($cropSaveRoute);
         const generateRoute = @json($generateRoute);
         const processingText = @json($processingText);
+        const cropOutputMaxSize = 1800;
+        const cropWebpQuality = 0.82;
+        const cropJpegQuality = 0.86;
         
         document.addEventListener('DOMContentLoaded', function() {
             sourceSortable = new Sortable(document.getElementById('source-items'), {
@@ -352,7 +367,12 @@
         function saveCrop() {
             if (!cropper || !currentCropId) return;
             
-            const canvas = cropper.getCroppedCanvas();
+            const canvas = cropper.getCroppedCanvas({
+                maxWidth: cropOutputMaxSize,
+                maxHeight: cropOutputMaxSize,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
             if (!canvas) {
                 alert('Tidak dapat memproses gambar');
                 return;
@@ -361,9 +381,13 @@
             showLoading('Menyimpan...');
             document.getElementById('save-crop-btn').disabled = true;
             
-            canvas.toBlob(function(blob) {
+            buildOptimizedCropBlob(canvas).then(({ blob, filename }) => {
+                if (!blob) {
+                    throw new Error('Gagal membuat file gambar.');
+                }
+
                 const formData = new FormData();
-                formData.append('image', blob, 'cropped.jpg');
+                formData.append('image', blob, filename);
                 formData.append('id', currentCropId);
                 formData.append('selection_token', selectionToken);
                 formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
@@ -409,7 +433,31 @@
                     document.getElementById('save-crop-btn').disabled = false;
                     alert('Error: ' + err.message);
                 });
-            }, 'image/jpeg', 0.9);
+            }).catch((err) => {
+                hideLoading();
+                document.getElementById('save-crop-btn').disabled = false;
+                alert('Error: ' + err.message);
+            });
+        }
+
+        function buildOptimizedCropBlob(canvas) {
+            return new Promise((resolve, reject) => {
+                canvas.toBlob((webpBlob) => {
+                    if (webpBlob && webpBlob.size > 0) {
+                        resolve({ blob: webpBlob, filename: 'cropped.webp' });
+                        return;
+                    }
+
+                    canvas.toBlob((jpegBlob) => {
+                        if (jpegBlob && jpegBlob.size > 0) {
+                            resolve({ blob: jpegBlob, filename: 'cropped.jpg' });
+                            return;
+                        }
+
+                        reject(new Error('Tidak dapat mengekspor hasil crop.'));
+                    }, 'image/jpeg', cropJpegQuality);
+                }, 'image/webp', cropWebpQuality);
+            });
         }
         
         function showLoading(text = 'Memproses...') {
