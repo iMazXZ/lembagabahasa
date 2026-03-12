@@ -33,6 +33,13 @@ class EptGroupResource extends Resource
                     ->label('Nama Grup')
                     ->required()
                     ->placeholder('Contoh: Grup 001 Pasca'),
+                Forms\Components\TextInput::make('quota')
+                    ->label('Kuota Peserta')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(20)
+                    ->required()
+                    ->helperText('Batas maksimal peserta yang bisa dimasukkan ke grup ini.'),
                 Forms\Components\DateTimePicker::make('jadwal')
                     ->label('Jadwal Tes')
                     ->native(false)
@@ -53,6 +60,10 @@ class EptGroupResource extends Resource
                     ->label('Nama Grup')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('quota')
+                    ->label('Kuota')
+                    ->alignCenter()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('jadwal')
                     ->label('Jadwal Tes')
                     ->dateTime('d M Y, H:i')
@@ -67,6 +78,14 @@ class EptGroupResource extends Resource
                     ->getStateUsing(fn (EptGroup $record) => 
                         $record->allRegistrations()->count()
                     ),
+                Tables\Columns\TextColumn::make('remaining_quota')
+                    ->label('Sisa')
+                    ->alignCenter()
+                    ->getStateUsing(function (EptGroup $record): int {
+                        $remaining = (int) $record->quota - $record->allRegistrations()->count();
+
+                        return max(0, $remaining);
+                    }),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d M Y')

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\EptRegistrationResource\Pages;
+use App\Models\EptGroup;
 use App\Models\EptRegistration;
 use App\Support\LegacyBasicListeningScores;
 use App\Services\WhatsAppService;
@@ -319,35 +320,36 @@ class EptRegistrationResource extends Resource
                         ->visible(fn ($record) => $record->status === 'pending')
                         ->form(function (EptRegistration $record): array {
                             $isGeneral = $record->isGeneralParticipant();
-                            $groupOptions = \App\Models\EptGroup::query()
-                                ->latest('id')
-                                ->pluck('name', 'id')
-                                ->all();
+                            $groupOptionMeta = static::buildGroupOptionMeta();
+                            $groupOptions = $groupOptionMeta['options'];
+                            $disabledGroupOptions = $groupOptionMeta['disabled'];
 
                             return [
                                 Forms\Components\Placeholder::make('participant_rule')
                                     ->label('Skema Tes')
                                     ->content($isGeneral
                                         ? 'Peserta General hanya dijadwalkan ke 1 grup tes.'
-                                        : 'Peserta kampus dijadwalkan ke 3 grup tes yang berbeda.'),
+                                        : 'Peserta dijadwalkan ke 3 grup tes yang berbeda.'),
                                 Forms\Components\Select::make('grup_1_id')
                                     ->label($isGeneral ? 'Grup Tes' : 'Grup Tes 1')
                                     ->options($groupOptions)
+                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
                                     ->searchable()
                                     ->preload()
                                     ->required(),
                                 Forms\Components\Select::make('grup_2_id')
                                     ->label('Grup Tes 2')
                                     ->options($groupOptions)
+                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
                                     ->searchable()
                                     ->preload()
-                                    ->helperText('Grup Tes 1, 2, dan 3 wajib berbeda.')
                                     ->hidden($isGeneral)
                                     ->dehydrated(! $isGeneral)
                                     ->required(! $isGeneral),
                                 Forms\Components\Select::make('grup_3_id')
                                     ->label('Grup Tes 3')
                                     ->options($groupOptions)
+                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
                                     ->searchable()
                                     ->preload()
                                     ->hidden($isGeneral)
@@ -372,6 +374,8 @@ class EptRegistrationResource extends Resource
                                     'grup_3_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
                                 ]);
                             }
+
+                            static::ensureQuotaAvailableForGroups($groupAssignments);
 
                             $record->update([
                                 'status' => 'approved',
@@ -410,21 +414,21 @@ class EptRegistrationResource extends Resource
                         ->visible(fn ($record) => $record->status === 'approved')
                         ->form(function (EptRegistration $record): array {
                             $isGeneral = $record->isGeneralParticipant();
-                            $groupOptions = \App\Models\EptGroup::query()
-                                ->latest('id')
-                                ->pluck('name', 'id')
-                                ->all();
+                            $groupOptionMeta = static::buildGroupOptionMeta($record);
+                            $groupOptions = $groupOptionMeta['options'];
+                            $disabledGroupOptions = $groupOptionMeta['disabled'];
 
                             return [
                                 Forms\Components\Placeholder::make('participant_rule')
                                     ->label('Skema Tes')
                                     ->content($isGeneral
-                                        ? 'Peserta General hanya dijadwalkan ke 1 grup tes.'
-                                        : 'Peserta kampus dijadwalkan ke 3 grup tes yang berbeda.'),
+                                        ? 'Peserta Umum hanya dijadwalkan ke 1 grup tes.'
+                                        : 'Peserta dijadwalkan ke 3 grup tes yang berbeda.'),
                                 Forms\Components\Select::make('grup_1_id')
                                     ->label($isGeneral ? 'Grup Tes' : 'Grup Tes 1')
                                     ->options($groupOptions)
                                     ->default($record->grup_1_id)
+                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
                                     ->searchable()
                                     ->preload()
                                     ->required(),
@@ -432,9 +436,9 @@ class EptRegistrationResource extends Resource
                                     ->label('Grup Tes 2')
                                     ->options($groupOptions)
                                     ->default($record->grup_2_id)
+                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
                                     ->searchable()
                                     ->preload()
-                                    ->helperText('Grup Tes 1, 2, dan 3 wajib berbeda.')
                                     ->hidden($isGeneral)
                                     ->dehydrated(! $isGeneral)
                                     ->required(! $isGeneral),
@@ -442,6 +446,7 @@ class EptRegistrationResource extends Resource
                                     ->label('Grup Tes 3')
                                     ->options($groupOptions)
                                     ->default($record->grup_3_id)
+                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
                                     ->searchable()
                                     ->preload()
                                     ->hidden($isGeneral)
@@ -466,6 +471,8 @@ class EptRegistrationResource extends Resource
                                     'grup_3_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
                                 ]);
                             }
+
+                            static::ensureQuotaAvailableForGroups($groupAssignments, $record);
 
                             $record->update([
                                 'grup_1_id' => $data['grup_1_id'],
@@ -600,6 +607,127 @@ class EptRegistrationResource extends Resource
             'index' => Pages\ListEptRegistrations::route('/'),
             'view' => Pages\ViewEptRegistration::route('/{record}'),
         ];
+    }
+
+    /**
+     * Bangun opsi grup: "Nama Grup (terisi/kuota)" + daftar grup yang sudah penuh.
+     *
+     * @return array{
+     *     options: array<int, string>,
+     *     disabled: array<int, bool>
+     * }
+     */
+    protected static function buildGroupOptionMeta(?EptRegistration $contextRecord = null): array
+    {
+        $groups = EptGroup::query()
+            ->select(['id', 'name', 'quota'])
+            ->whereNull('jadwal')
+            ->withCount([
+                'registrationsAsGrup1',
+                'registrationsAsGrup2',
+                'registrationsAsGrup3',
+            ])
+            ->latest('id')
+            ->get();
+
+        $currentGroupIds = array_values(array_filter([
+            $contextRecord?->grup_1_id,
+            $contextRecord?->grup_2_id,
+            $contextRecord?->grup_3_id,
+        ]));
+
+        $options = [];
+        $disabled = [];
+
+        foreach ($groups as $group) {
+            $participantCount = (int) (
+                ($group->registrations_as_grup1_count ?? 0)
+                + ($group->registrations_as_grup2_count ?? 0)
+                + ($group->registrations_as_grup3_count ?? 0)
+            );
+
+            // Saat edit record yang sudah ada, slot grup miliknya sendiri tidak boleh dianggap penuh.
+            if (in_array($group->id, $currentGroupIds, true) && $participantCount > 0) {
+                $participantCount--;
+            }
+
+            $quota = max(1, (int) ($group->quota ?? 0));
+            $options[$group->id] = sprintf('%s (%d/%d)', $group->name, $participantCount, $quota);
+
+            if ($participantCount >= $quota) {
+                $disabled[$group->id] = true;
+            }
+        }
+
+        return [
+            'options' => $options,
+            'disabled' => $disabled,
+        ];
+    }
+
+    /**
+     * Validasi server-side agar kuota tetap aman walau ada race condition.
+     */
+    protected static function ensureQuotaAvailableForGroups(array $groupAssignments, ?EptRegistration $contextRecord = null): void
+    {
+        $groupIds = array_values(array_unique(array_filter(
+            array_map(
+                static fn ($groupId) => filled($groupId) ? (int) $groupId : null,
+                $groupAssignments,
+            ),
+            static fn ($groupId) => $groupId !== null,
+        )));
+
+        if ($groupIds === []) {
+            return;
+        }
+
+        $groups = EptGroup::query()
+            ->whereIn('id', $groupIds)
+            ->get(['id', 'name', 'quota', 'jadwal']);
+
+        foreach ($groups as $group) {
+            if ($group->jadwal !== null) {
+                $message = sprintf(
+                    'Grup "%s" sudah memiliki jadwal tes dan tidak bisa dipilih lagi.',
+                    $group->name,
+                );
+
+                throw ValidationException::withMessages([
+                    'grup_1_id' => $message,
+                    'grup_2_id' => $message,
+                    'grup_3_id' => $message,
+                ]);
+            }
+
+            $quota = max(1, (int) ($group->quota ?? 0));
+            $participantCount = EptRegistration::query()
+                ->where(function (Builder $query) use ($group): void {
+                    $query->where('grup_1_id', $group->id)
+                        ->orWhere('grup_2_id', $group->id)
+                        ->orWhere('grup_3_id', $group->id);
+                })
+                ->when(
+                    $contextRecord !== null,
+                    fn (Builder $query) => $query->whereKeyNot($contextRecord->getKey())
+                )
+                ->count();
+
+            if ($participantCount >= $quota) {
+                $message = sprintf(
+                    'Kuota grup "%s" sudah penuh (%d/%d). Pilih grup lain.',
+                    $group->name,
+                    $participantCount,
+                    $quota,
+                );
+
+                throw ValidationException::withMessages([
+                    'grup_1_id' => $message,
+                    'grup_2_id' => $message,
+                    'grup_3_id' => $message,
+                ]);
+            }
+        }
     }
 
     protected static function downloadPaymentProof(EptRegistration $record)

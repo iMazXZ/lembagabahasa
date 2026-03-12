@@ -9,11 +9,13 @@ class EptGroup extends Model
 {
     protected $fillable = [
         'name',
+        'quota',
         'jadwal',
         'lokasi',
     ];
 
     protected $casts = [
+        'quota' => 'integer',
         'jadwal' => 'datetime',
     ];
 
