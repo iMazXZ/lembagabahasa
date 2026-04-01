@@ -514,7 +514,7 @@
           <div class="absolute -top-3 -right-3 w-16 h-16 {{ $color['accent'] }} rounded-full shadow-lg flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
             <div class="text-center">
               <div class="text-white font-black text-lg leading-none">
-                {{ $s->number <= 5 ? $s->number : 'UAS' }}
+                {{ (int) $s->number === 6 ? 'UAS' : $s->number }}
               </div>
               <div class="text-white/80 text-[10px] font-semibold uppercase">Sesi</div>
             </div>

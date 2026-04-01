@@ -10,13 +10,12 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 
-class BasicListeningConnectCodeResource extends Resource
+class BasicListeningConnectCodeResource extends BaseResource
 {
     protected static ?string $model = BasicListeningConnectCode::class;
     protected static ?string $navigationIcon = 'heroicon-o-key';

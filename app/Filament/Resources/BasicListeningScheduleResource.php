@@ -9,19 +9,29 @@ use App\Models\Prody;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 
-class BasicListeningScheduleResource extends Resource
+class BasicListeningScheduleResource extends BaseResource
 {
     protected static ?string $model = BasicListeningSchedule::class;
 
     protected static ?string $navigationIcon  = 'heroicon-o-calendar-days';
     protected static ?string $navigationLabel = 'Jadwal Basic Listening';
     protected static ?string $pluralModelLabel = 'Jadwal Basic Listening';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        return $user?->hasPermissionTo('view_any_basic::listening::schedule') ?? false;
+    }
 
     public static function form(Form $form): Form
     {

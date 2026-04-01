@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\BasicListeningSurveyResponse;
+use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Pages\Page;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -13,6 +14,9 @@ use Illuminate\Database\Eloquent\Builder;
 class SurveyResponsesDetail extends Page implements HasTable
 {
     use InteractsWithTable;
+    use HasPageShield {
+        canAccess as protected canAccessViaShield;
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-eye';
     protected static ?string $navigationGroup = 'Basic Listening';
@@ -69,11 +73,15 @@ class SurveyResponsesDetail extends Page implements HasTable
     {
         return $this->record
             ? "Detail Response: {$this->record->id} - {$this->record->survey->title}"
-            : 'Loading...';
+            : (static::$title ?? 'Detail Response');
     }
 
     public static function canAccess(): bool
     {
-        return true;
+        return static::canAccessViaShield() && (auth()->user()?->hasAnyRole([
+            'Admin',
+            'Staf Administrasi',
+            'Kepala Lembaga',
+        ]) ?? false);
     }
 }

@@ -19,6 +19,7 @@ class BasicListeningController extends Controller
                     ->whereColumn('basic_listening_attempts.session_id', 'basic_listening_sessions.id')
                     ->whereNotNull('submitted_at'),
             ])
+            ->where('show_on_landing', true)
             ->orderBy('number')
             ->get();
 

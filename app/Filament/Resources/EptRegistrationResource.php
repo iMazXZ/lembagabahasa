@@ -10,7 +10,6 @@ use App\Services\WhatsAppService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,7 +17,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
-class EptRegistrationResource extends Resource
+class EptRegistrationResource extends BaseResource
 {
     protected static ?string $model = EptRegistration::class;
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
@@ -30,7 +29,7 @@ class EptRegistrationResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        if (! auth()->user()?->hasAnyRole(['Admin', 'super_admin', 'Staf Administrasi'])) {
+        if (! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
             return null;
         }
         $count = static::getModel()::where('status', 'pending')->count();

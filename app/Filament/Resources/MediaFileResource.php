@@ -9,7 +9,6 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Resources\Resource;
 use Filament\Forms\Components\TextInput;
 use Filament\Tables;
 use Filament\Tables\Columns\Layout\Panel;
@@ -18,7 +17,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class MediaFileResource extends Resource
+class MediaFileResource extends BaseResource
 {
     protected static ?string $model = MediaFile::class;
 

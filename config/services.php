@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'ntfy' => [
+        'topic_url' => env('NTFY_TOPIC_URL', 'https://ntfy.sh/lembagabahasa_umm_notif'),
+        'auth_token' => env('NTFY_AUTH_TOKEN'),
+        'click_url' => env('NTFY_CLICK_URL'),
+        'icon_url' => env('NTFY_ICON_URL'),
+        'timeout_seconds' => (int) env('NTFY_TIMEOUT_SECONDS', 5),
+    ],
+
 ];

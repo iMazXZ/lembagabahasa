@@ -6,11 +6,10 @@ use App\Filament\Resources\CertificateCategoryResource\Pages;
 use App\Models\CertificateCategory;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class CertificateCategoryResource extends Resource
+class CertificateCategoryResource extends BaseResource
 {
     protected static ?string $model = CertificateCategory::class;
 

@@ -8,7 +8,6 @@ use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Notifications\Notification;
@@ -23,7 +22,7 @@ use App\Exports\PenerjemahanTriwulanExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Carbon;
 
-class PenerjemahanResource extends Resource
+class PenerjemahanResource extends BaseResource
 {
     protected static ?string $model = Penerjemahan::class;
 
@@ -610,7 +609,7 @@ class PenerjemahanResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        if (! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'penerjemah'])) {
+        if (! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah'])) {
             return null;
         }
         $count = static::getModel()::where('status', 'Menunggu')->count();

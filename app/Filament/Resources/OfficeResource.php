@@ -6,11 +6,10 @@ use App\Filament\Resources\OfficeResource\Pages;
 use App\Models\Office;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class OfficeResource extends Resource
+class OfficeResource extends BaseResource
 {
     protected static ?string $model = Office::class;
 

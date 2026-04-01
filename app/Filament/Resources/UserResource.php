@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\Prody;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Pages\Page;
@@ -20,7 +19,7 @@ use Spatie\Permission\Models\Role;
 use Illuminate\Support\Collection;
 use Filament\Notifications\Notification;
 
-class UserResource extends Resource
+class UserResource extends BaseResource
 {
     protected static ?string $model = User::class;
 

@@ -8,6 +8,7 @@ use App\Models\BasicListeningGrade;
 use App\Models\BasicListeningManualScore;
 use App\Support\BlCompute;
 use App\Support\BlGrading;
+use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
@@ -33,6 +34,9 @@ use App\Filament\Pages\TutorMahasiswaBulkInput;
 class TutorMahasiswa extends Page implements HasTable
 {
     use InteractsWithTable;
+    use HasPageShield {
+        canAccess as protected canAccessViaShield;
+    }
 
     protected static ?string $navigationIcon   = 'heroicon-o-users';
     protected static ?string $navigationLabel  = 'Mahasiswa Binaan';
@@ -45,7 +49,7 @@ class TutorMahasiswa extends Page implements HasTable
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return $user?->hasRole('Admin') || $user?->hasRole('tutor');
+        return static::canAccessViaShield() && ($user?->hasRole('Admin') || $user?->hasRole('tutor'));
     }
 
     public function getHeaderWidgets(): array

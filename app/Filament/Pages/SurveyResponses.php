@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\BasicListeningSurveyResponse;
 use App\Models\BasicListeningCategory;
+use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Pages\Page;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -14,6 +15,9 @@ use Illuminate\Database\Eloquent\Builder;
 class SurveyResponses extends Page implements HasTable
 {
     use InteractsWithTable;
+    use HasPageShield {
+        canAccess as protected canAccessViaShield;
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationLabel = 'Survey Responses';
@@ -128,7 +132,11 @@ class SurveyResponses extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return true;
+        return static::canAccessViaShield() && (auth()->user()?->hasAnyRole([
+            'Admin',
+            'Staf Administrasi',
+            'Kepala Lembaga',
+        ]) ?? false);
     }
 
     /** Statistik untuk header widget */

@@ -7,12 +7,11 @@ use App\Models\InteractiveClassScore;
 use App\Support\InteractiveClassScores;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
-class InteractiveClassScoreResource extends Resource
+class InteractiveClassScoreResource extends BaseResource
 {
     protected static ?string $model = InteractiveClassScore::class;
 
@@ -22,36 +21,6 @@ class InteractiveClassScoreResource extends Resource
     protected static ?string $modelLabel = 'Nilai Interactive';
     protected static ?string $pluralModelLabel = 'Nilai Interactive';
     protected static ?int $navigationSort = 4;
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canViewAny(): bool
-    {
-        return auth()->user()?->hasAnyRole(['Admin', 'super_admin', 'Staf Administrasi']) ?? false;
-    }
-
-    public static function canCreate(): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canEdit($record): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canDelete($record): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return static::canViewAny();
-    }
 
     public static function form(Form $form): Form
     {

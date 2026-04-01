@@ -6,13 +6,12 @@ use App\Filament\Resources\BasicListeningCategoryResource\Pages;
 use App\Models\BasicListeningCategory;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 
-class BasicListeningCategoryResource extends Resource
+class BasicListeningCategoryResource extends BaseResource
 {
     protected static ?string $model = BasicListeningCategory::class;
     protected static ?string $navigationIcon = 'heroicon-o-tag';

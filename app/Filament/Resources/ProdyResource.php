@@ -8,13 +8,12 @@ use App\Filament\Resources\ProdyResource\RelationManagers\UsersRelationManager;
 use App\Models\Prody;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class ProdyResource extends Resource
+class ProdyResource extends BaseResource
 {
     protected static ?string $model = Prody::class;
 

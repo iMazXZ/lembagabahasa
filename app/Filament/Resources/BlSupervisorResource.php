@@ -6,11 +6,10 @@ use App\Filament\Resources\BlSupervisorResource\Pages;
 use App\Models\BasicListeningSupervisor;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class BlSupervisorResource extends Resource
+class BlSupervisorResource extends BaseResource
 {
     protected static ?string $model = BasicListeningSupervisor::class;
 

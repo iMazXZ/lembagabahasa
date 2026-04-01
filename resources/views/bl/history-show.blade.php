@@ -65,7 +65,7 @@
 
         {{-- Session Info --}}
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 backdrop-blur-md mb-4">
-            @php $isUAS = (int)($attempt->session->number ?? 0) > 5; @endphp
+            @php $isUAS = (int)($attempt->session->number ?? 0) === 6; @endphp
             <span class="h-2 w-2 rounded-full {{ $isUAS ? 'bg-pink-500' : 'bg-blue-500' }}"></span>
             <span class="text-xs font-bold text-slate-200 uppercase tracking-wide">
                 {{ $isUAS ? 'Final Exam' : 'Meeting ' . ($attempt->session->number ?? '-') }}

@@ -6,11 +6,10 @@ use App\Filament\Resources\PengumumanResource\Pages;
 use App\Models\Pengumuman;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class PengumumanResource extends Resource
+class PengumumanResource extends BaseResource
 {
     protected static ?string $model = Pengumuman::class;
 

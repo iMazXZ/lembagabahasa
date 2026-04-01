@@ -6,14 +6,13 @@ use App\Filament\Resources\AttendanceResource\Pages;
 use App\Models\Attendance;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Illuminate\Support\Facades\Storage;
 
-class AttendanceResource extends Resource
+class AttendanceResource extends BaseResource
 {
     protected static ?string $model = Attendance::class;
 

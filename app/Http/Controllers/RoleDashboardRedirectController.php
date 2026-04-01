@@ -24,7 +24,7 @@ class RoleDashboardRedirectController extends Controller
             return redirect()->route('filament.admin.pages.2'); // panel tutor/admin
         }
 
-        if ($user->hasAnyRole(['Admin', 'Staf', 'Staf Administrasi', 'Kepala Lembaga'])) {
+        if ($user->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])) {
             return redirect()->route('filament.admin.pages.2');
         }
 

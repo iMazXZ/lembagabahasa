@@ -82,7 +82,7 @@
     <div class="space-y-3">
       @forelse($attempts as $attempt)
         @php
-          $isUAS    = (int)($attempt->session->number) > 5;
+          $isUAS    = (int)($attempt->session->number) === 6;
           $hasScore = !is_null($attempt->score);
           $score    = (int) $attempt->score;
           

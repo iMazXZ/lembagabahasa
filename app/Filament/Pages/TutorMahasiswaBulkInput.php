@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\BasicListeningGrade;
 use App\Models\BasicListeningManualScore;
 use App\Models\User;
+use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Repeater;
@@ -26,6 +27,9 @@ use App\Support\BlGrading;
 class TutorMahasiswaBulkInput extends Page implements HasForms
 {
     use Forms\Concerns\InteractsWithForms;
+    use HasPageShield {
+        canAccess as protected canAccessViaShield;
+    }
 
     protected static ?string $navigationLabel = 'Input Nilai Mahasiswa';
     protected static ?string $navigationIcon  = 'heroicon-o-document-plus';
@@ -46,7 +50,7 @@ class TutorMahasiswaBulkInput extends Page implements HasForms
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return $user?->hasAnyRole(['Admin', 'tutor']) ?? false;
+        return static::canAccessViaShield() && ($user?->hasAnyRole(['Admin', 'tutor']) ?? false);
     }
 
     public function mount(): void

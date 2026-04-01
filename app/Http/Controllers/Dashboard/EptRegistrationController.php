@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\EptRegistration;
 use App\Models\SiteSetting;
+use App\Models\User;
 use App\Support\ImageTransformer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class EptRegistrationController extends Controller
@@ -66,7 +69,7 @@ class EptRegistrationController extends Controller
             'bukti_pembayaran.max' => 'Ukuran file maksimal 8MB.',
         ]);
 
-        $created = DB::transaction(function () use ($request, $user): bool {
+        $createdRegistration = DB::transaction(function () use ($request, $user): ?EptRegistration {
             $user->newQuery()
                 ->whereKey($user->getKey())
                 ->lockForUpdate()
@@ -82,7 +85,7 @@ class EptRegistrationController extends Controller
                 ->first(fn (EptRegistration $registration) => $registration->blocksNewRegistration());
 
             if ($blockingRegistration) {
-                return false;
+                return null;
             }
 
             $file = $request->file('bukti_pembayaran');
@@ -98,22 +101,97 @@ class EptRegistrationController extends Controller
                 basename: $basename
             );
 
-            EptRegistration::create([
+            return EptRegistration::create([
                 'user_id' => $user->id,
                 'student_status' => $request->string('student_status')->toString(),
                 'bukti_pembayaran' => $result['path'],
                 'status' => 'pending',
             ]);
-
-            return true;
         });
 
-        if (! $created) {
+        if (! $createdRegistration) {
             return back()->with('error', 'Anda sudah memiliki pendaftaran aktif.');
         }
 
+        $this->sendNtfyNotification($createdRegistration, $user);
+
         return redirect()->route('dashboard.ept-registration.index')
             ->with('success', 'Pendaftaran berhasil! Silakan tunggu verifikasi dari admin.');
+    }
+
+    private function sendNtfyNotification(EptRegistration $registration, User $user): void
+    {
+        $topicUrl = trim((string) config('services.ntfy.topic_url'));
+        if ($topicUrl === '') {
+            return;
+        }
+
+        $user->loadMissing('prody');
+
+        $timeout = max(1, (int) config('services.ntfy.timeout_seconds', 5));
+        $token = trim((string) config('services.ntfy.auth_token'));
+        $prodyName = $user->prody?->name ?? '-';
+        $statusLabel = EptRegistration::studentStatusLabel($registration->student_status);
+        $adminUrl = trim((string) config('services.ntfy.click_url'));
+        if ($adminUrl === '') {
+            $adminUrl = url('/admin/ept-registrations');
+        }
+        $iconUrl = trim((string) config('services.ntfy.icon_url'));
+
+        $nameLine = trim((string) ($user->name ?? '-'));
+        $srnLine = trim((string) ($user->srn ?? '-'));
+
+        if ($nameLine === '') {
+            $nameLine = '-';
+        }
+        if ($srnLine === '') {
+            $srnLine = '-';
+        }
+
+        $message = implode("\n", [
+            $nameLine . ' (' . $srnLine . ')',
+            'Prodi: ' . $prodyName,
+            'Status: ' . $statusLabel,
+        ]);
+
+        try {
+            $headers = [
+                'Title' => 'Pendaftaran EPT Baru',
+                'Priority' => 'default',
+                'Click' => $adminUrl,
+            ];
+
+            if ($iconUrl !== '') {
+                $headers['Icon'] = $iconUrl;
+            }
+
+            $request = Http::timeout($timeout)
+                ->withHeaders($headers);
+
+            if ($token !== '') {
+                $request = $request->withToken($token);
+            }
+
+            $response = $request
+                ->withBody($message, 'text/plain; charset=utf-8')
+                ->post($topicUrl);
+
+            if (! $response->successful()) {
+                Log::warning('Ntfy notification failed for EPT registration.', [
+                    'topic_url' => $topicUrl,
+                    'status' => $response->status(),
+                    'registration_id' => $registration->id,
+                    'user_id' => $user->id,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Ntfy notification error for EPT registration.', [
+                'topic_url' => $topicUrl,
+                'registration_id' => $registration->id,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function kartuPeserta(Request $request)

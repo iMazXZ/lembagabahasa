@@ -8,13 +8,12 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
-class NewsCategoryResource extends Resource
+class NewsCategoryResource extends BaseResource
 {
     protected static ?string $model = NewsCategory::class;
     protected static ?string $navigationIcon = 'heroicon-o-tag';

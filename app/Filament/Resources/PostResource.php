@@ -7,7 +7,6 @@ use App\Models\Post;
 use App\Support\ImageTransformer;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Forms\Components\{
@@ -22,7 +21,7 @@ use FilamentTiptapEditor\TiptapEditor;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
-class PostResource extends Resource
+class PostResource extends BaseResource
 {
     protected static ?string $model = Post::class;
     protected static ?string $navigationIcon = 'heroicon-o-megaphone';

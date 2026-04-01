@@ -89,7 +89,7 @@ HTML;
         <div class="text-center"> {{-- TAMBAHIN INI --}}
             <div class="mb-4"> {{-- UBAH mb-3 jadi mb-4 --}}
                 <span class="inline-block px-3 py-1 text-xs sm:text-sm font-semibold uppercase tracking-wider bg-white/20 rounded-full">
-                    Pertemuan {{ $session->number <= 5 ? $session->number : 'UAS' }}
+                    Pertemuan {{ (int) $session->number === 6 ? 'UAS' : $session->number }}
                 </span>
             </div>
             

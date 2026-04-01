@@ -8,6 +8,7 @@ use App\Models\BasicListeningSurveyResponse;
 use App\Models\BasicListeningCategory;
 use App\Models\BasicListeningSupervisor;
 use App\Models\User;
+use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -29,6 +30,9 @@ class BlSurveyResults extends Page implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use HasPageShield {
+        canAccess as protected canAccessViaShield;
+    }
 
     /** ====== Navigasi & metadata sidebar ====== */
     protected static ?string $navigationIcon  = 'heroicon-o-presentation-chart-line';
@@ -42,15 +46,13 @@ class BlSurveyResults extends Page implements HasForms, HasTable
     /** Blade view untuk page ini */
     protected static string $view = 'filament.pages.bl-survey-results';
 
-    /** Selalu tampil di sidebar (akses bisa dikontrol via Shield/Policy) */
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
-
     public static function canAccess(): bool
     {
-        return true;
+        return static::canAccessViaShield() && (auth()->user()?->hasAnyRole([
+            'Admin',
+            'Staf Administrasi',
+            'Kepala Lembaga',
+        ]) ?? false);
     }
 
     /** ====== State filter ====== */

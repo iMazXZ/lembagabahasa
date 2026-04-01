@@ -8,13 +8,12 @@ use Filament\Forms;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Model;
 
-class BasicListeningQuestionResource extends Resource
+class BasicListeningQuestionResource extends BaseResource
 {
     protected static ?string $model = BasicListeningQuestion::class;
     protected static ?string $navigationIcon = 'heroicon-o-queue-list';

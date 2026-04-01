@@ -24,7 +24,6 @@ use Filament\Infolists\Components\Section as InfoSection;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
@@ -38,7 +37,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Artisan;
 use Carbon\Carbon;
 
-class BasicListeningAttemptResource extends Resource
+class BasicListeningAttemptResource extends BaseResource
 {
     protected static ?string $model = BasicListeningAttempt::class;
 
@@ -69,11 +68,11 @@ class BasicListeningAttemptResource extends Resource
 
         $user = auth()->user();
 
-        if ($user && ($user->hasRole('Admin') || $user->hasRole('superuser'))) {
+        if ($user && $user->hasRole('Admin')) {
             return $query;
         }
 
-        if ($user && ($user->hasRole('Tutor') || $user->hasRole('tutor'))) {
+        if ($user && $user->hasRole('tutor')) {
             $prodyIds = [];
             if (method_exists($user, 'assignedProdyIds')) {
                 $prodyIds = $user->assignedProdyIds();
@@ -397,7 +396,7 @@ class BasicListeningAttemptResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
                         ->visible(fn () =>
-                            auth()->user()?->hasAnyRole(['Admin', 'superuser'])
+                            auth()->user()?->hasRole('Admin')
                         )
                         ->requiresConfirmation()
                         ->action(function (Collection $records) {

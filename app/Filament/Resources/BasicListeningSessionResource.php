@@ -6,11 +6,10 @@ use App\Filament\Resources\BasicListeningSessionResource\Pages;
 use App\Models\BasicListeningSession;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class BasicListeningSessionResource extends Resource
+class BasicListeningSessionResource extends BaseResource
 {
     protected static ?string $model = BasicListeningSession::class;
     protected static ?string $navigationIcon = 'heroicon-o-speaker-wave';
@@ -35,8 +34,9 @@ class BasicListeningSessionResource extends Resource
     {
         return $form->schema([
             Forms\Components\TextInput::make('number')
-                ->label('Nomor (1-5; 6=UAS)')
-                ->numeric()->minValue(1)->maxValue(6)->required()->unique(ignoreRecord: true),
+                ->label('Nomor Session')
+                ->helperText('Gunakan 1-5 untuk meeting reguler, 6 untuk UAS, dan 7+ untuk session khusus (mis. remedial).')
+                ->numeric()->minValue(1)->maxValue(99)->required()->unique(ignoreRecord: true),
 
             Forms\Components\TextInput::make('title')
                 ->label('Judul')->required()->maxLength(255),
@@ -68,6 +68,10 @@ class BasicListeningSessionResource extends Resource
             ]),
 
             Forms\Components\Toggle::make('is_active')->label('Aktif')->default(true),
+            Forms\Components\Toggle::make('show_on_landing')
+                ->label('Tampilkan di /basic-listening')
+                ->helperText('Jika dimatikan, session tetap bisa dipakai (mis. untuk remedial) tapi card tidak tampil di halaman Basic Listening.')
+                ->default(true),
         ])->columns(2);
     }
 
@@ -83,10 +87,14 @@ class BasicListeningSessionResource extends Resource
                 Tables\Columns\TextColumn::make('closes_at')->dateTime('d M Y H:i')->label('Tutup')->sortable(),
                 Tables\Columns\TextColumn::make('duration_minutes')->label('Durasi'),
                 Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
+                Tables\Columns\IconColumn::make('show_on_landing')
+                    ->label('Tampil di Landing')
+                    ->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->since()->label('Dibuat'),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')->label('Aktif'),
+                Tables\Filters\TernaryFilter::make('show_on_landing')->label('Tampil di Landing'),
                 Tables\Filters\Filter::make('open_now')->label('Sedang Open')
                     ->query(fn ($q) => $q->where(function($qq){
                         $now = now();

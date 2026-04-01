@@ -96,7 +96,7 @@ class ViewUser extends ViewRecord
 
             // ========== ID & METADATA (ADMIN SAJA) ==========
             Section::make('ID & Metadata Teknis')
-                ->visible(fn (): bool => auth()->user()?->hasAnyRole(['Admin', 'superuser']) ?? false)
+                ->visible(fn (): bool => auth()->user()?->hasRole('Admin') ?? false)
                 ->columns(4)
                 ->schema([
                     TextEntry::make('id')

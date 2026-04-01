@@ -6,7 +6,6 @@ use App\Filament\Resources\EptSubmissionResource\Pages;
 use App\Models\EptSubmission;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
@@ -20,7 +19,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 
-class EptSubmissionResource extends Resource
+class EptSubmissionResource extends BaseResource
 {
     protected static ?string $model = EptSubmission::class;
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
@@ -30,12 +29,6 @@ class EptSubmissionResource extends Resource
     public static ?string $slug = 'suratrekomendasi';
     protected static ?string $navigationLabel = 'Pengajuan Surat Rekomendasi';
     protected static ?int $navigationSort = 3;
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        $u = auth()->user();
-        return $u?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga']) ?? false;
-    }
 
     public static function form(Form $form): Form
     {

@@ -6,12 +6,11 @@ use App\Filament\Resources\BasicListeningQuizResource\Pages;
 use App\Models\BasicListeningQuiz;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Validation\Rule;
 
-class BasicListeningQuizResource extends Resource
+class BasicListeningQuizResource extends BaseResource
 {
     protected static ?string $model = BasicListeningQuiz::class;
     protected static ?string $navigationIcon = 'heroicon-o-pencil-square';

@@ -73,7 +73,7 @@ class ListPenerjemahans extends ListRecords
         // - BUKAN penerjemah
         // - Biodata dasar lengkap (lihat aturan tahun)
         // - Jika 2025+, sudah mengikuti Basic Listening
-        $isTranslator = $user?->hasAnyRole(['penerjemah', 'Penerjemah']);
+        $isTranslator = $user?->hasRole('Penerjemah');
 
         if (! $isTranslator && $this->userHasCompleteBiodata() && $this->userHasCompletedBasicListening()) {
             $conditional[] = Actions\CreateAction::make()->label('Permintaan Baru');
@@ -87,7 +87,7 @@ class ListPenerjemahans extends ListRecords
         $query = parent::getTableQuery();
 
         // Filter hanya data yang ditugaskan ke penerjemah ini
-        if (auth()->user()->hasAnyRole(['Penerjemah', 'penerjemah'])) {
+        if (auth()->user()->hasRole('Penerjemah')) {
             return $query->where('translator_id', auth()->id());
         }
 

@@ -18,8 +18,10 @@ use Filament\Support\Facades\FilamentAsset;
 
 use App\Models\BasicListeningAttempt;
 use App\Models\BasicListeningConnectCode;
+use App\Models\InteractiveClassScore;
 use App\Policies\BasicListeningAttemptPolicy;
 use App\Policies\BasicListeningConnectCodePolicy;
+use App\Policies\InteractiveClassScorePolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -46,14 +48,10 @@ class AppServiceProvider extends ServiceProvider
             Css::make('custom-stylesheet', __DIR__ . '/../../resources/css/custom.css'),
         ]);
 
-        // === Admin override: admin boleh semua ability tanpa cek policy detail ===
-        Gate::before(function ($user, $ability) {
-            return $user->hasRole('admin') ? true : null;
-        });
-
         // === Registrasi eksplisit policy (opsional jika auto-discovery sudah aktif) ===
         Gate::policy(BasicListeningAttempt::class, BasicListeningAttemptPolicy::class);
         Gate::policy(BasicListeningConnectCode::class, BasicListeningConnectCodePolicy::class);
+        Gate::policy(InteractiveClassScore::class, InteractiveClassScorePolicy::class);
 
         // === Registrasi WhatsApp notification channel ===
         \Illuminate\Support\Facades\Notification::extend('whatsapp', function ($app) {

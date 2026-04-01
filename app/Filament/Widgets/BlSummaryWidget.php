@@ -16,7 +16,7 @@ class BlSummaryWidget extends Widget
 
     public static function canView(): bool
     {
-        return auth()->user()?->hasAnyRole(['Admin', 'tutor', 'Tutor']);
+        return auth()->user()?->hasAnyRole(['Admin', 'tutor']);
     }
 
     protected function getViewData(): array

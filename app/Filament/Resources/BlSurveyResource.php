@@ -8,7 +8,6 @@ use App\Models\BasicListeningCategory;
 use App\Models\BasicListeningSurvey;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
@@ -18,7 +17,7 @@ use Filament\Tables\Columns\ToggleColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
-class BlSurveyResource extends Resource
+class BlSurveyResource extends BaseResource
 {
     protected static ?string $model = BasicListeningSurvey::class;
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';

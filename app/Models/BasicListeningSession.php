@@ -10,10 +10,10 @@ class BasicListeningSession extends Model
 {
     protected $fillable = [
         'number','title','summary','audio_url',
-        'opens_at','closes_at','duration_minutes','is_active',
+        'opens_at','closes_at','duration_minutes','is_active','show_on_landing',
     ];
     protected $casts = [
-        'opens_at'=>'datetime','closes_at'=>'datetime','is_active'=>'bool',
+        'opens_at'=>'datetime','closes_at'=>'datetime','is_active'=>'bool','show_on_landing'=>'bool',
     ];
 
     public function defaultQuiz(): HasOne { return $this->hasOne(BasicListeningQuiz::class,'session_id'); }

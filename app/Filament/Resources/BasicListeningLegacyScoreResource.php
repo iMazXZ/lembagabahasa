@@ -6,12 +6,11 @@ use App\Filament\Resources\BasicListeningLegacyScoreResource\Pages;
 use App\Models\BasicListeningLegacyScore;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
-class BasicListeningLegacyScoreResource extends Resource
+class BasicListeningLegacyScoreResource extends BaseResource
 {
     protected static ?string $model = BasicListeningLegacyScore::class;
 

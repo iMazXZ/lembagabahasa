@@ -20,9 +20,15 @@ class DashboardKustom extends Page
 
     protected static ?string $navigationIcon = 'heroicon-o-home';
     protected static ?string $navigationLabel = 'Dashboard';
+    protected static ?string $title = 'Dashboard';
     public static ?string $slug = '2';
 
     public function getTitle(): string | Htmlable
+    {
+        return static::$title ?? 'Dashboard';
+    }
+
+    public function getHeading(): string | Htmlable
     {
         return '';
     }
@@ -33,7 +39,7 @@ class DashboardKustom extends Page
 
     public function getHeaderWidgetsColumns(): int
     {
-        if(auth()->user()->hasRole('Pendaftar')) {
+        if(auth()->user()->hasRole('pendaftar')) {
             return 3;
         }
         return 2;

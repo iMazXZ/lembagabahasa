@@ -195,10 +195,8 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         if ($panel->getId() === 'admin') {
             return $this->hasAnyRole([
                 'Admin',
-                'Staf',
                 'Staf Administrasi',
                 'Kepala Lembaga',
-                'super_admin',
                 'pendaftar',
                 'tutor',
                 'Penerjemah',
