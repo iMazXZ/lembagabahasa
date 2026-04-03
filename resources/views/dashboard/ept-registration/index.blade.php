@@ -107,7 +107,7 @@
                         ];
                         $selectedStudentStatus = old('student_status');
                     @endphp
-                    <form action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data">
+                    <form id="ept-registration-form" action="{{ route('dashboard.ept-registration.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="space-y-4">
                         {{-- Label Bukti Pembayaran --}}
@@ -239,11 +239,21 @@
 
                         {{-- Submit Button --}}
                         <div class="pt-4 border-t border-slate-100">
-                            <button type="submit"
-                                    class="w-full inline-flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
+                            <button id="btn-submit-ept" type="submit"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100">
                                 <i class="fa-solid fa-paper-plane"></i>
-                                Daftar EPT
+                                <span id="btn-submit-ept-label">Daftar EPT</span>
                             </button>
+
+                            <div id="ept-submit-progress" class="mt-3 hidden" aria-live="polite">
+                                <div class="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+                                    <span id="ept-submit-status">Sedang mengunggah bukti pembayaran...</span>
+                                    <span id="ept-submit-percent">0%</span>
+                                </div>
+                                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                                    <div id="ept-submit-bar" class="h-full rounded-full bg-um-blue transition-[width] duration-300 ease-linear" style="width: 0%"></div>
+                                </div>
+                            </div>
                         </div>
                         </div>
                         </div>
@@ -518,6 +528,13 @@
             btnUnderstand.addEventListener('click', function () {
                 buttonWrapper.classList.add('hidden');
                 uploadWrapper.classList.remove('hidden');
+
+                requestAnimationFrame(() => {
+                    uploadWrapper.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                    });
+                });
             });
         }
 
@@ -579,6 +596,95 @@
                 if (!dt || !dt.files || !dt.files[0]) return;
                 input.files = dt.files;
                 handleFile(dt.files[0]);
+            });
+        }
+
+        // === Submit Guard + Progress Indicator ===
+        const registrationForm = document.getElementById('ept-registration-form');
+        const submitButton = document.getElementById('btn-submit-ept');
+        const submitLabel = document.getElementById('btn-submit-ept-label');
+        const submitProgress = document.getElementById('ept-submit-progress');
+        const submitBar = document.getElementById('ept-submit-bar');
+        const submitPercent = document.getElementById('ept-submit-percent');
+        const submitStatus = document.getElementById('ept-submit-status');
+
+        if (registrationForm && submitButton && submitLabel) {
+            let isSubmitting = false;
+            let progressInterval = null;
+            let progressValue = 0;
+
+            const setProgress = (value) => {
+                const normalized = Math.max(0, Math.min(100, Math.round(value)));
+                progressValue = normalized;
+
+                if (submitBar) {
+                    submitBar.style.width = `${normalized}%`;
+                }
+
+                if (submitPercent) {
+                    submitPercent.textContent = `${normalized}%`;
+                }
+            };
+
+            const startPseudoProgress = () => {
+                setProgress(8);
+                progressInterval = setInterval(() => {
+                    if (progressValue >= 92) {
+                        return;
+                    }
+
+                    const bump = Math.floor(Math.random() * 7) + 3;
+                    setProgress(Math.min(92, progressValue + bump));
+                }, 350);
+            };
+
+            const stopPseudoProgress = () => {
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+            };
+
+            registrationForm.addEventListener('submit', function (event) {
+                if (isSubmitting) {
+                    event.preventDefault();
+                    return;
+                }
+
+                if (!registrationForm.checkValidity()) {
+                    return;
+                }
+
+                isSubmitting = true;
+                submitButton.disabled = true;
+                submitButton.setAttribute('aria-busy', 'true');
+                submitLabel.textContent = 'Sedang Mengunggah...';
+
+                if (submitProgress) {
+                    submitProgress.classList.remove('hidden');
+                }
+
+                if (submitStatus) {
+                    submitStatus.textContent = 'Sedang mengunggah bukti pembayaran...';
+                }
+
+                startPseudoProgress();
+
+                setTimeout(() => {
+                    if (!isSubmitting) {
+                        return;
+                    }
+
+                    if (submitStatus) {
+                        submitStatus.textContent = 'Unggahan sedang diproses, mohon tunggu...';
+                    }
+                }, 8000);
+            });
+
+            window.addEventListener('pageshow', function () {
+                isSubmitting = false;
+                stopPseudoProgress();
+                setProgress(0);
             });
         }
     });

@@ -199,7 +199,7 @@
                         </p>
                     </div>
                 @else
-                    <form action="{{ route('dashboard.ept.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    <form id="ept-recommendation-form" action="{{ route('dashboard.ept.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                         @csrf
 
                         @foreach(range(1, 3) as $i)
@@ -250,12 +250,24 @@
                         </div>
                         @endforeach
 
-                        <div class="pt-4 border-t border-slate-100 flex justify-end">
-                            <button type="submit"
-                                    class="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
+                        <div class="pt-4 border-t border-slate-100 space-y-3">
+                            <div class="flex justify-end">
+                                <button id="btn-submit-ept-recommendation" type="submit"
+                                        class="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100">
                                 <i class="fa-solid fa-paper-plane"></i>
-                                Kirim Pengajuan
-                            </button>
+                                    <span id="btn-submit-ept-recommendation-label">Kirim Pengajuan</span>
+                                </button>
+                            </div>
+
+                            <div id="ept-recommendation-submit-progress" class="hidden" aria-live="polite">
+                                <div class="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+                                    <span id="ept-recommendation-submit-status">Sedang mengunggah bukti screenshot...</span>
+                                    <span id="ept-recommendation-submit-percent">0%</span>
+                                </div>
+                                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                                    <div id="ept-recommendation-submit-bar" class="h-full rounded-full bg-um-blue transition-[width] duration-300 ease-linear" style="width: 0%"></div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 @endif
@@ -263,4 +275,98 @@
         </div>
     @endif
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const recommendationForm = document.getElementById('ept-recommendation-form');
+        const submitButton = document.getElementById('btn-submit-ept-recommendation');
+        const submitLabel = document.getElementById('btn-submit-ept-recommendation-label');
+        const submitProgress = document.getElementById('ept-recommendation-submit-progress');
+        const submitBar = document.getElementById('ept-recommendation-submit-bar');
+        const submitPercent = document.getElementById('ept-recommendation-submit-percent');
+        const submitStatus = document.getElementById('ept-recommendation-submit-status');
+
+        if (!recommendationForm || !submitButton || !submitLabel) {
+            return;
+        }
+
+        let isSubmitting = false;
+        let progressInterval = null;
+        let progressValue = 0;
+
+        const setProgress = (value) => {
+            const normalized = Math.max(0, Math.min(100, Math.round(value)));
+            progressValue = normalized;
+
+            if (submitBar) {
+                submitBar.style.width = `${normalized}%`;
+            }
+
+            if (submitPercent) {
+                submitPercent.textContent = `${normalized}%`;
+            }
+        };
+
+        const startPseudoProgress = () => {
+            setProgress(8);
+            progressInterval = setInterval(() => {
+                if (progressValue >= 92) {
+                    return;
+                }
+
+                const bump = Math.floor(Math.random() * 7) + 3;
+                setProgress(Math.min(92, progressValue + bump));
+            }, 350);
+        };
+
+        const stopPseudoProgress = () => {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+        };
+
+        recommendationForm.addEventListener('submit', function (event) {
+            if (isSubmitting) {
+                event.preventDefault();
+                return;
+            }
+
+            if (!recommendationForm.checkValidity()) {
+                return;
+            }
+
+            isSubmitting = true;
+            submitButton.disabled = true;
+            submitButton.setAttribute('aria-busy', 'true');
+            submitLabel.textContent = 'Sedang Mengunggah...';
+
+            if (submitProgress) {
+                submitProgress.classList.remove('hidden');
+            }
+
+            if (submitStatus) {
+                submitStatus.textContent = 'Sedang mengunggah bukti screenshot...';
+            }
+
+            startPseudoProgress();
+
+            setTimeout(() => {
+                if (!isSubmitting) {
+                    return;
+                }
+
+                if (submitStatus) {
+                    submitStatus.textContent = 'Unggahan sedang diproses, mohon tunggu...';
+                }
+            }, 8000);
+        });
+
+        window.addEventListener('pageshow', function () {
+            isSubmitting = false;
+            stopPseudoProgress();
+            setProgress(0);
+        });
+    });
+</script>
 @endsection

@@ -37,7 +37,7 @@
         </div>
     @endif
 
-    <form action="{{ route('dashboard.translation.store') }}" method="POST" enctype="multipart/form-data"
+    <form id="translation-create-form" action="{{ route('dashboard.translation.store') }}" method="POST" enctype="multipart/form-data"
           class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         @csrf
 
@@ -206,11 +206,20 @@
         {{-- Footer Actions (hidden until upload area shown) --}}
         <div id="submit-footer-wrapper" class="hidden">
             <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-                <button type="submit"
-                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]">
+                <button id="btn-submit-translation" type="submit"
+                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-um-blue hover:bg-um-dark-blue text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100">
                     <i class="fa-solid fa-paper-plane"></i>
-                    Kirim Permohonan
+                    <span id="btn-submit-translation-label">Kirim Permohonan</span>
                 </button>
+            </div>
+            <div id="translation-submit-progress" class="hidden bg-slate-50 px-6 pb-4" aria-live="polite">
+                <div class="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+                    <span id="translation-submit-status">Sedang mengunggah bukti pembayaran...</span>
+                    <span id="translation-submit-percent">0%</span>
+                </div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div id="translation-submit-bar" class="h-full rounded-full bg-um-blue transition-[width] duration-300 ease-linear" style="width: 0%"></div>
+                </div>
             </div>
         </div>
     </form>
@@ -231,6 +240,13 @@
                 uploadWrapper.classList.remove('hidden');
                 if (infoFooterWrapper) infoFooterWrapper.classList.remove('hidden');
                 if (submitFooterWrapper) submitFooterWrapper.classList.remove('hidden');
+
+                requestAnimationFrame(() => {
+                    uploadWrapper.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                    });
+                });
             });
         }
 
@@ -316,6 +332,95 @@
             trixEditor.addEventListener('trix-change', updateWordCount);
             // Initial count
             updateWordCount();
+        }
+
+        // === Submit Guard + Progress Indicator ===
+        const translationForm = document.getElementById('translation-create-form');
+        const submitButton = document.getElementById('btn-submit-translation');
+        const submitLabel = document.getElementById('btn-submit-translation-label');
+        const submitProgress = document.getElementById('translation-submit-progress');
+        const submitBar = document.getElementById('translation-submit-bar');
+        const submitPercent = document.getElementById('translation-submit-percent');
+        const submitStatus = document.getElementById('translation-submit-status');
+
+        if (translationForm && submitButton && submitLabel) {
+            let isSubmitting = false;
+            let progressInterval = null;
+            let progressValue = 0;
+
+            const setProgress = (value) => {
+                const normalized = Math.max(0, Math.min(100, Math.round(value)));
+                progressValue = normalized;
+
+                if (submitBar) {
+                    submitBar.style.width = `${normalized}%`;
+                }
+
+                if (submitPercent) {
+                    submitPercent.textContent = `${normalized}%`;
+                }
+            };
+
+            const startPseudoProgress = () => {
+                setProgress(8);
+                progressInterval = setInterval(() => {
+                    if (progressValue >= 92) {
+                        return;
+                    }
+
+                    const bump = Math.floor(Math.random() * 7) + 3;
+                    setProgress(Math.min(92, progressValue + bump));
+                }, 350);
+            };
+
+            const stopPseudoProgress = () => {
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+            };
+
+            translationForm.addEventListener('submit', function (event) {
+                if (isSubmitting) {
+                    event.preventDefault();
+                    return;
+                }
+
+                if (!translationForm.checkValidity()) {
+                    return;
+                }
+
+                isSubmitting = true;
+                submitButton.disabled = true;
+                submitButton.setAttribute('aria-busy', 'true');
+                submitLabel.textContent = 'Sedang Mengunggah...';
+
+                if (submitProgress) {
+                    submitProgress.classList.remove('hidden');
+                }
+
+                if (submitStatus) {
+                    submitStatus.textContent = 'Sedang mengunggah bukti pembayaran...';
+                }
+
+                startPseudoProgress();
+
+                setTimeout(() => {
+                    if (!isSubmitting) {
+                        return;
+                    }
+
+                    if (submitStatus) {
+                        submitStatus.textContent = 'Unggahan sedang diproses, mohon tunggu...';
+                    }
+                }, 8000);
+            });
+
+            window.addEventListener('pageshow', function () {
+                isSubmitting = false;
+                stopPseudoProgress();
+                setProgress(0);
+            });
         }
     });
 </script>
