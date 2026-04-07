@@ -9,6 +9,7 @@ use App\Support\LegacyBasicListeningScores;
 use App\Services\WhatsAppService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -57,6 +58,9 @@ class EptRegistrationResource extends BaseResource
                 Forms\Components\Placeholder::make('student_status')
                     ->label('Status Peserta')
                     ->content(fn ($record) => $record?->student_status_label ?? '-'),
+                Forms\Components\Placeholder::make('test_quota')
+                    ->label('Kuota Tes')
+                    ->content(fn ($record) => $record?->test_quota_label ?? '-'),
                 Forms\Components\Placeholder::make('registration_status')
                     ->label('Status Pendaftaran')
                     ->content(function ($record): string {
@@ -179,6 +183,11 @@ class EptRegistrationResource extends BaseResource
                         default => $state,
                     })
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('test_quota')
+                    ->label('Kuota Tes')
+                    ->getStateUsing(fn (EptRegistration $record): string => $record->test_quota_label)
+                    ->alignCenter()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('assigned_groups')
                     ->label('Grup Tes')
                     ->getStateUsing(function (EptRegistration $record): string {
@@ -186,6 +195,7 @@ class EptRegistrationResource extends BaseResource
                             $record->grup1?->name,
                             $record->grup2?->name,
                             $record->grup3?->name,
+                            $record->grup4?->name,
                         ])->filter()->implode(' / ') ?: 'Belum ditetapkan';
                     })
                     ->limit(28)
@@ -194,6 +204,7 @@ class EptRegistrationResource extends BaseResource
                             $record->grup1?->name,
                             $record->grup2?->name,
                             $record->grup3?->name,
+                            $record->grup4?->name,
                         ])->filter()->implode(' / ');
 
                         return $groups !== '' ? $groups : null;
@@ -240,7 +251,8 @@ class EptRegistrationResource extends BaseResource
                         return $query->where(function (Builder $groupQuery) use ($groupId): void {
                             $groupQuery->where('grup_1_id', $groupId)
                                 ->orWhere('grup_2_id', $groupId)
-                                ->orWhere('grup_3_id', $groupId);
+                                ->orWhere('grup_3_id', $groupId)
+                                ->orWhere('grup_4_id', $groupId);
                         });
                     }),
             ])
@@ -283,14 +295,23 @@ class EptRegistrationResource extends BaseResource
 
                             $oldGroup2 = $record->grup_2_id;
                             $oldGroup3 = $record->grup_3_id;
+                            $oldGroup4 = $record->grup_4_id;
+                            $newQuota = EptRegistration::normalizeTestQuota(
+                                $record->test_quota,
+                                $newStatus,
+                            );
 
                             $payload = [
                                 'student_status' => $newStatus,
+                                'test_quota' => $newQuota,
                             ];
 
                             if ($newStatus === EptRegistration::STUDENT_STATUS_GENERAL) {
                                 $payload['grup_2_id'] = null;
                                 $payload['grup_3_id'] = null;
+                                $payload['grup_4_id'] = null;
+                            } elseif ($newQuota < 4) {
+                                $payload['grup_4_id'] = null;
                             }
 
                             $record->update($payload);
@@ -300,15 +321,21 @@ class EptRegistrationResource extends BaseResource
 
                             if (
                                 $newStatus === EptRegistration::STUDENT_STATUS_GENERAL
-                                && ($oldGroup2 !== null || $oldGroup3 !== null)
+                                && ($oldGroup2 !== null || $oldGroup3 !== null || $oldGroup4 !== null)
                             ) {
-                                $body .= ' Grup tes 2 dan 3 dikosongkan karena peserta Umum hanya 1 grup.';
+                                $body .= ' Grup tes 2, 3, dan 4 dikosongkan karena peserta Umum hanya 1 grup.';
                             } elseif (
                                 $record->status === 'approved'
                                 && $newStatus !== EptRegistration::STUDENT_STATUS_GENERAL
                                 && ($record->grup_2_id === null || $record->grup_3_id === null)
                             ) {
                                 $body .= ' Lengkapi penetapan Grup Tes 2 dan 3 lewat aksi "Ubah Grup".';
+                            } elseif (
+                                $record->status === 'approved'
+                                && $record->requiredGroupCount() === EptRegistration::EXTRA_MULTI_TEST_QUOTA
+                                && $record->grup_4_id === null
+                            ) {
+                                $body .= ' Lengkapi penetapan Grup Tes 4 lewat aksi "Ubah Grup".';
                             }
 
                             Notification::make()
@@ -323,69 +350,33 @@ class EptRegistrationResource extends BaseResource
                         ->color('success')
                         ->visible(fn ($record) => $record->status === 'pending')
                         ->form(function (EptRegistration $record): array {
-                            $isGeneral = $record->isGeneralParticipant();
-                            $groupOptionMeta = static::buildGroupOptionMeta();
-                            $groupOptions = $groupOptionMeta['options'];
-                            $disabledGroupOptions = $groupOptionMeta['disabled'];
-
-                            return [
-                                Forms\Components\Placeholder::make('participant_rule')
-                                    ->label('Skema Tes')
-                                    ->content($isGeneral
-                                        ? 'Peserta Umum hanya dijadwalkan ke 1 grup tes.'
-                                        : 'Peserta dijadwalkan ke 3 grup tes yang berbeda.'),
-                                Forms\Components\Select::make('grup_1_id')
-                                    ->label($isGeneral ? 'Grup Tes' : 'Grup Tes 1')
-                                    ->options($groupOptions)
-                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
-                                    ->searchable()
-                                    ->preload()
-                                    ->required(),
-                                Forms\Components\Select::make('grup_2_id')
-                                    ->label('Grup Tes 2')
-                                    ->options($groupOptions)
-                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
-                                    ->searchable()
-                                    ->preload()
-                                    ->hidden($isGeneral)
-                                    ->dehydrated(! $isGeneral)
-                                    ->required(! $isGeneral),
-                                Forms\Components\Select::make('grup_3_id')
-                                    ->label('Grup Tes 3')
-                                    ->options($groupOptions)
-                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
-                                    ->searchable()
-                                    ->preload()
-                                    ->hidden($isGeneral)
-                                    ->dehydrated(! $isGeneral)
-                                    ->required(! $isGeneral),
-                            ];
+                            return static::groupAssignmentForm($record);
                         })
                         ->action(function ($record, array $data) {
-                            $groupAssignments = [
-                                $data['grup_1_id'] ?? null,
-                            ];
+                            $testQuota = EptRegistration::normalizeTestQuota(
+                                (int) ($data['test_quota'] ?? $record->requiredGroupCount()),
+                                $record->student_status,
+                            );
+                            $groupAssignments = static::extractGroupAssignments($data, $testQuota);
 
-                            if (! $record->isGeneralParticipant()) {
-                                $groupAssignments[] = $data['grup_2_id'] ?? null;
-                                $groupAssignments[] = $data['grup_3_id'] ?? null;
-                            }
+                            static::ensureRequiredGroupAssignmentsFilled($groupAssignments);
 
                             if (! EptRegistration::hasDistinctGroupAssignments($groupAssignments)) {
-                                throw ValidationException::withMessages([
-                                    'grup_1_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
-                                    'grup_2_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
-                                    'grup_3_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
-                                ]);
+                                throw ValidationException::withMessages(static::groupAssignmentMessages(
+                                    $testQuota,
+                                    "Grup Tes 1 sampai {$testQuota} harus berbeda."
+                                ));
                             }
 
                             static::ensureQuotaAvailableForGroups($groupAssignments);
 
                             $record->update([
                                 'status' => 'approved',
-                                'grup_1_id' => $data['grup_1_id'],
-                                'grup_2_id' => $record->isGeneralParticipant() ? null : ($data['grup_2_id'] ?? null),
-                                'grup_3_id' => $record->isGeneralParticipant() ? null : ($data['grup_3_id'] ?? null),
+                                'test_quota' => $testQuota,
+                                'grup_1_id' => $groupAssignments[0] ?? null,
+                                'grup_2_id' => $testQuota >= 2 ? ($groupAssignments[1] ?? null) : null,
+                                'grup_3_id' => $testQuota >= 3 ? ($groupAssignments[2] ?? null) : null,
+                                'grup_4_id' => $testQuota >= 4 ? ($groupAssignments[3] ?? null) : null,
                             ]);
 
                             $user = $record->user;
@@ -418,71 +409,32 @@ class EptRegistrationResource extends BaseResource
                         ->color('warning')
                         ->visible(fn ($record) => $record->status === 'approved')
                         ->form(function (EptRegistration $record): array {
-                            $isGeneral = $record->isGeneralParticipant();
-                            $groupOptionMeta = static::buildGroupOptionMeta($record);
-                            $groupOptions = $groupOptionMeta['options'];
-                            $disabledGroupOptions = $groupOptionMeta['disabled'];
-
-                            return [
-                                Forms\Components\Placeholder::make('participant_rule')
-                                    ->label('Skema Tes')
-                                    ->content($isGeneral
-                                        ? 'Peserta Umum hanya dijadwalkan ke 1 grup tes.'
-                                        : 'Peserta dijadwalkan ke 3 grup tes yang berbeda.'),
-                                Forms\Components\Select::make('grup_1_id')
-                                    ->label($isGeneral ? 'Grup Tes' : 'Grup Tes 1')
-                                    ->options($groupOptions)
-                                    ->default($record->grup_1_id)
-                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
-                                    ->searchable()
-                                    ->preload()
-                                    ->required(),
-                                Forms\Components\Select::make('grup_2_id')
-                                    ->label('Grup Tes 2')
-                                    ->options($groupOptions)
-                                    ->default($record->grup_2_id)
-                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
-                                    ->searchable()
-                                    ->preload()
-                                    ->hidden($isGeneral)
-                                    ->dehydrated(! $isGeneral)
-                                    ->required(! $isGeneral),
-                                Forms\Components\Select::make('grup_3_id')
-                                    ->label('Grup Tes 3')
-                                    ->options($groupOptions)
-                                    ->default($record->grup_3_id)
-                                    ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
-                                    ->searchable()
-                                    ->preload()
-                                    ->hidden($isGeneral)
-                                    ->dehydrated(! $isGeneral)
-                                    ->required(! $isGeneral),
-                            ];
+                            return static::groupAssignmentForm($record, $record);
                         })
                         ->action(function ($record, array $data) {
-                            $groupAssignments = [
-                                $data['grup_1_id'] ?? null,
-                            ];
+                            $testQuota = EptRegistration::normalizeTestQuota(
+                                (int) ($data['test_quota'] ?? $record->requiredGroupCount()),
+                                $record->student_status,
+                            );
+                            $groupAssignments = static::extractGroupAssignments($data, $testQuota);
 
-                            if (! $record->isGeneralParticipant()) {
-                                $groupAssignments[] = $data['grup_2_id'] ?? null;
-                                $groupAssignments[] = $data['grup_3_id'] ?? null;
-                            }
+                            static::ensureRequiredGroupAssignmentsFilled($groupAssignments);
 
                             if (! EptRegistration::hasDistinctGroupAssignments($groupAssignments)) {
-                                throw ValidationException::withMessages([
-                                    'grup_1_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
-                                    'grup_2_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
-                                    'grup_3_id' => 'Grup Tes 1, 2, dan 3 harus berbeda.',
-                                ]);
+                                throw ValidationException::withMessages(static::groupAssignmentMessages(
+                                    $testQuota,
+                                    "Grup Tes 1 sampai {$testQuota} harus berbeda."
+                                ));
                             }
 
                             static::ensureQuotaAvailableForGroups($groupAssignments, $record);
 
                             $record->update([
-                                'grup_1_id' => $data['grup_1_id'],
-                                'grup_2_id' => $record->isGeneralParticipant() ? null : ($data['grup_2_id'] ?? null),
-                                'grup_3_id' => $record->isGeneralParticipant() ? null : ($data['grup_3_id'] ?? null),
+                                'test_quota' => $testQuota,
+                                'grup_1_id' => $groupAssignments[0] ?? null,
+                                'grup_2_id' => $testQuota >= 2 ? ($groupAssignments[1] ?? null) : null,
+                                'grup_3_id' => $testQuota >= 3 ? ($groupAssignments[2] ?? null) : null,
+                                'grup_4_id' => $testQuota >= 4 ? ($groupAssignments[3] ?? null) : null,
                             ]);
 
                             Notification::make()
@@ -603,6 +555,7 @@ class EptRegistrationResource extends BaseResource
                 'grup1:id,name',
                 'grup2:id,name',
                 'grup3:id,name',
+                'grup4:id,name',
             ]);
     }
 
@@ -612,6 +565,110 @@ class EptRegistrationResource extends BaseResource
             'index' => Pages\ListEptRegistrations::route('/'),
             'view' => Pages\ViewEptRegistration::route('/{record}'),
         ];
+    }
+
+    protected static function groupAssignmentForm(
+        EptRegistration $record,
+        ?EptRegistration $contextRecord = null,
+    ): array {
+        $groupOptionMeta = static::buildGroupOptionMeta($contextRecord);
+        $groupOptions = $groupOptionMeta['options'];
+        $disabledGroupOptions = $groupOptionMeta['disabled'];
+        $isGeneral = $record->isGeneralParticipant();
+
+        return [
+            Forms\Components\Placeholder::make('participant_rule')
+                ->label('Skema Tes')
+                ->content($isGeneral
+                    ? 'Peserta Umum hanya dijadwalkan ke 1 grup tes.'
+                    : 'Peserta dapat dijadwalkan ke 3 grup tes, atau 4 grup jika tagihan/pembayaran 200.'),
+            Forms\Components\Radio::make('test_quota')
+                ->label('Kuota Tes')
+                ->options(EptRegistration::testQuotaOptionsForStudentStatus($record->student_status))
+                ->default($record->requiredGroupCount())
+                ->inline()
+                ->live()
+                ->required()
+                ->helperText($isGeneral
+                    ? 'Peserta Umum tetap 1 kali tes.'
+                    : 'Biarkan 3 untuk pembayaran normal. Pilih 4 hanya jika tagihan/pembayaran 200.'),
+            Forms\Components\Select::make('grup_1_id')
+                ->label($isGeneral ? 'Grup Tes' : 'Grup Tes 1')
+                ->options($groupOptions)
+                ->default($contextRecord?->grup_1_id)
+                ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
+                ->searchable()
+                ->preload()
+                ->required(),
+            Forms\Components\Select::make('grup_2_id')
+                ->label('Grup Tes 2')
+                ->options($groupOptions)
+                ->default($contextRecord?->grup_2_id)
+                ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
+                ->searchable()
+                ->preload()
+                ->visible(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 2)
+                ->dehydrated(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 2)
+                ->required(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 2),
+            Forms\Components\Select::make('grup_3_id')
+                ->label('Grup Tes 3')
+                ->options($groupOptions)
+                ->default($contextRecord?->grup_3_id)
+                ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
+                ->searchable()
+                ->preload()
+                ->visible(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 3)
+                ->dehydrated(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 3)
+                ->required(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 3),
+            Forms\Components\Select::make('grup_4_id')
+                ->label('Grup Tes 4')
+                ->options($groupOptions)
+                ->default($contextRecord?->grup_4_id)
+                ->disableOptionWhen(fn ($value): bool => isset($disabledGroupOptions[(int) $value]))
+                ->searchable()
+                ->preload()
+                ->visible(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 4)
+                ->dehydrated(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 4)
+                ->required(fn (Get $get): bool => static::selectedTestQuota($get, $record) >= 4),
+        ];
+    }
+
+    protected static function selectedTestQuota(Get $get, EptRegistration $record): int
+    {
+        return EptRegistration::normalizeTestQuota(
+            filled($get('test_quota')) ? (int) $get('test_quota') : $record->requiredGroupCount(),
+            $record->student_status,
+        );
+    }
+
+    protected static function extractGroupAssignments(array $data, int $testQuota): array
+    {
+        return collect(range(1, $testQuota))
+            ->map(fn (int $slot) => $data["grup_{$slot}_id"] ?? null)
+            ->all();
+    }
+
+    protected static function ensureRequiredGroupAssignmentsFilled(array $groupAssignments): void
+    {
+        $missingSlots = collect($groupAssignments)
+            ->filter(fn ($groupId) => ! filled($groupId))
+            ->isNotEmpty();
+
+        if (! $missingSlots) {
+            return;
+        }
+
+        throw ValidationException::withMessages(static::groupAssignmentMessages(
+            count($groupAssignments),
+            'Semua grup tes sesuai kuota wajib dipilih.'
+        ));
+    }
+
+    protected static function groupAssignmentMessages(int $testQuota, string $message): array
+    {
+        return collect(range(1, $testQuota))
+            ->mapWithKeys(fn (int $slot) => ["grup_{$slot}_id" => $message])
+            ->all();
     }
 
     /**
@@ -624,22 +681,30 @@ class EptRegistrationResource extends BaseResource
      */
     protected static function buildGroupOptionMeta(?EptRegistration $contextRecord = null): array
     {
-        $groups = EptGroup::query()
-            ->select(['id', 'name', 'quota'])
-            ->whereNull('jadwal')
-            ->withCount([
-                'registrationsAsGrup1',
-                'registrationsAsGrup2',
-                'registrationsAsGrup3',
-            ])
-            ->latest('id')
-            ->get();
-
         $currentGroupIds = array_values(array_filter([
             $contextRecord?->grup_1_id,
             $contextRecord?->grup_2_id,
             $contextRecord?->grup_3_id,
+            $contextRecord?->grup_4_id,
         ]));
+
+        $groups = EptGroup::query()
+            ->select(['id', 'name', 'quota'])
+            ->where(function (Builder $query) use ($currentGroupIds): void {
+                $query->whereNull('jadwal');
+
+                if ($currentGroupIds !== []) {
+                    $query->orWhereIn('id', $currentGroupIds);
+                }
+            })
+            ->withCount([
+                'registrationsAsGrup1',
+                'registrationsAsGrup2',
+                'registrationsAsGrup3',
+                'registrationsAsGrup4',
+            ])
+            ->latest('id')
+            ->get();
 
         $options = [];
         $disabled = [];
@@ -649,6 +714,7 @@ class EptRegistrationResource extends BaseResource
                 ($group->registrations_as_grup1_count ?? 0)
                 + ($group->registrations_as_grup2_count ?? 0)
                 + ($group->registrations_as_grup3_count ?? 0)
+                + ($group->registrations_as_grup4_count ?? 0)
             );
 
             // Saat edit record yang sudah ada, slot grup miliknya sendiri tidak boleh dianggap penuh.
@@ -690,9 +756,15 @@ class EptRegistrationResource extends BaseResource
         $groups = EptGroup::query()
             ->whereIn('id', $groupIds)
             ->get(['id', 'name', 'quota', 'jadwal']);
+        $currentGroupIds = array_values(array_filter([
+            $contextRecord?->grup_1_id,
+            $contextRecord?->grup_2_id,
+            $contextRecord?->grup_3_id,
+            $contextRecord?->grup_4_id,
+        ]));
 
         foreach ($groups as $group) {
-            if ($group->jadwal !== null) {
+            if ($group->jadwal !== null && ! in_array($group->id, $currentGroupIds, true)) {
                 $message = sprintf(
                     'Grup "%s" sudah memiliki jadwal tes dan tidak bisa dipilih lagi.',
                     $group->name,
@@ -702,6 +774,7 @@ class EptRegistrationResource extends BaseResource
                     'grup_1_id' => $message,
                     'grup_2_id' => $message,
                     'grup_3_id' => $message,
+                    'grup_4_id' => $message,
                 ]);
             }
 
@@ -710,7 +783,8 @@ class EptRegistrationResource extends BaseResource
                 ->where(function (Builder $query) use ($group): void {
                     $query->where('grup_1_id', $group->id)
                         ->orWhere('grup_2_id', $group->id)
-                        ->orWhere('grup_3_id', $group->id);
+                        ->orWhere('grup_3_id', $group->id)
+                        ->orWhere('grup_4_id', $group->id);
                 })
                 ->when(
                     $contextRecord !== null,
@@ -730,6 +804,7 @@ class EptRegistrationResource extends BaseResource
                     'grup_1_id' => $message,
                     'grup_2_id' => $message,
                     'grup_3_id' => $message,
+                    'grup_4_id' => $message,
                 ]);
             }
         }

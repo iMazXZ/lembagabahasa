@@ -29,7 +29,8 @@ class PesertaWidget extends BaseWidget
                     ->where(function ($q) use ($groupId) {
                         $q->where('grup_1_id', $groupId)
                           ->orWhere('grup_2_id', $groupId)
-                          ->orWhere('grup_3_id', $groupId);
+                          ->orWhere('grup_3_id', $groupId)
+                          ->orWhere('grup_4_id', $groupId);
                     })
                     ->with(['user.prody']);
             })
@@ -49,12 +50,7 @@ class PesertaWidget extends BaseWidget
                     ->badge()
                     ->getStateUsing(function (EptRegistration $record) {
                         $groupId = $this->record->id;
-                        return match(true) {
-                            $record->grup_1_id === $groupId => '1',
-                            $record->grup_2_id === $groupId => '2',
-                            $record->grup_3_id === $groupId => '3',
-                            default => '-',
-                        };
+                        return (string) ($record->testNumberForGroupId((int) $groupId) ?? '-');
                     }),
                 Tables\Columns\IconColumn::make('wa_status')
                     ->label('WA')
@@ -93,12 +89,7 @@ class PesertaWidget extends BaseWidget
         $user = $registration->user;
         $group = $this->record;
         
-        $tesNum = match(true) {
-            $registration->grup_1_id === $group->id => 1,
-            $registration->grup_2_id === $group->id => 2,
-            $registration->grup_3_id === $group->id => 3,
-            default => null,
-        };
+        $tesNum = $registration->testNumberForGroupId((int) $group->id);
         
         try {
             $jadwal = $group->jadwal->translatedFormat('l, d F Y H:i');

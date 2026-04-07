@@ -202,6 +202,43 @@ class EptRegistrationFlowTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
+    public function non_general_participant_can_receive_four_test_quota(): void
+    {
+        Carbon::setTestNow('2026-03-03 10:00:00');
+
+        $user = User::factory()->create();
+        $group1 = EptGroup::query()->create(['name' => '01 E 25/26', 'jadwal' => now()->subDays(4), 'lokasi' => 'Lab 1']);
+        $group2 = EptGroup::query()->create(['name' => '02 E 25/26', 'jadwal' => now()->subDays(3), 'lokasi' => 'Lab 2']);
+        $group3 = EptGroup::query()->create(['name' => '03 E 25/26', 'jadwal' => now()->subDays(2), 'lokasi' => 'Lab 3']);
+        $group4 = EptGroup::query()->create(['name' => '04 E 25/26', 'jadwal' => now()->addDay(), 'lokasi' => 'Lab 4']);
+
+        $registration = EptRegistration::query()->create([
+            'user_id' => $user->id,
+            'student_status' => EptRegistration::STUDENT_STATUS_REGULAR,
+            'test_quota' => EptRegistration::EXTRA_MULTI_TEST_QUOTA,
+            'bukti_pembayaran' => 'ept-registrations/payments/existing.webp',
+            'status' => 'approved',
+            'grup_1_id' => $group1->id,
+            'grup_2_id' => $group2->id,
+            'grup_3_id' => $group3->id,
+            'grup_4_id' => $group4->id,
+        ]);
+
+        $this->assertSame(4, $registration->requiredGroupCount());
+        $this->assertSame(4, $registration->testNumberForGroupId($group4->id));
+        $this->assertFalse($registration->isCycleCompleted());
+        $this->assertTrue($registration->blocksNewRegistration());
+
+        $group4->update(['jadwal' => now()->subDay()]);
+        $registration->refresh()->load(['grup1', 'grup2', 'grup3', 'grup4']);
+
+        $this->assertTrue($registration->isCycleCompleted());
+        $this->assertFalse($registration->blocksNewRegistration());
+
+        Carbon::setTestNow();
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_deletes_payment_proof_file_when_registration_is_deleted(): void
     {
         Storage::fake('public');

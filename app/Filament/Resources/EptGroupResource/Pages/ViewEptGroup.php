@@ -118,12 +118,7 @@ class ViewEptGroup extends ViewRecord
             }
 
             try {
-                $tesNum = match(true) {
-                    $reg->grup_1_id === $record->id => 1,
-                    $reg->grup_2_id === $record->id => 2,
-                    $reg->grup_3_id === $record->id => 3,
-                    default => null,
-                };
+                $tesNum = $reg->testNumberForGroupId((int) $record->id);
                 
                 $jadwal = $record->jadwal->translatedFormat('l, d F Y H:i');
                 $dashboardUrl = route('dashboard.ept-registration.index');

@@ -21,12 +21,12 @@ class EptRegistrationController extends Controller
     {
         $user = Auth::user();
 
-        $latestRegistration = EptRegistration::with(['grup1', 'grup2', 'grup3'])
+        $latestRegistration = EptRegistration::with(['grup1', 'grup2', 'grup3', 'grup4'])
             ->where('user_id', $user->id)
             ->latest()
             ->first();
 
-        $blockingRegistration = EptRegistration::with(['grup1', 'grup2', 'grup3'])
+        $blockingRegistration = EptRegistration::with(['grup1', 'grup2', 'grup3', 'grup4'])
             ->where('user_id', $user->id)
             ->active()
             ->latest('id')
@@ -76,7 +76,7 @@ class EptRegistrationController extends Controller
                 ->first();
 
             $blockingRegistration = EptRegistration::query()
-                ->with(['grup1', 'grup2', 'grup3'])
+                ->with(['grup1', 'grup2', 'grup3', 'grup4'])
                 ->where('user_id', $user->id)
                 ->active()
                 ->latest('id')
@@ -104,6 +104,9 @@ class EptRegistrationController extends Controller
             return EptRegistration::create([
                 'user_id' => $user->id,
                 'student_status' => $request->string('student_status')->toString(),
+                'test_quota' => EptRegistration::defaultTestQuotaForStudentStatus(
+                    $request->string('student_status')->toString()
+                ),
                 'bukti_pembayaran' => $result['path'],
                 'status' => 'pending',
             ]);
@@ -199,7 +202,7 @@ class EptRegistrationController extends Controller
         $user = Auth::user();
         $jadwalNum = $request->query('jadwal', 1);
         
-        $registration = EptRegistration::with(['grup1', 'grup2', 'grup3'])
+        $registration = EptRegistration::with(['grup1', 'grup2', 'grup3', 'grup4'])
             ->where('user_id', $user->id)
             ->approved()
             ->latest()
@@ -214,6 +217,7 @@ class EptRegistrationController extends Controller
             1 => $registration->grup1,
             2 => $registration->grup2,
             3 => $registration->grup3,
+            4 => $registration->grup4,
             default => null,
         };
         

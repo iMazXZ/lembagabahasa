@@ -516,13 +516,11 @@ Route::post('/admin/ept-group/{group}/send-wa/{registration}', function (
         return response()->json(['success' => false, 'message' => 'Grup belum memiliki jadwal.'], 400);
     }
     
-    // Determine which tes number
-    $tesNum = match(true) {
-        $registration->grup_1_id === $group->id => 1,
-        $registration->grup_2_id === $group->id => 2,
-        $registration->grup_3_id === $group->id => 3,
-        default => null,
-    };
+    $tesNum = $registration->testNumberForGroupId((int) $group->id);
+
+    if ($tesNum === null) {
+        return response()->json(['success' => false, 'message' => 'Peserta tidak terdaftar pada grup ini.'], 400);
+    }
     
     try {
         $jadwal = $group->jadwal->translatedFormat('l, d F Y H:i');
@@ -534,8 +532,9 @@ Route::post('/admin/ept-group/{group}/send-wa/{registration}', function (
         $message .= "*Grup:* {$group->name}\n";
         $message .= "*Waktu:* {$jadwal} WIB\n";
         $message .= "*Lokasi:* {$group->lokasi}\n\n";
-        $message .= "Silakan download Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-        $message .= "_Wajib membawa kartu peserta dan KTP/Kartu Mahasiswa._";
+        $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
+        $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
+        $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
 
         $queued = app(\App\Services\WhatsAppService::class)->queueMessage($user->whatsapp, $message);
 

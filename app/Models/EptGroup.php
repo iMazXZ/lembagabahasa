@@ -44,13 +44,22 @@ class EptGroup extends Model
     }
 
     /**
+     * Registrations yang masuk grup ini (sebagai grup_4)
+     */
+    public function registrationsAsGrup4(): HasMany
+    {
+        return $this->hasMany(EptRegistration::class, 'grup_4_id');
+    }
+
+    /**
      * Semua registration yang masuk grup ini
      */
     public function allRegistrations()
     {
         return EptRegistration::where('grup_1_id', $this->id)
             ->orWhere('grup_2_id', $this->id)
-            ->orWhere('grup_3_id', $this->id);
+            ->orWhere('grup_3_id', $this->id)
+            ->orWhere('grup_4_id', $this->id);
     }
 
     /**

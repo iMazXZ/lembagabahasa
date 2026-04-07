@@ -35,7 +35,10 @@
     $eptRegistrationOpen = \App\Models\SiteSetting::isEptRegistrationOpen();
     $eptEligibility = \App\Models\SiteSetting::checkEptEligibility($user);
     $canRegisterEpt = $eptEligibility[0] ?? false;
-    $eptRegistration = \App\Models\EptRegistration::where('user_id', $user->id)->latest()->first();
+    $eptRegistration = \App\Models\EptRegistration::with(['grup1', 'grup2', 'grup3', 'grup4'])
+        ->where('user_id', $user->id)
+        ->latest()
+        ->first();
     $showEptWidget = ($eptRegistrationOpen && $canRegisterEpt) || ! $eptRegistrationOpen || $eptRegistration;
 @endphp
 
@@ -517,11 +520,12 @@
                 {{-- Jadwal Grid --}}
                 <div class="p-4">
                     @php
-                        $grups = [
+                        $grups = array_slice([
                             1 => $eptRegistration->grup1,
                             2 => $eptRegistration->grup2,
                             3 => $eptRegistration->grup3,
-                        ];
+                            4 => $eptRegistration->grup4,
+                        ], 0, $eptRegistration->requiredGroupCount(), true);
                     @endphp
                     <div class="space-y-2">
                         @foreach($grups as $i => $grup)

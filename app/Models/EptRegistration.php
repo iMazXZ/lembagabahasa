@@ -18,15 +18,25 @@ class EptRegistration extends Model
     public const STUDENT_STATUS_KONVERSI = 'konversi';
     public const STUDENT_STATUS_GENERAL = 'general';
 
+    public const DEFAULT_MULTI_TEST_QUOTA = 3;
+    public const EXTRA_MULTI_TEST_QUOTA = 4;
+    public const GENERAL_TEST_QUOTA = 1;
+
     protected $fillable = [
         'user_id',
         'student_status',
+        'test_quota',
         'bukti_pembayaran',
         'status',
         'rejection_reason',
         'grup_1_id',
         'grup_2_id',
         'grup_3_id',
+        'grup_4_id',
+    ];
+
+    protected $casts = [
+        'test_quota' => 'integer',
     ];
 
     protected static function booted(): void
@@ -58,6 +68,38 @@ class EptRegistration extends Model
         return static::studentStatusOptions()[$status] ?? 'Regular';
     }
 
+    public static function defaultTestQuotaForStudentStatus(?string $status): int
+    {
+        return $status === self::STUDENT_STATUS_GENERAL
+            ? self::GENERAL_TEST_QUOTA
+            : self::DEFAULT_MULTI_TEST_QUOTA;
+    }
+
+    public static function testQuotaOptionsForStudentStatus(?string $status): array
+    {
+        if ($status === self::STUDENT_STATUS_GENERAL) {
+            return [
+                self::GENERAL_TEST_QUOTA => '1 kali tes',
+            ];
+        }
+
+        return [
+            self::DEFAULT_MULTI_TEST_QUOTA => '3 kali tes - default',
+            self::EXTRA_MULTI_TEST_QUOTA => '4 kali tes - tagihan/pembayaran 200',
+        ];
+    }
+
+    public static function normalizeTestQuota(?int $quota, ?string $status): int
+    {
+        if ($status === self::STUDENT_STATUS_GENERAL) {
+            return self::GENERAL_TEST_QUOTA;
+        }
+
+        return in_array($quota, [self::DEFAULT_MULTI_TEST_QUOTA, self::EXTRA_MULTI_TEST_QUOTA], true)
+            ? $quota
+            : self::DEFAULT_MULTI_TEST_QUOTA;
+    }
+
     public function grup1(): BelongsTo
     {
         return $this->belongsTo(EptGroup::class, 'grup_1_id');
@@ -71,6 +113,11 @@ class EptRegistration extends Model
     public function grup3(): BelongsTo
     {
         return $this->belongsTo(EptGroup::class, 'grup_3_id');
+    }
+
+    public function grup4(): BelongsTo
+    {
+        return $this->belongsTo(EptGroup::class, 'grup_4_id');
     }
 
     public function scopePending($query)
@@ -108,6 +155,11 @@ class EptRegistration extends Model
         return static::studentStatusLabel($this->student_status);
     }
 
+    public function getTestQuotaLabelAttribute(): string
+    {
+        return $this->requiredGroupCount() . ' kali tes';
+    }
+
     public function getStatusColorAttribute(): string
     {
         return match ($this->status) {
@@ -125,13 +177,24 @@ class EptRegistration extends Model
 
     public function requiredGroupCount(): int
     {
-        return $this->isGeneralParticipant() ? 1 : 3;
+        return static::normalizeTestQuota($this->test_quota, $this->student_status);
     }
 
     public function assignedGroups(): Collection
     {
         return collect(range(1, $this->requiredGroupCount()))
             ->map(fn (int $slot) => $this->{"grup{$slot}"});
+    }
+
+    public function testNumberForGroupId(int $groupId): ?int
+    {
+        foreach (range(1, $this->requiredGroupCount()) as $slot) {
+            if ((int) $this->{"grup_{$slot}_id"} === $groupId) {
+                return $slot;
+            }
+        }
+
+        return null;
     }
 
     /**

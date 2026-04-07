@@ -312,7 +312,8 @@ class EptGroupExportBuktiController extends Controller
             ->where(function ($q) use ($groupId) {
                 $q->where('grup_1_id', $groupId)
                     ->orWhere('grup_2_id', $groupId)
-                    ->orWhere('grup_3_id', $groupId);
+                    ->orWhere('grup_3_id', $groupId)
+                    ->orWhere('grup_4_id', $groupId);
             });
     }
 
