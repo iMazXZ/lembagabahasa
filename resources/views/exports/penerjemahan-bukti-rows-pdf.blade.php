@@ -95,6 +95,9 @@
                             <div class="item">
                                 <div class="item-label">
                                     <strong>{{ Str::limit($item['name'], 30) }}</strong> — {{ $item['srn'] }}
+                                    @if(!empty($item['status_label']))
+                                        ({{ $item['status_label'] }})
+                                    @endif
                                 </div>
                                 <div class="item-image">
                                     @if($item['imageData'])

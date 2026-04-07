@@ -69,7 +69,7 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
             actionUrl: $actionUrl
         );
 
-        // Return true supaya notification dianggap terkirim; jika WA disabled, fallback mail tetap ada.
+        // Return true supaya notification dianggap berhasil diantrikan.
         return true;
     }
 

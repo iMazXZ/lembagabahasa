@@ -537,13 +537,13 @@ Route::post('/admin/ept-group/{group}/send-wa/{registration}', function (
         $message .= "Silakan download Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
         $message .= "_Wajib membawa kartu peserta dan KTP/Kartu Mahasiswa._";
 
-        $sent = app(\App\Services\WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+        $queued = app(\App\Services\WhatsAppService::class)->queueMessage($user->whatsapp, $message);
 
-        if ($sent) {
-            return response()->json(['success' => true, 'message' => "Pesan berhasil dikirim ke {$user->name}"]);
+        if ($queued) {
+            return response()->json(['success' => true, 'message' => "Pesan masuk antrean pengiriman untuk {$user->name}"]);
         }
         
-        return response()->json(['success' => false, 'message' => 'Gagal mengirim pesan. Cek koneksi WhatsApp.'], 500);
+        return response()->json(['success' => false, 'message' => 'Layanan WhatsApp tidak aktif.'], 500);
             
     } catch (\Exception $e) {
         return response()->json(['success' => false, 'message' => $e->getMessage()], 500);

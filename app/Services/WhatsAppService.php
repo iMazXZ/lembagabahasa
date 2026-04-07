@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendWhatsAppMessage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -124,6 +125,20 @@ class WhatsAppService
             Log::error('WhatsApp send message error: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Antrekan pesan custom ke jalur outbound WA tunggal.
+     */
+    public function queueMessage(string $phone, string $message): bool
+    {
+        if (! $this->isEnabled()) {
+            return false;
+        }
+
+        SendWhatsAppMessage::dispatch($phone, $message);
+
+        return true;
     }
 
     /**

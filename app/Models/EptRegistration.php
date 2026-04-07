@@ -49,13 +49,13 @@ class EptRegistration extends Model
             self::STUDENT_STATUS_REGULAR => 'Regular',
             self::STUDENT_STATUS_MAGISTER => 'Magister',
             self::STUDENT_STATUS_KONVERSI => 'Konversi',
-            self::STUDENT_STATUS_GENERAL => 'General',
+            self::STUDENT_STATUS_GENERAL => 'Umum',
         ];
     }
 
     public static function studentStatusLabel(?string $status): string
     {
-        return static::studentStatusOptions()[$status] ?? '-';
+        return static::studentStatusOptions()[$status] ?? 'Regular';
     }
 
     public function grup1(): BelongsTo

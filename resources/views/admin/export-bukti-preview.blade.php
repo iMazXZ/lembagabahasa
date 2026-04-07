@@ -87,11 +87,13 @@
                         $previewUrl = filled($record->preview_bukti_url) ? ($record->preview_bukti_url . '?t=' . time()) : '';
                         $displayName = $record->display_name ?? $record->users?->name ?? $record->user?->name ?? '-';
                         $displaySrn = $record->display_srn ?? $record->users?->srn ?? $record->user?->srn ?? '-';
+                        $displayStatusLabel = $record->display_status_label ?? null;
                     @endphp
                     <div class="item-card bg-white border rounded-lg p-2 cursor-move shadow-sm flex items-center gap-2" 
                          data-id="{{ $record->id }}" 
                          data-name="{{ $displayName }}"
                          data-srn="{{ $displaySrn }}"
+                         data-status-label="{{ $displayStatusLabel }}"
                          data-image="{{ $previewUrl }}">
                         @if($previewUrl !== '')
                             <div class="relative">
@@ -108,6 +110,9 @@
                         <div class="text-xs">
                             <div class="font-medium truncate max-w-[120px]">{{ Str::limit($displayName, 18) }}</div>
                             <div class="text-gray-500">{{ $displaySrn }}</div>
+                            @if(filled($displayStatusLabel))
+                                <div class="text-gray-400 truncate max-w-[120px]">{{ $displayStatusLabel }}</div>
+                            @endif
                         </div>
                     </div>
                 @endforeach

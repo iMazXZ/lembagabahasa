@@ -143,7 +143,7 @@ class EptGroupResource extends BaseResource
                         )
                         ->action(function (EptGroup $record) {
                             $registrations = $record->allRegistrations()->with('user')->get();
-                            $sent = 0;
+                            $queued = 0;
                             $failed = 0;
 
                             foreach ($registrations as $reg) {
@@ -171,11 +171,16 @@ class EptGroupResource extends BaseResource
                                     $message .= "*Grup:* {$record->name}\n";
                                     $message .= "*Waktu:* {$jadwal} WIB\n";
                                     $message .= "*Lokasi:* {$record->lokasi}\n\n";
-                                    $message .= "Silakan download Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-                                    $message .= "_Wajib membawa kartu peserta dan KTP/Kartu Mahasiswa._";
+                                    $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
+                                    $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
+                                    $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
 
-                                    app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
-                                    $sent++;
+                                    if (app(WhatsAppService::class)->queueMessage($user->whatsapp, $message)) {
+                                        $queued++;
+                                        continue;
+                                    }
+
+                                    $failed++;
                                 } catch (\Exception $e) {
                                     $failed++;
                                 }
@@ -183,8 +188,8 @@ class EptGroupResource extends BaseResource
 
                             Notification::make()
                                 ->success()
-                                ->title('Notifikasi terkirim')
-                                ->body("Berhasil: {$sent}, Gagal: {$failed}")
+                                ->title('Notifikasi diantrikan')
+                                ->body("Masuk antrean: {$queued}, Gagal: {$failed}")
                                 ->send();
                         }),
 
@@ -213,7 +218,7 @@ class EptGroupResource extends BaseResource
                     ->color('info')
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
-                        $totalSent = 0;
+                        $totalQueued = 0;
                         $totalFailed = 0;
 
                         foreach ($records as $record) {
@@ -246,11 +251,16 @@ class EptGroupResource extends BaseResource
                                     $message .= "*Grup:* {$record->name}\n";
                                     $message .= "*Waktu:* {$jadwal} WIB\n";
                                     $message .= "*Lokasi:* {$record->lokasi}\n\n";
-                                    $message .= "Silakan download Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-                                    $message .= "_Wajib membawa kartu peserta dan KTP/Kartu Mahasiswa._";
+                                    $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
+                                    $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
+                                    $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
 
-                                    app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
-                                    $totalSent++;
+                                    if (app(WhatsAppService::class)->queueMessage($user->whatsapp, $message)) {
+                                        $totalQueued++;
+                                        continue;
+                                    }
+
+                                    $totalFailed++;
                                 } catch (\Exception $e) {
                                     $totalFailed++;
                                 }
@@ -259,8 +269,8 @@ class EptGroupResource extends BaseResource
 
                         Notification::make()
                             ->success()
-                            ->title('Notifikasi terkirim')
-                            ->body("Berhasil: {$totalSent}, Gagal: {$totalFailed}")
+                            ->title('Notifikasi diantrikan')
+                            ->body("Masuk antrean: {$totalQueued}, Gagal: {$totalFailed}")
                             ->send();
                     })
                     ->deselectRecordsAfterCompletion(),

@@ -7,7 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "awcodes/filament-tiptap-editor": "*",
+        "awcodes/filament-tiptap-editor": "^3.5.16",
         "barryvdh/laravel-dompdf": "^3.1",
         "bezhansalleh/filament-shield": "^3.3",
         "doctrine/dbal": "^4.3",
@@ -18,6 +18,7 @@
         "laravel/tinker": "^2.9",
         "maatwebsite/excel": "^3.1",
         "mews/purifier": "^3.4",
+        "plesk/ext-laravel-integration": "^7.0",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-permission": "^6.18",
         "spatie/laravel-sitemap": "^7.3"
@@ -74,7 +75,9 @@
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
-        "plesk/ext-laravel-integration": "*",
+        "platform": {
+            "php": "8.2.0"
+        },
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true

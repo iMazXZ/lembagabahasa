@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Models\User;
 use App\Models\Penerjemahan;
 use App\Models\EptSubmission; // ⬅️ pakai model yang benar
+use App\Models\EptRegistration;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Support\Enums\IconPosition;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -16,7 +17,7 @@ class StatsWidget extends BaseWidget
 
     protected function getColumns(): int
     {
-        return 3;
+        return 4;
     }
 
     protected function getStats(): array
@@ -33,6 +34,11 @@ class StatsWidget extends BaseWidget
         $penTotal   = Penerjemahan::count();
         $penWaiting = Penerjemahan::where('status', 'Menunggu')->count();
         $penPct     = $penTotal > 0 ? round(($penWaiting / $penTotal) * 100, 1) : null;
+
+        // 4) Pendaftaran EPT status "pending"
+        $eptTotal   = EptRegistration::count();
+        $eptPending = EptRegistration::pending()->count();
+        $eptPct     = $eptTotal > 0 ? round(($eptPending / $eptTotal) * 100, 1) : null;
 
         return [
             Stat::make('Total User Pendaftar', number_format($totalPendaftar))
@@ -54,6 +60,13 @@ class StatsWidget extends BaseWidget
                 ->descriptionIcon('heroicon-m-document-arrow-down', IconPosition::Before)
                 ->icon('heroicon-o-document-arrow-down')
                 ->chart([1, 2, 3, 4, 5, 6])
+                ->color('danger'),
+
+            Stat::make('Pendaftaran EPT Menunggu', number_format($eptPending))
+                ->description($eptPct !== null ? "{$eptPct}% dari total pendaftaran" : '—')
+                ->descriptionIcon('heroicon-m-academic-cap', IconPosition::Before)
+                ->icon('heroicon-o-academic-cap')
+                ->chart([1, 2, 3, 3, 4, 5])
                 ->color('danger'),
         ];
     }

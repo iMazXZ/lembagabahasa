@@ -60,6 +60,7 @@ class EptGroupExportBuktiController extends Controller
             $record->preview_bukti_url = $this->resolvePreviewImageUrl($record, $selectionToken);
             $record->display_name = $record->user?->name ?? '-';
             $record->display_srn = $record->user?->srn ?? '-';
+            $record->display_status_label = $record->student_status_label;
             return $record;
         });
 
@@ -188,6 +189,7 @@ class EptGroupExportBuktiController extends Controller
                     $processedRecords[] = [
                         'name' => $record->user?->name ?? '-',
                         'srn' => $record->user?->srn ?? '-',
+                        'status_label' => $record->student_status_label,
                         'imageData' => $imageData,
                     ];
                 }

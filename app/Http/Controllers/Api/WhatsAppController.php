@@ -23,7 +23,14 @@ class WhatsAppController extends Controller
         ]);
 
         $user = $request->user();
-        $whatsapp = preg_replace('/[^0-9]/', '', $request->input('whatsapp'));
+        $whatsapp = NormalizeWhatsAppNumber::normalize($request->input('whatsapp'));
+
+        if (! $whatsapp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format nomor WhatsApp tidak valid',
+            ], 422);
+        }
 
         $exists = User::where('whatsapp', $whatsapp)
             ->where('id', '!=', $user->id)
@@ -36,11 +43,17 @@ class WhatsAppController extends Controller
             ], 422);
         }
 
-        $user->update([
+        $attributes = [
             'whatsapp' => $whatsapp,
             'whatsapp_otp' => null,
             'whatsapp_otp_expires_at' => null,
-        ]);
+        ];
+
+        if ($user->whatsapp !== $whatsapp) {
+            $attributes['whatsapp_verified_at'] = null;
+        }
+
+        $user->update($attributes);
 
         return response()->json([
             'success' => true,
@@ -80,7 +93,7 @@ class WhatsAppController extends Controller
 
         if (SiteSetting::isOtpEnabled()) {
             $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $expiresAt = now()->addMinutes(5);
+            $expiresAt = now()->addMinutes(30);
 
             $user->update([
                 'whatsapp' => $normalized,
@@ -101,7 +114,7 @@ class WhatsAppController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Kode OTP telah dikirim ke WhatsApp Anda',
+                'message' => 'Kode OTP masuk ke antrean pengiriman WhatsApp. Mohon tunggu beberapa saat.',
                 'skip_otp' => false,
             ]);
         }
@@ -187,7 +200,28 @@ class WhatsAppController extends Controller
             ], 422);
         }
 
-        $request->user()->update(['whatsapp' => $normalized]);
+        $user = $request->user();
+
+        $exists = User::where('whatsapp', $normalized)
+            ->where('id', '!=', $user->id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nomor WhatsApp ini sudah terdaftar di akun lain.',
+            ], 422);
+        }
+
+        $attributes = ['whatsapp' => $normalized];
+
+        if ($user->whatsapp !== $normalized) {
+            $attributes['whatsapp_verified_at'] = null;
+            $attributes['whatsapp_otp'] = null;
+            $attributes['whatsapp_otp_expires_at'] = null;
+        }
+
+        $user->update($attributes);
 
         return response()->json([
             'success' => true,

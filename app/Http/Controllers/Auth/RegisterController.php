@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendWhatsAppOtp;
 use App\Models\User;
 use App\Models\SiteSetting;
 use App\Support\NormalizeWhatsAppNumber;
@@ -142,18 +143,15 @@ class RegisterController extends Controller
 
         // Generate OTP
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $expiresAt = now()->addMinutes(10);
+        $expiresAt = now()->addMinutes(30);
 
         $user->update([
             'whatsapp_otp' => $otp,
             'whatsapp_otp_expires_at' => $expiresAt,
         ]);
 
-        // Kirim via WhatsApp service
-        $waService = app(\App\Services\WhatsAppService::class);
-
-        if ($waService->isEnabled()) {
-            $waService->sendOtp($user->whatsapp, $otp);
+        if (app(\App\Services\WhatsAppService::class)->isEnabled()) {
+            SendWhatsAppOtp::dispatch($user->whatsapp, $otp);
         }
     }
 }

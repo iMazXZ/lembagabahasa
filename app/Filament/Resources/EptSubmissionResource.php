@@ -28,6 +28,8 @@ class EptSubmissionResource extends BaseResource
 
     public static ?string $slug = 'suratrekomendasi';
     protected static ?string $navigationLabel = 'Pengajuan Surat Rekomendasi';
+    protected static ?string $modelLabel = 'Pengajuan Surat Rekomendasi';
+    protected static ?string $pluralModelLabel = 'Pengajuan Surat Rekomendasi';
     protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
@@ -165,8 +167,8 @@ class EptSubmissionResource extends BaseResource
                             ));
 
                             Notification::make()
-                                ->title('WA dikirim ulang')
-                                ->body('Notifikasi approved telah dikirim ke WhatsApp pemohon.')
+                                ->title('WA masuk antrean')
+                                ->body('Notifikasi approved telah masuk antrean pengiriman WhatsApp.')
                                 ->success()
                                 ->send();
                         }),

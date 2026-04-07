@@ -2,8 +2,14 @@
 
 namespace App\Filament\Pages;
 
+use App\Jobs\QueueHeartbeatPing;
+use App\Jobs\SendWhatsAppMessage;
+use App\Jobs\SendWhatsAppNotification;
+use App\Jobs\SendWhatsAppOtp;
+use App\Jobs\SendWhatsAppResetLink;
 use App\Models\SiteSetting;
 use App\Models\Prody;
+use App\Support\QueueMonitor;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -17,6 +23,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 
 class SiteSettings extends Page implements HasForms
 {
@@ -40,6 +47,9 @@ class SiteSettings extends Page implements HasForms
     public ?array $data = [];
     public ?array $waStatus = null;
     public ?array $waLogs = [];
+    public array $waQueue = [];
+    public array $waQueueMeta = [];
+    public array $waWorkerStatus = [];
     public ?string $waBaseUrl = null;
 
     public function mount(): void
@@ -47,6 +57,8 @@ class SiteSettings extends Page implements HasForms
         $this->waBaseUrl = rtrim(config('whatsapp.url', 'https://wa-api.lembagabahasa.site'), '/');
         $this->loadWaStatus();
         $this->loadWaLogs();
+        $this->loadWaQueue();
+        $this->loadWaWorkerStatus();
         
         $this->form->fill([
             'maintenance_mode' => SiteSetting::isMaintenanceEnabled(),
@@ -307,11 +319,21 @@ class SiteSettings extends Page implements HasForms
     {
         $this->loadWaStatus();
         $this->loadWaLogs();
+        $this->loadWaQueue();
+        $this->loadWaWorkerStatus();
         
         Notification::make()
             ->title('Status WhatsApp diperbarui')
             ->success()
             ->send();
+    }
+
+    public function pollWaMonitoring(): void
+    {
+        $this->loadWaStatus();
+        $this->loadWaLogs();
+        $this->loadWaQueue();
+        $this->loadWaWorkerStatus();
     }
 
     public function loadWaLogs(): void
@@ -338,5 +360,295 @@ class SiteSettings extends Page implements HasForms
         } catch (\Exception $e) {
             $this->waLogs = [];
         }
+    }
+
+    public function loadWaQueue(): void
+    {
+        $defaultConnection = (string) config('queue.default', 'database');
+
+        if ($defaultConnection !== 'database') {
+            $this->waQueue = [];
+            $this->waQueueMeta = [
+                'supported' => false,
+                'message' => "Monitoring antrean live hanya aktif untuk queue database. Saat ini: {$defaultConnection}.",
+                'total' => 0,
+                'queued' => 0,
+                'processing' => 0,
+            ];
+            return;
+        }
+
+        $table = (string) config('queue.connections.database.table', 'jobs');
+        $allowedJobs = QueueMonitor::waJobClasses();
+
+        try {
+            $rows = DB::table($table)
+                ->orderBy('available_at')
+                ->limit(100)
+                ->get(['id', 'queue', 'payload', 'attempts', 'reserved_at', 'available_at', 'created_at']);
+
+            $queue = [];
+            $queuedCount = 0;
+            $processingCount = 0;
+
+            foreach ($rows as $row) {
+                $payload = json_decode($row->payload, true);
+                $commandName = data_get($payload, 'data.commandName');
+
+                if (! in_array($commandName, $allowedJobs, true)) {
+                    continue;
+                }
+
+                $command = $this->extractQueuedCommand($payload);
+                $status = $row->reserved_at ? 'processing' : 'queued';
+                $preview = $this->buildQueuePreview($commandName, $command);
+
+                if ($status === 'processing') {
+                    $processingCount++;
+                } else {
+                    $queuedCount++;
+                }
+
+                $queue[] = [
+                    'id' => $row->id,
+                    'queue' => $row->queue,
+                    'status' => $status,
+                    'phone' => $this->maskPhone($this->extractPhone($command)),
+                    'type' => $this->describeWaJob($commandName, $command),
+                    'preview' => $preview,
+                    'attempts' => (int) $row->attempts,
+                    'created_at' => $row->created_at ? (int) $row->created_at : null,
+                    'available_at' => $row->available_at ? (int) $row->available_at : null,
+                    'reserved_at' => $row->reserved_at ? (int) $row->reserved_at : null,
+                ];
+            }
+
+            $this->waQueue = array_slice($queue, 0, 20);
+            $this->waQueueMeta = [
+                'supported' => true,
+                'message' => 'Live dari Laravel queue database. Status "queued" berarti belum diproses; "processing" berarti sedang dipegang worker.',
+                'total' => $queuedCount + $processingCount,
+                'queued' => $queuedCount,
+                'processing' => $processingCount,
+            ];
+        } catch (\Throwable $e) {
+            $this->waQueue = [];
+            $this->waQueueMeta = [
+                'supported' => false,
+                'message' => 'Gagal memuat antrean WhatsApp: ' . $e->getMessage(),
+                'total' => 0,
+                'queued' => 0,
+                'processing' => 0,
+            ];
+        }
+    }
+
+    public function loadWaWorkerStatus(): void
+    {
+        $defaultConnection = (string) config('queue.default', 'database');
+        $retryAfter = (int) data_get(config('queue.connections'), "{$defaultConnection}.retry_after", 90);
+        $heartbeat = QueueMonitor::readHeartbeat();
+        $lastSeenAt = (int) ($heartbeat['last_seen_at'] ?? 0);
+        $now = now()->timestamp;
+        $heartbeatAge = $lastSeenAt > 0 ? max(0, $now - $lastSeenAt) : null;
+        $stuckAfter = max($retryAfter + 30, QueueMonitor::HEARTBEAT_FRESH_SECONDS);
+
+        $queuedCount = 0;
+        $processingCount = 0;
+        $staleReservedAt = null;
+        $queueMessage = null;
+
+        if ($defaultConnection === 'database') {
+            try {
+                $table = (string) config('queue.connections.database.table', 'jobs');
+                $jobClasses = QueueMonitor::waJobClasses();
+                $baseQuery = DB::table($table)->where(function ($query) use ($jobClasses) {
+                    foreach ($jobClasses as $jobClass) {
+                        $query->orWhere('payload', 'like', '%' . $jobClass . '%');
+                    }
+                });
+
+                $queuedCount = (clone $baseQuery)->whereNull('reserved_at')->count();
+                $processingCount = (clone $baseQuery)->whereNotNull('reserved_at')->count();
+                $staleReservedAt = (clone $baseQuery)
+                    ->whereNotNull('reserved_at')
+                    ->orderBy('reserved_at')
+                    ->value('reserved_at');
+            } catch (\Throwable $e) {
+                $queueMessage = 'Gagal membaca tabel jobs: ' . $e->getMessage();
+            }
+        } else {
+            $queueMessage = "Deteksi worker detail hanya akurat untuk queue database. Saat ini: {$defaultConnection}.";
+        }
+
+        $failedCount = 0;
+        $lastFailedAt = null;
+
+        try {
+            $failedDriver = (string) config('queue.failed.driver', 'database-uuids');
+
+            if (str_starts_with($failedDriver, 'database')) {
+                $failedTable = (string) config('queue.failed.table', 'failed_jobs');
+                $jobClasses = QueueMonitor::monitoredJobClasses();
+                $failedQuery = DB::table($failedTable)->where(function ($query) use ($jobClasses) {
+                    foreach ($jobClasses as $jobClass) {
+                        $query->orWhere('payload', 'like', '%' . $jobClass . '%');
+                    }
+                });
+
+                $failedCount = (clone $failedQuery)->count();
+                $lastFailedAt = (clone $failedQuery)->max('failed_at');
+            } else {
+                $queueMessage = $queueMessage ?? "Driver failed jobs saat ini: {$failedDriver}.";
+            }
+        } catch (\Throwable $e) {
+            $queueMessage = $queueMessage ?? 'Gagal membaca failed jobs: ' . $e->getMessage();
+        }
+
+        $hasStuckProcessing = $staleReservedAt
+            ? (($now - (int) $staleReservedAt) > $stuckAfter)
+            : false;
+
+        if ($hasStuckProcessing) {
+            $state = 'stuck';
+            $label = 'Worker macet';
+            $color = 'warning';
+            $message = 'Ada job yang sudah diambil worker terlalu lama dan belum selesai.';
+        } elseif ($lastSeenAt > 0 && $heartbeatAge !== null && $heartbeatAge <= QueueMonitor::HEARTBEAT_FRESH_SECONDS) {
+            $state = 'active';
+            $label = 'Worker aktif';
+            $color = 'success';
+            $message = 'Heartbeat worker masih segar.';
+        } elseif (($queuedCount + $processingCount) > 0) {
+            $state = 'down';
+            $label = 'Worker tidak berjalan';
+            $color = 'danger';
+            $message = 'Ada antrean, tetapi tidak ada heartbeat worker yang baru.';
+        } else {
+            $state = 'idle';
+            $label = 'Belum ada aktivitas worker';
+            $color = 'gray';
+            $message = 'Belum ada antrean aktif atau heartbeat worker masih belum terdeteksi.';
+        }
+
+        if ($queueMessage) {
+            $message .= ' ' . $queueMessage;
+        }
+
+        $this->waWorkerStatus = [
+            'state' => $state,
+            'label' => $label,
+            'color' => $color,
+            'message' => trim($message),
+            'last_seen_at' => $lastSeenAt ?: null,
+            'last_event' => $heartbeat['event'] ?? null,
+            'last_job' => $heartbeat['job'] ?? null,
+            'last_queue' => $heartbeat['queue'] ?? null,
+            'host' => $heartbeat['host'] ?? null,
+            'queued_count' => $queuedCount,
+            'processing_count' => $processingCount,
+            'stale_reserved_at' => $staleReservedAt ? (int) $staleReservedAt : null,
+            'failed_count' => $failedCount,
+            'last_failed_at' => $lastFailedAt,
+            'has_failed_jobs' => $failedCount > 0,
+        ];
+    }
+
+    protected function extractQueuedCommand(array $payload): mixed
+    {
+        $serialized = data_get($payload, 'data.command');
+
+        if (! is_string($serialized) || $serialized === '') {
+            return null;
+        }
+
+        try {
+            return unserialize($serialized, ['allowed_classes' => true]);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    protected function extractPhone(mixed $command): ?string
+    {
+        if (is_object($command) && property_exists($command, 'phone')) {
+            return (string) $command->phone;
+        }
+
+        return null;
+    }
+
+    protected function describeWaJob(string $commandName, mixed $command): string
+    {
+        return match ($commandName) {
+            SendWhatsAppOtp::class => 'OTP Verifikasi',
+            SendWhatsAppResetLink::class => 'Reset Password',
+            SendWhatsAppNotification::class => $this->describeNotificationJob($command),
+            SendWhatsAppMessage::class => 'Pesan Custom',
+            QueueHeartbeatPing::class => 'Heartbeat Worker',
+            default => class_basename($commandName),
+        };
+    }
+
+    protected function describeNotificationJob(mixed $command): string
+    {
+        if (! is_object($command) || ! property_exists($command, 'type')) {
+            return 'Notifikasi';
+        }
+
+        $type = (string) $command->type;
+        $status = property_exists($command, 'status') ? (string) $command->status : null;
+        $label = match ($type) {
+            'ept_status' => 'Notifikasi Surat Rekomendasi',
+            'penerjemahan_status' => 'Notifikasi Penerjemahan',
+            default => 'Notifikasi',
+        };
+
+        return $status ? "{$label} ({$status})" : $label;
+    }
+
+    protected function buildQueuePreview(string $commandName, mixed $command): ?string
+    {
+        return match ($commandName) {
+            SendWhatsAppOtp::class => 'Kode OTP verifikasi nomor WhatsApp.',
+            SendWhatsAppResetLink::class => 'Tautan reset password.',
+            SendWhatsAppNotification::class => is_object($command) && property_exists($command, 'details')
+                ? $this->truncatePreview((string) ($command->details ?? ''))
+                : null,
+            SendWhatsAppMessage::class => is_object($command) && property_exists($command, 'message')
+                ? $this->truncatePreview((string) ($command->message ?? ''))
+                : null,
+            default => null,
+        };
+    }
+
+    protected function truncatePreview(string $preview, int $limit = 100): ?string
+    {
+        $preview = trim(preg_replace('/\s+/', ' ', $preview));
+
+        if ($preview === '') {
+            return null;
+        }
+
+        if (mb_strlen($preview) <= $limit) {
+            return $preview;
+        }
+
+        return mb_substr($preview, 0, $limit - 1) . '…';
+    }
+
+    protected function maskPhone(?string $phone): string
+    {
+        $clean = preg_replace('/\D+/', '', (string) $phone);
+
+        if ($clean === '') {
+            return 'unknown';
+        }
+
+        if (strlen($clean) <= 8) {
+            return $clean;
+        }
+
+        return substr($clean, 0, 5) . '****' . substr($clean, -4);
     }
 }

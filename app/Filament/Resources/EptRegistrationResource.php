@@ -36,6 +36,11 @@ class EptRegistrationResource extends BaseResource
         return $count > 0 ? (string) $count : null;
     }
 
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -297,7 +302,7 @@ class EptRegistrationResource extends BaseResource
                                 $newStatus === EptRegistration::STUDENT_STATUS_GENERAL
                                 && ($oldGroup2 !== null || $oldGroup3 !== null)
                             ) {
-                                $body .= ' Grup tes 2 dan 3 dikosongkan karena peserta General hanya 1 grup.';
+                                $body .= ' Grup tes 2 dan 3 dikosongkan karena peserta Umum hanya 1 grup.';
                             } elseif (
                                 $record->status === 'approved'
                                 && $newStatus !== EptRegistration::STUDENT_STATUS_GENERAL
@@ -327,7 +332,7 @@ class EptRegistrationResource extends BaseResource
                                 Forms\Components\Placeholder::make('participant_rule')
                                     ->label('Skema Tes')
                                     ->content($isGeneral
-                                        ? 'Peserta General hanya dijadwalkan ke 1 grup tes.'
+                                        ? 'Peserta Umum hanya dijadwalkan ke 1 grup tes.'
                                         : 'Peserta dijadwalkan ke 3 grup tes yang berbeda.'),
                                 Forms\Components\Select::make('grup_1_id')
                                     ->label($isGeneral ? 'Grup Tes' : 'Grup Tes 1')
@@ -392,10 +397,11 @@ class EptRegistrationResource extends BaseResource
                                     $message .= "Yth. *{$user->name}*,\n\n";
                                     $message .= "Pembayaran Tes EPT Anda sudah kami verifikasi dan *valid*.\n\n";
                                     $message .= "Mohon menunggu penetapan jadwal tes. Ketika kuota peserta sudah terpenuhi, jadwal tes akan segera dikirimkan melalui WhatsApp.\n\n";
+                                    $message .= "Jika notifikasi WA tidak berfungsi, pantau info jadwal melalui Instagram:\nhttps://www.instagram.com/labahasa_um_metro/\n\n";
                                     $message .= "Silakan pantau status pendaftaran Anda di:\n{$dashboardUrl}\n\n";
                                     $message .= "_Terima kasih telah mendaftar._";
 
-                                    app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+                                    app(WhatsAppService::class)->queueMessage($user->whatsapp, $message);
                                 } catch (\Exception $e) {
                                 }
                             }
@@ -403,7 +409,7 @@ class EptRegistrationResource extends BaseResource
                             Notification::make()
                                 ->success()
                                 ->title('Pendaftaran Disetujui')
-                                ->body('Peserta berhasil ditambahkan ke grup. Notifikasi WA telah dikirim.')
+                                ->body('Peserta berhasil ditambahkan ke grup. Notifikasi WA masuk antrean pengiriman.')
                                 ->send();
                         }),
                     Tables\Actions\Action::make('edit_groups')
@@ -521,10 +527,10 @@ class EptRegistrationResource extends BaseResource
                                     $message .= "Silakan upload ulang bukti pembayaran yang valid melalui link berikut:\n{$dashboardUrl}\n\n";
                                     $message .= "_Terima kasih atas pengertiannya._";
 
-                                    $result = app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+                                    $result = app(WhatsAppService::class)->queueMessage($user->whatsapp, $message);
                                     $waSent = $result;
                                     if (!$result) {
-                                        $waReason = 'Gagal mengirim (API error)';
+                                        $waReason = 'Gagal mengantrikan (layanan tidak aktif)';
                                         \Illuminate\Support\Facades\Log::warning('EPT Rejection WA failed', [
                                             'user_id' => $user->id,
                                             'whatsapp' => $user->whatsapp,
@@ -543,13 +549,13 @@ class EptRegistrationResource extends BaseResource
                                 Notification::make()
                                     ->warning()
                                     ->title('Pendaftaran Ditolak')
-                                    ->body('Notifikasi penolakan terkirim via WA.')
+                                    ->body('Notifikasi penolakan masuk antrean WA.')
                                     ->send();
                             } else {
                                 Notification::make()
                                     ->danger()
                                     ->title('Pendaftaran Ditolak')
-                                    ->body("WA tidak terkirim: {$waReason}")
+                                    ->body("WA gagal masuk antrean: {$waReason}")
                                     ->send();
                             }
                         }),

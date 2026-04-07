@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 
+use App\Support\QueueMonitor;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -58,11 +63,40 @@ class AppServiceProvider extends ServiceProvider
             return new \App\Channels\WhatsAppChannel();
         });
 
-        // Rate limit global untuk pengiriman WA agar tidak diblokir.
-        // Batasi notifikasi WA agar tidak memicu limit akun
-        // wa-notif: notifikasi status & reset password (4 pesan/menit ≈ 1 per 15 detik)
-        RateLimiter::for('wa-notif', fn () => Limit::perMinute(4)->by('wa-notif'));
-        // wa-otp: lebih longgar untuk OTP
-        RateLimiter::for('wa-otp', fn () => Limit::perMinute(15)->by('wa-otp'));
+        Queue::before(function (JobProcessing $event) {
+            $payload = $event->job->payload();
+            $commandName = QueueMonitor::extractCommandName($payload);
+
+            if (! QueueMonitor::isMonitored($commandName)) {
+                return;
+            }
+
+            QueueMonitor::touchHeartbeat('processing', $commandName, $event->job->getQueue());
+        });
+
+        Queue::after(function (JobProcessed $event) {
+            $payload = $event->job->payload();
+            $commandName = QueueMonitor::extractCommandName($payload);
+
+            if (! QueueMonitor::isMonitored($commandName)) {
+                return;
+            }
+
+            QueueMonitor::touchHeartbeat('processed', $commandName, $event->job->getQueue());
+        });
+
+        Queue::failing(function (JobFailed $event) {
+            $payload = $event->job->payload();
+            $commandName = QueueMonitor::extractCommandName($payload);
+
+            if (! QueueMonitor::isMonitored($commandName)) {
+                return;
+            }
+
+            QueueMonitor::touchHeartbeat('failed', $commandName, $event->job->getQueue());
+        });
+
+        // Jalur tunggal outbound WA: 1 pesan setiap 2 menit agar backlog tidak meledak.
+        RateLimiter::for('wa-outbound', fn () => Limit::perMinutes(2, 1)->by('wa-outbound'));
     }
 }

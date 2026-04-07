@@ -24,8 +24,7 @@ class SendWhatsAppNotification implements ShouldQueue
 
     public function middleware(): array
     {
-        // Batasi 8 pesan/menit (lihat AppServiceProvider)
-        return [new \Illuminate\Queue\Middleware\RateLimited('wa-notif')];
+        return [new \Illuminate\Queue\Middleware\RateLimited('wa-outbound')];
     }
 
     public function handle(WhatsAppService $waService): void

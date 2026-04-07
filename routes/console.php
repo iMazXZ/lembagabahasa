@@ -3,8 +3,10 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use App\Jobs\QueueHeartbeatPing;
 use App\Models\User;
 use App\Models\BasicListeningSurvey;
 use App\Models\BasicListeningSurveyQuestion;
@@ -15,6 +17,10 @@ use App\Models\BasicListeningSupervisor;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Schedule::job(new QueueHeartbeatPing())
+    ->everyMinute()
+    ->name('queue-heartbeat-ping');
 
 Artisan::command('bl:seed-survey-dummy 
     {--count=20 : Jumlah respon per survey}

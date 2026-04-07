@@ -7,17 +7,17 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\RateLimited;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Queue\Middleware\RateLimited;
 
-class SendWhatsAppOtp implements ShouldQueue
+class SendWhatsAppMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
         public string $phone,
-        public string $otp,
+        public string $message,
     ) {}
 
     public function middleware(): array
@@ -27,11 +27,14 @@ class SendWhatsAppOtp implements ShouldQueue
 
     public function handle(WhatsAppService $waService): void
     {
-        $sent = $waService->sendOtp($this->phone, $this->otp);
+        if (! $waService->isEnabled()) {
+            return;
+        }
 
-        if (!$sent) {
-            // Log untuk observasi; bisa dihubungkan ke failed_jobs jika dibutuhkan.
-            Log::warning("Failed to send WhatsApp OTP to {$this->phone}");
+        $sent = $waService->sendMessage($this->phone, $this->message);
+
+        if (! $sent) {
+            Log::warning("Failed to queue-send WhatsApp message to {$this->phone}");
         }
     }
 }

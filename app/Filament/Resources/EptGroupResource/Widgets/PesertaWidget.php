@@ -110,22 +110,23 @@ class PesertaWidget extends BaseWidget
             $message .= "*Grup:* {$group->name}\n";
             $message .= "*Waktu:* {$jadwal} WIB\n";
             $message .= "*Lokasi:* {$group->lokasi}\n\n";
-            $message .= "Silakan download Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-            $message .= "_Wajib membawa kartu peserta dan KTP/Kartu Mahasiswa._";
+            $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
+            $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
+            $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
 
-            $sent = app(WhatsAppService::class)->sendMessage($user->whatsapp, $message);
+            $queued = app(WhatsAppService::class)->queueMessage($user->whatsapp, $message);
 
-            if ($sent) {
+            if ($queued) {
                 Notification::make()
                     ->success()
-                    ->title('Notifikasi terkirim')
-                    ->body("Pesan berhasil dikirim ke {$user->name}")
+                    ->title('Notifikasi diantrikan')
+                    ->body("Pesan masuk antrean pengiriman untuk {$user->name}")
                     ->send();
             } else {
                 Notification::make()
                     ->danger()
-                    ->title('Gagal mengirim')
-                    ->body('Cek koneksi WhatsApp API')
+                    ->title('Gagal mengantrikan')
+                    ->body('Layanan WhatsApp tidak aktif')
                     ->send();
             }
         } catch (\Exception $e) {

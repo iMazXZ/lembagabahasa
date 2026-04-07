@@ -2,6 +2,7 @@
 
 namespace App\Filament\Auth;
 
+use App\Jobs\SendWhatsAppOtp;
 use Closure;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Auth\Register as AuthRegister;
@@ -114,25 +115,21 @@ class Register extends AuthRegister
 
         // OTP aktif - generate dan kirim
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $expiresAt = now()->addMinutes(10);
+        $expiresAt = now()->addMinutes(30);
 
         $user->update([
             'whatsapp_otp' => $otp,
             'whatsapp_otp_expires_at' => $expiresAt,
         ]);
 
-        $waService = app(\App\Services\WhatsAppService::class);
+        if (app(\App\Services\WhatsAppService::class)->isEnabled()) {
+            SendWhatsAppOtp::dispatch($user->whatsapp, $otp);
 
-        if ($waService->isEnabled()) {
-            $sent = $waService->sendOtp($user->whatsapp, $otp);
-
-            if ($sent) {
-                Notification::make()
-                    ->title('OTP Terkirim')
-                    ->body('Kode verifikasi WhatsApp telah dikirim. Silakan cek WhatsApp Anda.')
-                    ->success()
-                    ->send();
-            }
+            Notification::make()
+                ->title('OTP Dalam Antrean')
+                ->body('Kode verifikasi WhatsApp sedang diproses. Mohon tunggu beberapa saat.')
+                ->success()
+                ->send();
         }
     }
 

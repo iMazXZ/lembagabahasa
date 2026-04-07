@@ -49,4 +49,52 @@ class WhatsAppOtpTest extends TestCase
         $response->assertStatus(422);
         $this->assertEquals($existing->id, $existing->fresh()->id); // ensure not touched
     }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_clears_verification_when_save_only_changes_number(): void
+    {
+        $user = User::factory()->create([
+            'whatsapp' => '628111111111',
+            'whatsapp_verified_at' => now(),
+            'whatsapp_otp' => '123456',
+            'whatsapp_otp_expires_at' => now()->addMinutes(5),
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post('/api/whatsapp/save-only', ['whatsapp' => '081234567890']);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+
+        $user->refresh();
+
+        $this->assertSame('6281234567890', $user->whatsapp);
+        $this->assertNull($user->whatsapp_verified_at);
+        $this->assertNull($user->whatsapp_otp);
+        $this->assertNull($user->whatsapp_otp_expires_at);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_clears_verification_when_legacy_update_changes_number(): void
+    {
+        $user = User::factory()->create([
+            'whatsapp' => '628111111111',
+            'whatsapp_verified_at' => now(),
+            'whatsapp_otp' => '123456',
+            'whatsapp_otp_expires_at' => now()->addMinutes(5),
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post('/api/whatsapp/update', ['whatsapp' => '081234567890']);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+
+        $user->refresh();
+
+        $this->assertSame('6281234567890', $user->whatsapp);
+        $this->assertNull($user->whatsapp_verified_at);
+        $this->assertNull($user->whatsapp_otp);
+        $this->assertNull($user->whatsapp_otp_expires_at);
+    }
 }

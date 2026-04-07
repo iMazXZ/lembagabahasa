@@ -22,7 +22,7 @@ class SendWhatsAppResetLink implements ShouldQueue
 
     public function middleware(): array
     {
-        return [new RateLimited('wa-notif')];
+        return [new RateLimited('wa-outbound')];
     }
 
     public function handle(WhatsAppService $waService): void
