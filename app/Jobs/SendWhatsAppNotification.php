@@ -13,6 +13,10 @@ class SendWhatsAppNotification implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $tries = 200;
+
+    public int $timeout = 50;
+
     public function __construct(
         public string $phone,
         public string $type,

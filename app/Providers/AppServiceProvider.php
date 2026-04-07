@@ -96,7 +96,7 @@ class AppServiceProvider extends ServiceProvider
             QueueMonitor::touchHeartbeat('failed', $commandName, $event->job->getQueue());
         });
 
-        // Jalur tunggal outbound WA: 1 pesan setiap 2 menit agar backlog tidak meledak.
-        RateLimiter::for('wa-outbound', fn () => Limit::perMinutes(2, 1)->by('wa-outbound'));
+        // Jalur tunggal outbound WA: 1 pesan setiap 50 detik agar backlog tidak meledak.
+        RateLimiter::for('wa-outbound', fn () => Limit::perSecond(1, 50)->by('wa-outbound'));
     }
 }
