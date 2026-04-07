@@ -23,7 +23,9 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'timeout' => env('WHATSAPP_TIMEOUT', 30),
+    'timeout' => env('WHATSAPP_TIMEOUT', 15),
 
-    'retry' => env('WHATSAPP_RETRY', 2),
+    'retry' => env('WHATSAPP_RETRY', 1),
+
+    'outbound_spacing_seconds' => env('WHATSAPP_OUTBOUND_SPACING_SECONDS', 50),
 ];

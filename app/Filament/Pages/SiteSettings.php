@@ -51,6 +51,7 @@ class SiteSettings extends Page implements HasForms
     public array $waQueueMeta = [];
     public array $waWorkerStatus = [];
     public ?string $waBaseUrl = null;
+    public ?string $waMonitoringRefreshedAt = null;
 
     public function mount(): void
     {
@@ -59,6 +60,7 @@ class SiteSettings extends Page implements HasForms
         $this->loadWaLogs();
         $this->loadWaQueue();
         $this->loadWaWorkerStatus();
+        $this->markWaMonitoringRefreshed();
         
         $this->form->fill([
             'maintenance_mode' => SiteSetting::isMaintenanceEnabled(),
@@ -321,6 +323,7 @@ class SiteSettings extends Page implements HasForms
         $this->loadWaLogs();
         $this->loadWaQueue();
         $this->loadWaWorkerStatus();
+        $this->markWaMonitoringRefreshed();
         
         Notification::make()
             ->title('Status WhatsApp diperbarui')
@@ -334,6 +337,12 @@ class SiteSettings extends Page implements HasForms
         $this->loadWaLogs();
         $this->loadWaQueue();
         $this->loadWaWorkerStatus();
+        $this->markWaMonitoringRefreshed();
+    }
+
+    protected function markWaMonitoringRefreshed(): void
+    {
+        $this->waMonitoringRefreshedAt = now()->toDateTimeString();
     }
 
     public function loadWaLogs(): void

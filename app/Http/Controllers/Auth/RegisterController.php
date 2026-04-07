@@ -7,6 +7,7 @@ use App\Jobs\SendWhatsAppOtp;
 use App\Models\User;
 use App\Models\SiteSetting;
 use App\Support\NormalizeWhatsAppNumber;
+use App\Support\WhatsAppOutboundThrottle;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -151,7 +152,8 @@ class RegisterController extends Controller
         ]);
 
         if (app(\App\Services\WhatsAppService::class)->isEnabled()) {
-            SendWhatsAppOtp::dispatch($user->whatsapp, $otp);
+            SendWhatsAppOtp::dispatch($user->whatsapp, $otp)
+                ->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
         }
     }
 }

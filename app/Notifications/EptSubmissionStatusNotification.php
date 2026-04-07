@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use App\Jobs\SendWhatsAppNotification;
+use App\Support\WhatsAppOutboundThrottle;
 
 class EptSubmissionStatusNotification extends Notification implements ShouldQueue
 {
@@ -67,7 +68,7 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
             userName: $notifiable->name,
             details: $details,
             actionUrl: $actionUrl
-        );
+        )->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
 
         // Return true supaya notification dianggap berhasil diantrikan.
         return true;

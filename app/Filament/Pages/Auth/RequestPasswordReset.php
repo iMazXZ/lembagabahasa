@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
 use App\Services\WhatsAppService;
 use App\Support\NormalizeWhatsAppNumber;
+use App\Support\WhatsAppOutboundThrottle;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\TextInput;
@@ -133,12 +134,12 @@ class RequestPasswordReset extends BaseRequestPasswordReset
                 return;
             }
 
-            // Antrikan dengan rate limit wa-notif (1 pesan/15 detik)
+            // Antrikan lewat jalur outbound WA global.
             SendWhatsAppResetLink::dispatch(
                 phone: $user->whatsapp,
                 resetUrl: $resetUrl,
                 userName: $user->name
-            );
+            )->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
 
             Notification::make()
                 ->title('Tautan Reset Dalam Proses')

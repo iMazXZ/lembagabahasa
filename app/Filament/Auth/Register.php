@@ -3,6 +3,7 @@
 namespace App\Filament\Auth;
 
 use App\Jobs\SendWhatsAppOtp;
+use App\Support\WhatsAppOutboundThrottle;
 use Closure;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Auth\Register as AuthRegister;
@@ -123,7 +124,8 @@ class Register extends AuthRegister
         ]);
 
         if (app(\App\Services\WhatsAppService::class)->isEnabled()) {
-            SendWhatsAppOtp::dispatch($user->whatsapp, $otp);
+            SendWhatsAppOtp::dispatch($user->whatsapp, $otp)
+                ->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
 
             Notification::make()
                 ->title('OTP Dalam Antrean')

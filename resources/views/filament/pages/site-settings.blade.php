@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div wire:poll.15s="pollWaMonitoring" class="space-y-6">
+    <div wire:poll.15s.keep-alive="pollWaMonitoring" class="space-y-6">
         {{-- WhatsApp API Status --}}
         <x-filament::section icon="heroicon-o-signal">
             <x-slot name="heading">
@@ -98,6 +98,26 @@
 
             <x-slot name="description">
                 Pending queue live dari Laravel + log kirim aktual dari service WA.
+            </x-slot>
+
+            <x-slot name="headerEnd">
+                <div class="flex flex-wrap items-center justify-end gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span>Auto-refresh 15 detik</span>
+                    @if($waMonitoringRefreshedAt)
+                        <span>Terakhir: {{ \Carbon\Carbon::parse($waMonitoringRefreshedAt)->format('H:i:s') }}</span>
+                    @endif
+                    <x-filament::button
+                        wire:click="pollWaMonitoring"
+                        size="sm"
+                        color="gray"
+                        icon="heroicon-o-arrow-path"
+                        wire:loading.attr="disabled"
+                        wire:target="pollWaMonitoring"
+                    >
+                        <span wire:loading.remove wire:target="pollWaMonitoring">Refresh</span>
+                        <span wire:loading wire:target="pollWaMonitoring">Loading...</span>
+                    </x-filament::button>
+                </div>
             </x-slot>
 
             <div class="mb-4 space-y-3">
@@ -204,6 +224,15 @@
         <x-filament::section collapsible collapsed icon="heroicon-o-document-text">
             <x-slot name="heading">
                 Log Pesan Terakhir ({{ count($waLogs) }})
+            </x-slot>
+
+            <x-slot name="headerEnd">
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    Auto-refresh 15 detik
+                    @if($waMonitoringRefreshedAt)
+                        · terakhir {{ \Carbon\Carbon::parse($waMonitoringRefreshedAt)->format('H:i:s') }}
+                    @endif
+                </span>
             </x-slot>
 
             <div class="divide-y divide-gray-100 dark:divide-gray-800">

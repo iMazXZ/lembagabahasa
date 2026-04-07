@@ -96,7 +96,10 @@ class AppServiceProvider extends ServiceProvider
             QueueMonitor::touchHeartbeat('failed', $commandName, $event->job->getQueue());
         });
 
-        // Jalur tunggal outbound WA: 1 pesan setiap 50 detik agar backlog tidak meledak.
-        RateLimiter::for('wa-outbound', fn () => Limit::perSecond(1, 50)->by('wa-outbound'));
+        // Cadangan throttle runtime jika worker menemukan lebih dari satu job WA siap proses.
+        RateLimiter::for('wa-outbound', fn () => Limit::perSecond(
+            1,
+            max(1, (int) config('whatsapp.outbound_spacing_seconds', 50))
+        )->by('wa-outbound'));
     }
 }

@@ -8,6 +8,7 @@ use App\Models\SiteSetting;
 use App\Models\User;
 use App\Services\WhatsAppService;
 use App\Support\NormalizeWhatsAppNumber;
+use App\Support\WhatsAppOutboundThrottle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -110,7 +111,8 @@ class WhatsAppController extends Controller
             }
 
             // Offload pengiriman ke queue supaya respon cepat.
-            SendWhatsAppOtp::dispatch($normalized, $otp);
+            SendWhatsAppOtp::dispatch($normalized, $otp)
+                ->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
 
             return response()->json([
                 'success' => true,

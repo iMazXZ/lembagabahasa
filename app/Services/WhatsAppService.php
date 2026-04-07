@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\SendWhatsAppMessage;
+use App\Support\WhatsAppOutboundThrottle;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -136,7 +137,8 @@ class WhatsAppService
             return false;
         }
 
-        SendWhatsAppMessage::dispatch($phone, $message);
+        SendWhatsAppMessage::dispatch($phone, $message)
+            ->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
 
         return true;
     }

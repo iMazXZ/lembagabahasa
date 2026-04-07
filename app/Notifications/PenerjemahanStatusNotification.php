@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Jobs\SendWhatsAppNotification;
+use App\Support\WhatsAppOutboundThrottle;
 
 class PenerjemahanStatusNotification extends Notification implements ShouldQueue
 {
@@ -52,7 +53,7 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
             userName: $notifiable->name,
             details: $details,
             actionUrl: $actionUrl
-        );
+        )->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
 
         return true;
     }
