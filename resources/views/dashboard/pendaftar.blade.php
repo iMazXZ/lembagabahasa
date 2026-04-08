@@ -44,6 +44,85 @@
 
 <div class="space-y-6">
 
+    @php
+        $dashboardNotifications = $latestNotifications ?? collect();
+        $dashboardUnread = $unreadNotificationsCount ?? 0;
+        $dashboardReadCount = $dashboardNotifications->whereNotNull('read_at')->count();
+    @endphp
+
+    @if($dashboardNotifications->isNotEmpty())
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-full bg-um-blue/10 flex items-center justify-center shrink-0">
+                        <i class="fa-regular fa-bell text-um-blue"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="font-bold text-slate-800 leading-tight">Notifikasi Terbaru</h3>
+                        <p class="text-xs text-slate-500">{{ $dashboardUnread }} belum dibaca</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                    @if($dashboardReadCount > 0)
+                        <form method="POST" action="{{ route('dashboard.notifications.destroy-read') }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100">
+                                Hapus yang dibaca
+                            </button>
+                        </form>
+                    @endif
+                    @if($dashboardUnread > 0)
+                        <form method="POST" action="{{ route('dashboard.notifications.read-all') }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-um-blue transition hover:bg-blue-100">
+                                Tandai semua dibaca
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+                @foreach($dashboardNotifications as $notification)
+                    @php
+                        $data = $notification->data ?? [];
+                        $isUnread = blank($notification->read_at);
+                    @endphp
+                    <div class="flex items-start gap-3 px-4 py-4 transition hover:bg-slate-50 sm:gap-4 sm:px-5 {{ $isUnread ? 'bg-blue-50/40' : '' }}">
+                        <div class="w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                            <i class="{{ $data['icon'] ?? 'fa-regular fa-bell' }}"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <a href="{{ route('dashboard.notifications.open', $notification->id) }}" class="min-w-0 flex-1">
+                                    <h4 class="text-sm font-bold text-slate-800 leading-5 line-clamp-2 sm:line-clamp-1">{{ $data['title'] ?? 'Notifikasi Baru' }}</h4>
+                                    <p class="mt-1 text-sm leading-6 text-slate-500 line-clamp-3 sm:line-clamp-2">{{ $data['body'] ?? 'Ada pembaruan pada akun Anda.' }}</p>
+                                </a>
+                                <div class="flex items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end sm:justify-start">
+                                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                                        @if($isUnread)
+                                            <span class="inline-flex items-center gap-1 font-semibold text-um-blue">
+                                                <span class="h-2.5 w-2.5 rounded-full bg-um-blue"></span>
+                                                Baru
+                                            </span>
+                                        @endif
+                                        <span class="whitespace-nowrap">{{ $notification->created_at?->diffForHumans() }}</span>
+                                    </div>
+                                    <form method="POST" action="{{ route('dashboard.notifications.destroy', $notification->id) }}">
+                                        @csrf
+                                        <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" title="Hapus notifikasi">
+                                            <i class="fa-regular fa-trash-can text-sm"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     {{-- ONBOARDING CHECKLIST WIDGET --}}
     @php
         $otpEnabled = \App\Models\SiteSetting::isOtpEnabled();

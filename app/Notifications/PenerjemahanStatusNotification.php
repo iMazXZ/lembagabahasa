@@ -21,13 +21,24 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        // Jika user punya nomor WhatsApp yang terverifikasi, kirim via WA saja
-        if (!empty($notifiable->whatsapp) && $notifiable->whatsapp_verified_at) {
-            return ['whatsapp'];
+        $channels = ['mail', 'database'];
+
+        if (
+            ($this->status === 'Selesai' || str_contains($this->status, 'Ditolak'))
+            && ! empty($notifiable->whatsapp)
+            && $notifiable->whatsapp_verified_at
+        ) {
+            $channels[] = 'whatsapp';
         }
-        
-        // Fallback ke email
-        return ['mail'];
+
+        return $channels;
+    }
+
+    public function viaConnections(): array
+    {
+        return [
+            'database' => 'sync',
+        ];
     }
 
     /**
@@ -79,5 +90,45 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
             }, function ($message) {
                 return $message->salutation('Regards, Admin.');
             });
+    }
+
+    public function toArray(object $notifiable): array
+    {
+        $title = match (true) {
+            $this->status === 'Diproses' => 'Penerjemahan Sedang Diproses',
+            $this->status === 'Selesai' => 'Penerjemahan Selesai',
+            str_contains($this->status, 'Ditolak') => 'Penerjemahan Ditolak',
+            default => 'Status Penerjemahan',
+        };
+
+        $body = match (true) {
+            $this->status === 'Diproses' => 'Dokumen Anda sedang diproses oleh tim penerjemah.',
+            $this->status === 'Selesai' => 'Dokumen terjemahan Anda sudah siap diunduh.',
+            str_contains($this->status, 'Pembayaran') => 'Permohonan ditolak karena pembayaran tidak valid.',
+            str_contains($this->status, 'Dokumen') => 'Permohonan ditolak karena dokumen tidak valid.',
+            default => 'Status penerjemahan diperbarui.',
+        };
+
+        return [
+            'type' => 'penerjemahan_status',
+            'status' => $this->status,
+            'title' => $title,
+            'body' => $body,
+            'url' => ($this->status === 'Selesai' && $this->verificationUrl)
+                ? $this->verificationUrl
+                : route('dashboard.translation'),
+            'color' => match (true) {
+                $this->status === 'Selesai' => 'emerald',
+                str_contains($this->status, 'Ditolak') => 'rose',
+                $this->status === 'Diproses' => 'amber',
+                default => 'slate',
+            },
+            'icon' => match (true) {
+                $this->status === 'Selesai' => 'fa-solid fa-language',
+                str_contains($this->status, 'Ditolak') => 'fa-solid fa-ban',
+                $this->status === 'Diproses' => 'fa-solid fa-hourglass-half',
+                default => 'fa-solid fa-file-signature',
+            },
+        ];
     }
 }

@@ -33,6 +33,7 @@ use App\Http\Middleware\CountPostView;
 use App\Http\Controllers\RoleDashboardRedirectController;
 use App\Http\Controllers\PendaftarDashboardController;
 use App\Http\Controllers\TutorDashboardController;
+use App\Http\Controllers\DashboardNotificationController;
 
 // Dashboard fitur lain
 use App\Http\Controllers\DashboardPasswordController;
@@ -56,6 +57,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/pendaftar', [PendaftarDashboardController::class, 'index'])
         ->middleware('role:pendaftar')
         ->name('dashboard.pendaftar');
+
+    Route::get('/dashboard/notifications/{notification}/open', [DashboardNotificationController::class, 'open'])
+        ->name('dashboard.notifications.open');
+
+    Route::post('/dashboard/notifications/read-all', [DashboardNotificationController::class, 'readAll'])
+        ->name('dashboard.notifications.read-all');
+
+    Route::post('/dashboard/notifications/read-delete', [DashboardNotificationController::class, 'destroyRead'])
+        ->name('dashboard.notifications.destroy-read');
+
+    Route::post('/dashboard/notifications/{notification}/delete', [DashboardNotificationController::class, 'destroy'])
+        ->name('dashboard.notifications.destroy');
 
     // Dashboard Penerjemah
     Route::get('/dashboard/penerjemah', [\App\Http\Controllers\PenerjemahDashboardController::class, 'index'])
@@ -507,9 +520,9 @@ Route::post('/admin/ept-group/{group}/send-wa/{registration}', function (
     \App\Models\EptRegistration $registration
 ) {
     $user = $registration->user;
-    
-    if (!$user->whatsapp || !$user->whatsapp_verified_at) {
-        return response()->json(['success' => false, 'message' => 'User tidak memiliki WhatsApp terverifikasi.'], 400);
+
+    if (! $user) {
+        return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 404);
     }
     
     if (!$group->jadwal) {
@@ -523,27 +536,19 @@ Route::post('/admin/ept-group/{group}/send-wa/{registration}', function (
     }
     
     try {
-        $jadwal = $group->jadwal->translatedFormat('l, d F Y H:i');
-        $dashboardUrl = route('dashboard.ept-registration.index');
+        $user->notify(new \App\Notifications\EptScheduleAssignedNotification(
+            testNumber: $tesNum,
+            groupName: $group->name,
+            scheduledAt: $group->jadwal,
+            location: (string) $group->lokasi,
+            dashboardUrl: route('dashboard.ept-registration.index'),
+        ));
 
-        $message = "*Jadwal Tes EPT Ditetapkan*\n\n";
-        $message .= "Yth. *{$user->name}*,\n\n";
-        $message .= "Jadwal *Tes ke-{$tesNum}* EPT Anda telah ditetapkan:\n\n";
-        $message .= "*Grup:* {$group->name}\n";
-        $message .= "*Waktu:* {$jadwal} WIB\n";
-        $message .= "*Lokasi:* {$group->lokasi}\n\n";
-        $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-        $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
-        $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
+        $message = $user->whatsapp && $user->whatsapp_verified_at
+            ? "Email diproses dan WA masuk antrean untuk {$user->name}"
+            : "Email diproses untuk {$user->name}. WA dilewati karena nomor belum terverifikasi";
 
-        $queued = app(\App\Services\WhatsAppService::class)->queueMessage($user->whatsapp, $message);
-
-        if ($queued) {
-            return response()->json(['success' => true, 'message' => "Pesan masuk antrean pengiriman untuk {$user->name}"]);
-        }
-        
-        return response()->json(['success' => false, 'message' => 'Layanan WhatsApp tidak aktif.'], 500);
-            
+        return response()->json(['success' => true, 'message' => $message]);
     } catch (\Exception $e) {
         return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
     }

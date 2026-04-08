@@ -5,7 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EptGroupResource\Pages;
 use App\Models\EptGroup;
 use App\Models\EptRegistration;
-use App\Services\WhatsAppService;
+use App\Notifications\EptScheduleAssignedNotification;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -130,60 +130,60 @@ class EptGroupResource extends BaseResource
                                 ->send();
                         }),
 
-                    // ACTION: KIRIM NOTIF WA
+                    // ACTION: KIRIM NOTIF
                     Tables\Actions\Action::make('kirim_notif_wa')
-                        ->label('Kirim Notif WA')
+                        ->label('Kirim Notifikasi')
                         ->icon('heroicon-o-chat-bubble-left-right')
                         ->color('info')
                         ->visible(fn (EptGroup $record) => $record->jadwal !== null)
                         ->requiresConfirmation()
-                        ->modalHeading('Kirim Notifikasi WhatsApp')
+                        ->modalHeading('Kirim Notifikasi')
                         ->modalDescription(fn (EptGroup $record) => 
                             'Kirim notifikasi jadwal ke semua peserta grup "' . $record->name . '" (' . $record->allRegistrations()->count() . ' peserta)?'
                         )
                         ->action(function (EptGroup $record) {
                             $registrations = $record->allRegistrations()->with('user')->get();
-                            $queued = 0;
+                            $emailQueued = 0;
+                            $waQueued = 0;
                             $failed = 0;
 
                             foreach ($registrations as $reg) {
                                 $user = $reg->user;
-                                if (!$user->whatsapp || !$user->whatsapp_verified_at) {
+
+                                if (! $user) {
                                     $failed++;
                                     continue;
                                 }
 
                                 try {
                                     $tesNum = $reg->testNumberForGroupId((int) $record->id);
-                                    
-                                    $jadwal = $record->jadwal->translatedFormat('l, d F Y H:i');
-                                    $dashboardUrl = route('dashboard.ept-registration.index');
-
-                                    $message = "*Jadwal Tes EPT Ditetapkan*\n\n";
-                                    $message .= "Yth. *{$user->name}*,\n\n";
-                                    $message .= "Jadwal *Tes ke-{$tesNum}* EPT Anda telah ditetapkan:\n\n";
-                                    $message .= "*Grup:* {$record->name}\n";
-                                    $message .= "*Waktu:* {$jadwal} WIB\n";
-                                    $message .= "*Lokasi:* {$record->lokasi}\n\n";
-                                    $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-                                    $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
-                                    $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
-
-                                    if (app(WhatsAppService::class)->queueMessage($user->whatsapp, $message)) {
-                                        $queued++;
+                                    if ($tesNum === null) {
+                                        $failed++;
                                         continue;
                                     }
 
-                                    $failed++;
-                                } catch (\Exception $e) {
+                                    $user->notify(new EptScheduleAssignedNotification(
+                                        testNumber: $tesNum,
+                                        groupName: $record->name,
+                                        scheduledAt: $record->jadwal,
+                                        location: (string) $record->lokasi,
+                                        dashboardUrl: route('dashboard.ept-registration.index'),
+                                    ));
+
+                                    $emailQueued++;
+
+                                    if ($user->whatsapp && $user->whatsapp_verified_at) {
+                                        $waQueued++;
+                                    }
+                                } catch (\Throwable $e) {
                                     $failed++;
                                 }
                             }
 
                             Notification::make()
                                 ->success()
-                                ->title('Notifikasi diantrikan')
-                                ->body("Masuk antrean: {$queued}, Gagal: {$failed}")
+                                ->title('Notifikasi diproses')
+                                ->body("Email: {$emailQueued}, WA: {$waQueued}, Gagal: {$failed}")
                                 ->send();
                         }),
 
@@ -205,14 +205,15 @@ class EptGroupResource extends BaseResource
                 ->icon('heroicon-m-cog-6-tooth'),
             ])
             ->bulkActions([
-                // BULK: KIRIM NOTIF WA KE BANYAK GRUP
+                // BULK: KIRIM NOTIF KE BANYAK GRUP
                 Tables\Actions\BulkAction::make('bulk_kirim_notif')
-                    ->label('Kirim Notif WA')
+                    ->label('Kirim Notifikasi')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('info')
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
-                        $totalQueued = 0;
+                        $totalEmailQueued = 0;
+                        $totalWaQueued = 0;
                         $totalFailed = 0;
 
                         foreach ($records as $record) {
@@ -222,34 +223,33 @@ class EptGroupResource extends BaseResource
 
                             foreach ($registrations as $reg) {
                                 $user = $reg->user;
-                                if (!$user->whatsapp || !$user->whatsapp_verified_at) {
+
+                                if (! $user) {
                                     $totalFailed++;
                                     continue;
                                 }
 
                                 try {
                                     $tesNum = $reg->testNumberForGroupId((int) $record->id);
-                                    
-                                    $jadwal = $record->jadwal->translatedFormat('l, d F Y H:i');
-                                    $dashboardUrl = route('dashboard.ept-registration.index');
-
-                                    $message = "*Jadwal Tes EPT Ditetapkan*\n\n";
-                                    $message .= "Yth. *{$user->name}*,\n\n";
-                                    $message .= "Jadwal *Tes ke-{$tesNum}* EPT Anda telah ditetapkan:\n\n";
-                                    $message .= "*Grup:* {$record->name}\n";
-                                    $message .= "*Waktu:* {$jadwal} WIB\n";
-                                    $message .= "*Lokasi:* {$record->lokasi}\n\n";
-                                    $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-                                    $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
-                                    $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
-
-                                    if (app(WhatsAppService::class)->queueMessage($user->whatsapp, $message)) {
-                                        $totalQueued++;
+                                    if ($tesNum === null) {
+                                        $totalFailed++;
                                         continue;
                                     }
 
-                                    $totalFailed++;
-                                } catch (\Exception $e) {
+                                    $user->notify(new EptScheduleAssignedNotification(
+                                        testNumber: $tesNum,
+                                        groupName: $record->name,
+                                        scheduledAt: $record->jadwal,
+                                        location: (string) $record->lokasi,
+                                        dashboardUrl: route('dashboard.ept-registration.index'),
+                                    ));
+
+                                    $totalEmailQueued++;
+
+                                    if ($user->whatsapp && $user->whatsapp_verified_at) {
+                                        $totalWaQueued++;
+                                    }
+                                } catch (\Throwable $e) {
                                     $totalFailed++;
                                 }
                             }
@@ -257,8 +257,8 @@ class EptGroupResource extends BaseResource
 
                         Notification::make()
                             ->success()
-                            ->title('Notifikasi diantrikan')
-                            ->body("Masuk antrean: {$totalQueued}, Gagal: {$totalFailed}")
+                            ->title('Notifikasi diproses')
+                            ->body("Email: {$totalEmailQueued}, WA: {$totalWaQueued}, Gagal: {$totalFailed}")
                             ->send();
                     })
                     ->deselectRecordsAfterCompletion(),

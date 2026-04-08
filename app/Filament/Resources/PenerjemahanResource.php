@@ -446,7 +446,7 @@ class PenerjemahanResource extends BaseResource
                                 ));
                             }
                             
-                            Notification::make()->title("Penerjemahan diproses & notifikasi terkirim ke penerjemah ({$translator?->email})")->success()->send();
+                            Notification::make()->title("Penerjemahan diproses. Notifikasi pemohon dan penerjemah diproses.")->success()->send();
                         }),
 
                     Tables\Actions\Action::make('tolak_pembayaran')
@@ -472,7 +472,7 @@ class PenerjemahanResource extends BaseResource
                                 'bukti_pembayaran'  => null, // Clear the path in database
                             ]);
                             $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Ditolak - Pembayaran Tidak Valid'));
-                            Notification::make()->title("Ditolak & bukti pembayaran dihapus. Notifikasi terkirim ke {$record->users?->email}")->danger()->send();
+                            Notification::make()->title('Ditolak, bukti pembayaran dihapus, dan notifikasi diproses.')->danger()->send();
                         }),
 
                     Tables\Actions\Action::make('tolak_dokumen')
@@ -492,7 +492,7 @@ class PenerjemahanResource extends BaseResource
                                 'translator_id' => null,
                             ]);
                             $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Ditolak - Dokumen Tidak Valid'));
-                            Notification::make()->title("Ditolak & notifikasi terkirim ke {$record->users?->email}")->danger()->send();
+                            Notification::make()->title('Ditolak dan notifikasi diproses.')->danger()->send();
                         }),
 
                     Tables\Actions\Action::make('set_selesai')
@@ -511,7 +511,7 @@ class PenerjemahanResource extends BaseResource
                                 'completion_date' => now(),
                             ]);
                             $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Selesai', $record->verification_url));
-                            Notification::make()->title("Notifikasi terkirim ke {$record->users?->email}")->success()->send();
+                            Notification::make()->title('Status selesai dan notifikasi diproses.')->success()->send();
                         }),
 
                     // Link publik PDF (berdasar verification code)

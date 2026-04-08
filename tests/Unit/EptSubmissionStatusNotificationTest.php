@@ -12,7 +12,7 @@ class EptSubmissionStatusNotificationTest extends TestCase
     use RefreshDatabase;
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function it_prefers_whatsapp_when_verified(): void
+    public function it_sends_mail_dashboard_and_whatsapp_for_approved_when_verified(): void
     {
         $user = User::factory()->create([
             'whatsapp' => '628111111111',
@@ -23,21 +23,23 @@ class EptSubmissionStatusNotificationTest extends TestCase
 
         $channels = $notification->via($user);
 
-        $this->assertEquals(['whatsapp'], $channels);
+        $this->assertEquals(['mail', 'database', 'whatsapp'], $channels);
+        $this->assertSame(['database' => 'sync'], $notification->viaConnections());
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function it_falls_back_to_mail_when_whatsapp_not_verified(): void
+    public function it_sends_mail_and_dashboard_only_for_pending_even_when_whatsapp_verified(): void
     {
         $user = User::factory()->create([
             'whatsapp' => '628111111111',
-            'whatsapp_verified_at' => null,
+            'whatsapp_verified_at' => now(),
         ]);
 
         $notification = new EptSubmissionStatusNotification(status: 'pending');
 
         $channels = $notification->via($user);
 
-        $this->assertEquals(['mail'], $channels);
+        $this->assertEquals(['mail', 'database'], $channels);
+        $this->assertSame(['database' => 'sync'], $notification->viaConnections());
     }
 }

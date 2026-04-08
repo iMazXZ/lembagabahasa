@@ -23,10 +23,19 @@ class PendaftarDashboardController extends Controller
             ->orderByRaw('COALESCE(approved_at, created_at) DESC')
             ->first();
 
+        $latestNotifications = $user->notifications()
+            ->limit(8)
+            ->get();
+
+        $unreadNotificationsCount = $user->unreadNotifications()
+            ->count();
+
         return view('dashboard.pendaftar', [
             'user'                => $user,
             'latestTranslation'   => $latestTranslation,
             'latestEptSubmission' => $latestEptSubmission,
+            'latestNotifications' => $latestNotifications,
+            'unreadNotificationsCount' => $unreadNotificationsCount,
         ]);
     }
 }

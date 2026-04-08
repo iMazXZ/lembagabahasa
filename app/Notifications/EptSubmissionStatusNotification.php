@@ -23,13 +23,24 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
 
     public function via(object $notifiable): array
     {
-        // Jika user punya nomor WhatsApp yang terverifikasi, kirim via WA saja
-        if (!empty($notifiable->whatsapp) && $notifiable->whatsapp_verified_at) {
-            return ['whatsapp'];
+        $channels = ['mail', 'database'];
+
+        if (
+            in_array($this->status, ['approved', 'rejected'], true)
+            && ! empty($notifiable->whatsapp)
+            && $notifiable->whatsapp_verified_at
+        ) {
+            $channels[] = 'whatsapp';
         }
-        
-        // Fallback ke email
-        return ['mail'];
+
+        return $channels;
+    }
+
+    public function viaConnections(): array
+    {
+        return [
+            'database' => 'sync',
+        ];
     }
 
     /**
@@ -114,5 +125,46 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
         $mail->salutation("Hormat kami, Admin Lembaga Bahasa UM Metro");
 
         return $mail;
+    }
+
+    public function toArray(object $notifiable): array
+    {
+        $title = match ($this->status) {
+            'approved' => 'Surat Rekomendasi Disetujui',
+            'rejected' => 'Surat Rekomendasi Ditolak',
+            'pending' => 'Surat Rekomendasi Menunggu Tinjauan',
+            default => 'Status Surat Rekomendasi',
+        };
+
+        $body = match ($this->status) {
+            'approved' => 'Pengajuan surat rekomendasi Anda telah disetujui dan siap diproses lebih lanjut.',
+            'rejected' => 'Pengajuan surat rekomendasi Anda ditolak. Silakan cek catatan admin.',
+            'pending' => 'Pengajuan surat rekomendasi Anda sedang menunggu peninjauan admin.',
+            default => $this->details ?? 'Status pengajuan surat rekomendasi diperbarui.',
+        };
+
+        if ($this->status === 'rejected' && filled($this->adminNote)) {
+            $body .= ' Alasan: ' . $this->adminNote;
+        }
+
+        return [
+            'type' => 'ept_submission_status',
+            'status' => $this->status,
+            'title' => $title,
+            'body' => $body,
+            'url' => $this->verificationUrl ?? route('dashboard.ept'),
+            'color' => match ($this->status) {
+                'approved' => 'emerald',
+                'rejected' => 'rose',
+                'pending' => 'amber',
+                default => 'slate',
+            },
+            'icon' => match ($this->status) {
+                'approved' => 'fa-solid fa-file-circle-check',
+                'rejected' => 'fa-solid fa-file-circle-xmark',
+                'pending' => 'fa-solid fa-file-circle-question',
+                default => 'fa-solid fa-file-lines',
+            },
+        ];
     }
 }

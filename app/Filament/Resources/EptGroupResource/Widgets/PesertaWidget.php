@@ -4,7 +4,7 @@ namespace App\Filament\Resources\EptGroupResource\Widgets;
 
 use App\Models\EptGroup;
 use App\Models\EptRegistration;
-use App\Services\WhatsAppService;
+use App\Notifications\EptScheduleAssignedNotification;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -61,15 +61,11 @@ class PesertaWidget extends BaseWidget
             ])
             ->actions([
                 Tables\Actions\Action::make('kirim_wa')
-                    ->label('Kirim WA')
+                    ->label('Kirim Notifikasi')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('success')
                     ->size('sm')
-                    ->visible(fn (EptRegistration $record) => 
-                        $record->user->whatsapp && 
-                        $record->user->whatsapp_verified_at &&
-                        $this->record->jadwal
-                    )
+                    ->visible(fn (EptRegistration $record) => $this->record->jadwal && $record->user !== null)
                     ->requiresConfirmation()
                     ->modalHeading('Kirim Notifikasi')
                     ->modalDescription(fn (EptRegistration $record) => 
@@ -92,38 +88,36 @@ class PesertaWidget extends BaseWidget
         $tesNum = $registration->testNumberForGroupId((int) $group->id);
         
         try {
-            $jadwal = $group->jadwal->translatedFormat('l, d F Y H:i');
-            $dashboardUrl = route('dashboard.ept-registration.index');
-
-            $message = "*Jadwal Tes EPT Ditetapkan*\n\n";
-            $message .= "Yth. *{$user->name}*,\n\n";
-            $message .= "Jadwal *Tes ke-{$tesNum}* EPT Anda telah ditetapkan:\n\n";
-            $message .= "*Grup:* {$group->name}\n";
-            $message .= "*Waktu:* {$jadwal} WIB\n";
-            $message .= "*Lokasi:* {$group->lokasi}\n\n";
-            $message .= "Silakan download dan cetak Kartu Peserta melalui:\n{$dashboardUrl}\n\n";
-            $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
-            $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
-
-            $queued = app(WhatsAppService::class)->queueMessage($user->whatsapp, $message);
-
-            if ($queued) {
-                Notification::make()
-                    ->success()
-                    ->title('Notifikasi diantrikan')
-                    ->body("Pesan masuk antrean pengiriman untuk {$user->name}")
-                    ->send();
-            } else {
+            if ($tesNum === null) {
                 Notification::make()
                     ->danger()
-                    ->title('Gagal mengantrikan')
-                    ->body('Layanan WhatsApp tidak aktif')
+                    ->title('Gagal memproses notifikasi')
+                    ->body('Peserta tidak terdaftar pada grup ini.')
                     ->send();
+                return;
             }
-        } catch (\Exception $e) {
+
+            $user->notify(new EptScheduleAssignedNotification(
+                testNumber: $tesNum,
+                groupName: $group->name,
+                scheduledAt: $group->jadwal,
+                location: (string) $group->lokasi,
+                dashboardUrl: route('dashboard.ept-registration.index'),
+            ));
+
+            $body = $user->whatsapp && $user->whatsapp_verified_at
+                ? "Email diproses dan WA masuk antrean untuk {$user->name}"
+                : "Email diproses untuk {$user->name}. WA dilewati karena nomor belum terverifikasi";
+
+            Notification::make()
+                ->success()
+                ->title('Notifikasi diproses')
+                ->body($body)
+                ->send();
+        } catch (\Throwable $e) {
             Notification::make()
                 ->danger()
-                ->title('Gagal mengirim')
+                ->title('Gagal memproses notifikasi')
                 ->body($e->getMessage())
                 ->send();
         }

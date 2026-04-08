@@ -201,7 +201,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {{-- KOLOM KIRI: Kartu Profil (Lebar 4/12) --}}
-        <div class="lg:col-span-4 space-y-6">
+        <div class="hidden lg:block lg:col-span-4 space-y-6">
             
             {{-- Profile Card --}}
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative group">
@@ -279,6 +279,14 @@
                     <div>
                         <h3 class="text-base font-bold text-slate-800">Edit Informasi</h3>
                         <p class="text-xs text-slate-500 mt-0.5">Perbarui data diri dan profil akademik Anda.</p>
+                        <div class="mt-3 lg:hidden">
+                            <button type="button"
+                                    @click="changePasswordOpen = true"
+                                    class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700">
+                                <i class="fa-solid fa-lock text-slate-400"></i>
+                                Ganti Password
+                            </button>
+                        </div>
                     </div>
                     <div class="hidden sm:block">
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
@@ -539,6 +547,7 @@
                             {{-- Upload Foto --}}
                             <div class="md:col-span-2">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1.5 ml-1">Foto Profil</label>
+                                <p class="mb-2 pl-1 text-xs text-slate-500">Opsional, tidak wajib diisi.</p>
                                 <div class="flex items-center gap-4 p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 transition-colors">
                                     <div class="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
                                         <i class="fa-solid fa-camera"></i>

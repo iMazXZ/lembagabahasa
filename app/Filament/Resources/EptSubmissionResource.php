@@ -167,8 +167,8 @@ class EptSubmissionResource extends BaseResource
                             ));
 
                             Notification::make()
-                                ->title('WA masuk antrean')
-                                ->body('Notifikasi approved telah masuk antrean pengiriman WhatsApp.')
+                                ->title('Notifikasi diproses')
+                                ->body('Email diproses dan WA masuk antrean jika nomor terverifikasi.')
                                 ->success()
                                 ->send();
                         }),
@@ -326,7 +326,7 @@ class EptSubmissionResource extends BaseResource
                                 $pemohon->notify(new EptSubmissionStatusNotification('approved', $verificationUrl, $pdfUrl, $data['catatan_admin'] ?? null));
                             }
 
-                            Notification::make()->title('Pengajuan disetujui & email terkirim.')->success()->send();
+                            Notification::make()->title('Pengajuan disetujui. Notifikasi diproses.')->success()->send();
                         }),
 
                     Action::make('reject')
@@ -371,7 +371,7 @@ class EptSubmissionResource extends BaseResource
                             try {
                                 // rejected tidak perlu link
                                 $pemohon->notify(new EptSubmissionStatusNotification('rejected', null, null, $data['catatan_admin']));
-                                Notification::make()->title('Pengajuan ditolak & email terkirim.')->success()->send();
+                                Notification::make()->title('Pengajuan ditolak. Notifikasi diproses.')->success()->send();
                             } catch (\Throwable $e) {
                                 Log::error('Gagal kirim email rejected', [
                                     'e' => $e->getMessage(),

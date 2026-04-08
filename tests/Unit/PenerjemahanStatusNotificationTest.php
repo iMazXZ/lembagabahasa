@@ -12,7 +12,7 @@ class PenerjemahanStatusNotificationTest extends TestCase
     use RefreshDatabase;
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function it_prefers_whatsapp_when_verified(): void
+    public function it_sends_mail_dashboard_and_whatsapp_for_finished_when_verified(): void
     {
         $user = User::factory()->create([
             'whatsapp' => '628222222222',
@@ -23,11 +23,28 @@ class PenerjemahanStatusNotificationTest extends TestCase
 
         $channels = $notification->via($user);
 
-        $this->assertEquals(['whatsapp'], $channels);
+        $this->assertEquals(['mail', 'database', 'whatsapp'], $channels);
+        $this->assertSame(['database' => 'sync'], $notification->viaConnections());
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function it_falls_back_to_mail_when_whatsapp_missing(): void
+    public function it_sends_mail_and_dashboard_only_for_diproses(): void
+    {
+        $user = User::factory()->create([
+            'whatsapp' => '628222222222',
+            'whatsapp_verified_at' => now(),
+        ]);
+
+        $notification = new PenerjemahanStatusNotification(status: 'Diproses');
+
+        $channels = $notification->via($user);
+
+        $this->assertEquals(['mail', 'database'], $channels);
+        $this->assertSame(['database' => 'sync'], $notification->viaConnections());
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_falls_back_to_mail_and_dashboard_when_whatsapp_missing(): void
     {
         $user = User::factory()->create([
             'whatsapp' => null,
@@ -38,6 +55,7 @@ class PenerjemahanStatusNotificationTest extends TestCase
 
         $channels = $notification->via($user);
 
-        $this->assertEquals(['mail'], $channels);
+        $this->assertEquals(['mail', 'database'], $channels);
+        $this->assertSame(['database' => 'sync'], $notification->viaConnections());
     }
 }

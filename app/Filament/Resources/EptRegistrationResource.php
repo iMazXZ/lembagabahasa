@@ -5,8 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EptRegistrationResource\Pages;
 use App\Models\EptGroup;
 use App\Models\EptRegistration;
+use App\Notifications\EptRegistrationStatusNotification;
 use App\Support\LegacyBasicListeningScores;
-use App\Services\WhatsAppService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -380,27 +380,17 @@ class EptRegistrationResource extends BaseResource
                             ]);
 
                             $user = $record->user;
-                            if ($user->whatsapp && $user->whatsapp_verified_at) {
-                                try {
-                                    $dashboardUrl = route('dashboard.ept-registration.index');
-
-                                    $message = "*Pendaftaran EPT Diterima* ✅\n\n";
-                                    $message .= "Yth. *{$user->name}*,\n\n";
-                                    $message .= "Pembayaran Tes EPT Anda sudah kami verifikasi dan *valid*.\n\n";
-                                    $message .= "Mohon menunggu penetapan jadwal tes. Ketika kuota peserta sudah terpenuhi, jadwal tes akan segera dikirimkan melalui WhatsApp.\n\n";
-                                    $message .= "Jika notifikasi WA tidak berfungsi, pantau info jadwal melalui Instagram:\nhttps://www.instagram.com/labahasa_um_metro/\n\n";
-                                    $message .= "Silakan pantau status pendaftaran Anda di:\n{$dashboardUrl}\n\n";
-                                    $message .= "_Terima kasih telah mendaftar._";
-
-                                    app(WhatsAppService::class)->queueMessage($user->whatsapp, $message);
-                                } catch (\Exception $e) {
-                                }
+                            if ($user) {
+                                $user->notify(new EptRegistrationStatusNotification(
+                                    status: 'approved',
+                                    dashboardUrl: route('dashboard.ept-registration.index'),
+                                ));
                             }
 
                             Notification::make()
                                 ->success()
                                 ->title('Pendaftaran Disetujui')
-                                ->body('Peserta berhasil ditambahkan ke grup. Notifikasi WA masuk antrean pengiriman.')
+                                ->body('Peserta berhasil ditambahkan ke grup. Notifikasi status diproses via email.')
                                 ->send();
                         }),
                     Tables\Actions\Action::make('edit_groups')
@@ -461,53 +451,29 @@ class EptRegistrationResource extends BaseResource
                             ]);
 
                             $user = $record->user;
-                            $waSent = false;
-                            $waReason = '';
+                            $waEligible = $user
+                                && $user->whatsapp
+                                && $user->whatsapp_verified_at;
 
-                            if (!$user->whatsapp) {
-                                $waReason = 'Nomor WA belum diisi';
-                            } elseif (!$user->whatsapp_verified_at) {
-                                $waReason = 'Nomor WA belum diverifikasi';
-                            } else {
-                                try {
-                                    $dashboardUrl = route('dashboard.ept-registration.index');
-
-                                    $message = "*Pendaftaran EPT Ditolak*\n\n";
-                                    $message .= "Yth. *{$user->name}*,\n\n";
-                                    $message .= "Mohon maaf, pendaftaran Tes EPT Anda *tidak dapat diproses*.\n\n";
-                                    $message .= "*Alasan:*\n{$data['rejection_reason']}\n\n";
-                                    $message .= "Silakan upload ulang bukti pembayaran yang valid melalui link berikut:\n{$dashboardUrl}\n\n";
-                                    $message .= "_Terima kasih atas pengertiannya._";
-
-                                    $result = app(WhatsAppService::class)->queueMessage($user->whatsapp, $message);
-                                    $waSent = $result;
-                                    if (!$result) {
-                                        $waReason = 'Gagal mengantrikan (layanan tidak aktif)';
-                                        \Illuminate\Support\Facades\Log::warning('EPT Rejection WA failed', [
-                                            'user_id' => $user->id,
-                                            'whatsapp' => $user->whatsapp,
-                                        ]);
-                                    }
-                                } catch (\Exception $e) {
-                                    $waReason = 'Exception: ' . $e->getMessage();
-                                    \Illuminate\Support\Facades\Log::error('EPT Rejection WA exception', [
-                                        'user_id' => $user->id,
-                                        'error' => $e->getMessage(),
-                                    ]);
-                                }
+                            if ($user) {
+                                $user->notify(new EptRegistrationStatusNotification(
+                                    status: 'rejected',
+                                    dashboardUrl: route('dashboard.ept-registration.index'),
+                                    rejectionReason: $data['rejection_reason'],
+                                ));
                             }
 
-                            if ($waSent) {
+                            if ($waEligible) {
                                 Notification::make()
                                     ->warning()
                                     ->title('Pendaftaran Ditolak')
-                                    ->body('Notifikasi penolakan masuk antrean WA.')
+                                    ->body('Notifikasi penolakan diproses via email. WA juga masuk antrean.')
                                     ->send();
                             } else {
                                 Notification::make()
-                                    ->danger()
+                                    ->warning()
                                     ->title('Pendaftaran Ditolak')
-                                    ->body("WA gagal masuk antrean: {$waReason}")
+                                    ->body('Notifikasi penolakan diproses via email. WA dilewati karena nomor belum terverifikasi.')
                                     ->send();
                             }
                         }),
