@@ -14,8 +14,8 @@
 
     // Variabel penandatangan
     $ttdDate  = $certificate->issued_at->format('d F Y');
-    $chairName= $chairName ?? 'Drs. H Bambang Eko Siagiyanto, M. Pd.';
-    $chairNip = $chairNip ?? '196607161994031002';
+    $chairName= $chairName ?? 'Dedi Subandowo, M.A., Ph.D.';
+    $chairNip = $chairNip ?? '0215068603';
 
     // Grade Color (Start with logic)
     $grade = $certificate->grade ?? '';
@@ -326,7 +326,7 @@
             @endif
           </div>
           <div class="sig-name">{{ $chairName }}</div>
-          <div class="sig-nip">NIP. {{ $chairNip }}</div>
+          <div class="sig-nip">NIDN. {{ $chairNip }}</div>
         </div>
       </div>
     </div>

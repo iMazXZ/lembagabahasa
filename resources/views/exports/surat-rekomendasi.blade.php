@@ -19,8 +19,8 @@
         ?: ($verifyCode ? route('verification.show', ['code' => $verifyCode], true) : null);
 
     // Penandatangan
-    $chairName = 'Drs. H. Bambang Eko Siagiyanto M.Pd';
-    $chairNip  = '196607161994031002';
+    $chairName = 'Dedi Subandowo, M.A., Ph.D.';
+    $chairNip  = '0215068603';
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -103,7 +103,7 @@
   </div>
 
   {{-- PARAGRAF PEMBUKA --}}
-  <p>Yang bertanda tangan dibawah ini Ketua Lembaga Bahasa Universitas Muhammadiyah Metro, dengan ini menerangkan dengan sesungguhnya bahwa:</p>
+  <p>Yang bertanda tangan dibawah ini Kepala UPT Bahasa Universitas Muhammadiyah Metro, dengan ini menerangkan dengan sesungguhnya bahwa:</p>
 
   {{-- IDENTITAS --}}
   <div class="ident">
@@ -158,12 +158,12 @@
   <div class="ttd-wrap">
     <div class="ttd-right">
       <div class="city-date">Metro, {{ $tglSurat }}</div>
-      <div class="jabatan">Ketua Lembaga Bahasa</div>
+      <div class="jabatan">Kepala UPT Bahasa</div>
       @if($signPath)
         <img class="sign" src="{{ $signPath }}" alt="Tanda Tangan">
       @endif
       <div class="name">{{ $chairName }}</div>
-      <div class="nip">NIP. {{ $chairNip }}</div>
+      <div class="nip">NIDN. {{ $chairNip }}</div>
     </div>
   </div>
 

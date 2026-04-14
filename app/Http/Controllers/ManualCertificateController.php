@@ -31,8 +31,8 @@ class ManualCertificateController extends Controller
             'logoPath' => public_path('images/logo-um.png'),
             'signPath' => public_path('images/ttd_ketua.png'),
             'stampPath' => public_path('images/stempel.png'),
-            'chairName' => 'Drs. H Bambang Eko Siagiyanto, M. Pd.',
-            'chairNip' => '196607161994031002',
+            'chairName' => 'Dedi Subandowo, M.A., Ph.D.',
+            'chairNip' => '0215068603',
         ];
 
         $pdf = Pdf::loadView($viewPath, $data)
@@ -81,8 +81,8 @@ class ManualCertificateController extends Controller
             'logoPath' => public_path('images/logo-um.png'),
             'signPath' => public_path('images/ttd_ketua.png'),
             'stampPath' => public_path('images/stempel.png'),
-            'chairName' => 'Drs. H Bambang Eko Siagiyanto, M. Pd.',
-            'chairNip' => '196607161994031002',
+            'chairName' => 'Dedi Subandowo, M.A., Ph.D.',
+            'chairNip' => '0215068603',
         ];
 
         $pdf = Pdf::loadView($viewPath, $data)

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Services\WhatsAppService;
+use App\Support\EptScheduleNotificationTracker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -10,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\RateLimited;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SendWhatsAppMessage implements ShouldQueue
 {
@@ -22,6 +24,7 @@ class SendWhatsAppMessage implements ShouldQueue
     public function __construct(
         public string $phone,
         public string $message,
+        public ?array $tracking = null,
     ) {}
 
     public function middleware(): array
@@ -32,6 +35,10 @@ class SendWhatsAppMessage implements ShouldQueue
     public function handle(WhatsAppService $waService): void
     {
         if (! $waService->isEnabled()) {
+            EptScheduleNotificationTracker::markWhatsAppFailed(
+                $this->tracking,
+                'Service WhatsApp sedang nonaktif.'
+            );
             return;
         }
 
@@ -39,6 +46,18 @@ class SendWhatsAppMessage implements ShouldQueue
 
         if (! $sent) {
             Log::warning("Failed to queue-send WhatsApp message to {$this->phone}");
+            EptScheduleNotificationTracker::markWhatsAppFailed(
+                $this->tracking,
+                "Pesan WhatsApp ke {$this->phone} gagal dikirim oleh service."
+            );
+            return;
         }
+
+        EptScheduleNotificationTracker::markWhatsAppSent($this->tracking);
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        EptScheduleNotificationTracker::markWhatsAppFailed($this->tracking, $exception->getMessage());
     }
 }

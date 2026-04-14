@@ -14,19 +14,26 @@ class EptScheduleAssignedNotification extends Notification implements ShouldQueu
     use Queueable;
 
     public function __construct(
+        public int $registrationId,
+        public int $groupId,
         public int $testNumber,
         public string $groupName,
         public Carbon $scheduledAt,
         public string $location,
+        public string $contentSignature,
         public string $dashboardUrl,
+        public array $requestedChannels = ['mail', 'database', 'whatsapp'],
     ) {}
 
     public function via(object $notifiable): array
     {
-        $channels = ['mail', 'database'];
+        $channels = array_values(array_intersect(
+            ['mail', 'database', 'whatsapp'],
+            $this->requestedChannels,
+        ));
 
-        if (! empty($notifiable->whatsapp) && $notifiable->whatsapp_verified_at) {
-            $channels[] = 'whatsapp';
+        if (in_array('whatsapp', $channels, true) && (! filled($notifiable->whatsapp) || ! filled($notifiable->whatsapp_verified_at))) {
+            $channels = array_values(array_diff($channels, ['whatsapp']));
         }
 
         return $channels;
@@ -51,7 +58,12 @@ class EptScheduleAssignedNotification extends Notification implements ShouldQueu
         $message .= "Setelah tes selesai, nilai dan kelulusan tidak dikirim via WA. Silakan cek mandiri di:\nhttps://lembagabahasa.site/nilai-ujian\n\n";
         $message .= "_Wajib print & membawa kartu peserta dan KTP/Kartu Mahasiswa setiap kali tes._";
 
-        return app(WhatsAppService::class)->queueMessage($notifiable->whatsapp, $message);
+        return app(WhatsAppService::class)->queueMessage($notifiable->whatsapp, $message, [
+            'registration_id' => $this->registrationId,
+            'group_id' => $this->groupId,
+            'test_number' => $this->testNumber,
+            'content_signature' => $this->contentSignature,
+        ]);
     }
 
     public function toMail(object $notifiable): MailMessage

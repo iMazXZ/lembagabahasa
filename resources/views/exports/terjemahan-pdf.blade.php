@@ -25,8 +25,8 @@
         ?? ($record->verification_url ?: ($verifyCode ? route('verification.show', ['code' => $verifyCode], true) : null));
 
     // Penandatangan
-    $chairName = 'Drs. H. Bambang Eko Siagiyanto M.Pd';
-    $chairNip  = '196607161994031002';
+    $chairName = 'Dedi Subandowo, M.A., Ph.D.';
+    $chairNip  = '0215068603';
 
     // Sanitasi HTML terjemahan
     $rich = (string) ($record->translated_text ?? '');
@@ -349,7 +349,7 @@
                         @endif
                     </div>
                     <div class="sig-name">{{ $chairName }}</div>
-                    <div class="sig-nip">NIP. {{ $chairNip }}</div>
+                    <div class="sig-nip">NIDN. {{ $chairNip }}</div>
                 </div>
             </td>
         </tr>

@@ -131,13 +131,13 @@ class WhatsAppService
     /**
      * Antrekan pesan custom ke jalur outbound WA tunggal.
      */
-    public function queueMessage(string $phone, string $message): bool
+    public function queueMessage(string $phone, string $message, ?array $tracking = null): bool
     {
         if (! $this->isEnabled()) {
             return false;
         }
 
-        SendWhatsAppMessage::dispatch($phone, $message)
+        SendWhatsAppMessage::dispatch($phone, $message, $tracking)
             ->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
 
         return true;

@@ -435,7 +435,6 @@ class SiteSettings extends Page implements HasForms
             $this->waQueue = array_slice($queue, 0, 20);
             $this->waQueueMeta = [
                 'supported' => true,
-                'message' => 'Live dari Laravel queue database. Status "queued" berarti belum diproses; "processing" berarti sedang dipegang worker.',
                 'total' => $queuedCount + $processingCount,
                 'queued' => $queuedCount,
                 'processing' => $processingCount,

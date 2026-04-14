@@ -21,10 +21,13 @@ class EptScheduleAssignedNotificationTest extends TestCase
         ]);
 
         $notification = new EptScheduleAssignedNotification(
+            registrationId: 10,
+            groupId: 20,
             testNumber: 2,
             groupName: '07 E 25/26',
             scheduledAt: Carbon::parse('2026-04-10 09:00:00'),
             location: 'Lab Bahasa',
+            contentSignature: hash('sha256', 'example'),
             dashboardUrl: 'https://example.test/ept',
         );
 
@@ -41,10 +44,13 @@ class EptScheduleAssignedNotificationTest extends TestCase
         ]);
 
         $notification = new EptScheduleAssignedNotification(
+            registrationId: 10,
+            groupId: 20,
             testNumber: 1,
             groupName: '07 E 25/26',
             scheduledAt: Carbon::parse('2026-04-10 09:00:00'),
             location: 'Lab Bahasa',
+            contentSignature: hash('sha256', 'example'),
             dashboardUrl: 'https://example.test/ept',
         );
 

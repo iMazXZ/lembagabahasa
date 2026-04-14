@@ -2,14 +2,18 @@
 
 namespace App\Providers;
 
+use App\Support\EptScheduleNotificationTracker;
 use App\Support\QueueMonitor;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Notifications\Events\NotificationSent;
+use Illuminate\Notifications\SendQueuedNotifications;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Cache\RateLimiting\Limit;
 
 use Filament\Http\Responses\Auth\Contracts\LogoutResponse;
@@ -63,6 +67,10 @@ class AppServiceProvider extends ServiceProvider
             return new \App\Channels\WhatsAppChannel();
         });
 
+        Event::listen(NotificationSent::class, function (NotificationSent $event) {
+            EptScheduleNotificationTracker::handleNotificationSent($event);
+        });
+
         Queue::before(function (JobProcessing $event) {
             $payload = $event->job->payload();
             $commandName = QueueMonitor::extractCommandName($payload);
@@ -87,6 +95,15 @@ class AppServiceProvider extends ServiceProvider
 
         Queue::failing(function (JobFailed $event) {
             $payload = $event->job->payload();
+            $queuedNotificationJob = EptScheduleNotificationTracker::jobFromPayload($payload);
+
+            if ($queuedNotificationJob instanceof SendQueuedNotifications) {
+                EptScheduleNotificationTracker::handleQueuedNotificationFailure(
+                    $queuedNotificationJob,
+                    $event->exception,
+                );
+            }
+
             $commandName = QueueMonitor::extractCommandName($payload);
 
             if (! QueueMonitor::isMonitored($commandName)) {

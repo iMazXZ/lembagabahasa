@@ -7,6 +7,10 @@ use App\Models\EptGroup;
 use App\Models\EptRegistration;
 use App\Notifications\EptRegistrationStatusNotification;
 use App\Support\LegacyBasicListeningScores;
+use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\Section as InfoSection;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -140,6 +144,148 @@ class EptRegistrationResource extends BaseResource
         ]);
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            InfoSection::make('Data Pendaftar')
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('user.name')
+                        ->label('Nama')
+                        ->weight('bold'),
+                    TextEntry::make('user.srn')
+                        ->label('NPM / SRN')
+                        ->placeholder('-')
+                        ->copyable()
+                        ->copyMessage('NPM / SRN disalin'),
+                    TextEntry::make('user.whatsapp')
+                        ->label('Nomor WhatsApp')
+                        ->placeholder('-')
+                        ->copyable(fn (EptRegistration $record): bool => filled($record->user?->whatsapp))
+                        ->copyableState(fn (EptRegistration $record): ?string => $record->user?->whatsapp)
+                        ->copyMessage('Nomor WhatsApp disalin'),
+                    TextEntry::make('user.email')
+                        ->label('Email')
+                        ->placeholder('-')
+                        ->copyable(),
+                    TextEntry::make('user.prody.name')
+                        ->label('Program Studi')
+                        ->placeholder('-'),
+                    TextEntry::make('student_status_label')
+                        ->label('Status Peserta')
+                        ->badge()
+                        ->color(fn (EptRegistration $record): string => match ($record->student_status) {
+                            EptRegistration::STUDENT_STATUS_REGULAR => 'primary',
+                            EptRegistration::STUDENT_STATUS_MAGISTER => 'warning',
+                            EptRegistration::STUDENT_STATUS_KONVERSI => 'info',
+                            EptRegistration::STUDENT_STATUS_GENERAL => 'success',
+                            default => 'gray',
+                        }),
+                    TextEntry::make('test_quota_label')
+                        ->label('Kuota Tes'),
+                    TextEntry::make('status_label')
+                        ->label('Status Pendaftaran')
+                        ->badge()
+                        ->color(fn (EptRegistration $record): string => $record->status_color),
+                    TextEntry::make('approved_at')
+                        ->label('Tanggal Disetujui')
+                        ->dateTime('d M Y, H:i')
+                        ->placeholder('-')
+                        ->visible(fn (EptRegistration $record): bool => $record->status === 'approved'),
+                    TextEntry::make('rejected_at')
+                        ->label('Tanggal Ditolak')
+                        ->dateTime('d M Y, H:i')
+                        ->placeholder('-')
+                        ->visible(fn (EptRegistration $record): bool => $record->status === 'rejected'),
+                    TextEntry::make('created_at')
+                        ->label('Tanggal Daftar')
+                        ->dateTime('d M Y, H:i'),
+                    TextEntry::make('updated_at')
+                        ->label('Terakhir Diperbarui')
+                        ->dateTime('d M Y, H:i'),
+                    TextEntry::make('rejection_reason')
+                        ->label('Alasan Ditolak')
+                        ->placeholder('-')
+                        ->columnSpanFull()
+                        ->visible(fn (EptRegistration $record): bool => $record->status === 'rejected'),
+                ]),
+
+            InfoSection::make('Grup Tes')
+                ->columns(4)
+                ->schema([
+                    TextEntry::make('grup1.name')
+                        ->label('Grup Tes 1')
+                        ->placeholder('-'),
+                    TextEntry::make('grup2.name')
+                        ->label('Grup Tes 2')
+                        ->placeholder('-')
+                        ->visible(fn (EptRegistration $record): bool => $record->requiredGroupCount() >= 2),
+                    TextEntry::make('grup3.name')
+                        ->label('Grup Tes 3')
+                        ->placeholder('-')
+                        ->visible(fn (EptRegistration $record): bool => $record->requiredGroupCount() >= 3),
+                    TextEntry::make('grup4.name')
+                        ->label('Grup Tes 4')
+                        ->placeholder('-')
+                        ->visible(fn (EptRegistration $record): bool => $record->requiredGroupCount() >= 4),
+                ]),
+
+            InfoSection::make('Nilai Pendukung EPT')
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('basic_listening_score')
+                        ->label('Nilai Basic Listening')
+                        ->state(fn (EptRegistration $record): string => static::basicListeningSummary($record)),
+                    TextEntry::make('interactive_class_1')
+                        ->label('IC Sem 1')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_1))
+                        ->visible(fn (EptRegistration $record): bool => static::isPbiUser($record)),
+                    TextEntry::make('interactive_class_2')
+                        ->label('IC Sem 2')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_2))
+                        ->visible(fn (EptRegistration $record): bool => static::isPbiUser($record)),
+                    TextEntry::make('interactive_class_3')
+                        ->label('IC Sem 3')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_3))
+                        ->visible(fn (EptRegistration $record): bool => static::isPbiUser($record)),
+                    TextEntry::make('interactive_class_4')
+                        ->label('IC Sem 4')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_4))
+                        ->visible(fn (EptRegistration $record): bool => static::isPbiUser($record)),
+                    TextEntry::make('interactive_class_5')
+                        ->label('IC Sem 5')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_5))
+                        ->visible(fn (EptRegistration $record): bool => static::isPbiUser($record)),
+                    TextEntry::make('interactive_class_6')
+                        ->label('IC Sem 6')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_class_6))
+                        ->visible(fn (EptRegistration $record): bool => static::isPbiUser($record)),
+                    TextEntry::make('interactive_bahasa_arab_1')
+                        ->label('Bahasa Arab 1')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_bahasa_arab_1))
+                        ->visible(fn (EptRegistration $record): bool => static::isIslamicProgramUser($record)),
+                    TextEntry::make('interactive_bahasa_arab_2')
+                        ->label('Bahasa Arab 2')
+                        ->state(fn (EptRegistration $record): string => static::scoreText($record->user?->interactive_bahasa_arab_2))
+                        ->visible(fn (EptRegistration $record): bool => static::isIslamicProgramUser($record)),
+                ]),
+
+            InfoSection::make('Bukti Pembayaran')
+                ->schema([
+                    ImageEntry::make('bukti_pembayaran')
+                        ->label('Preview Bukti')
+                        ->disk('public')
+                        ->height(320)
+                        ->visibility('public'),
+                    TextEntry::make('bukti_pembayaran')
+                        ->label('File')
+                        ->state(fn (EptRegistration $record): string => $record->bukti_pembayaran)
+                        ->copyable()
+                        ->copyMessage('Path bukti pembayaran disalin'),
+                ]),
+        ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -211,11 +357,15 @@ class EptRegistrationResource extends BaseResource
                     })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Tanggal Disetujui')
+                    ->label('Tanggal Status')
                     ->dateTime('d M Y, H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->getStateUsing(fn ($record) => $record->status === 'approved' ? $record->updated_at : null)
+                    ->getStateUsing(fn ($record) => match ($record->status) {
+                        'approved' => $record->approved_at,
+                        'rejected' => $record->rejected_at,
+                        default => null,
+                    })
                     ->placeholder('-'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Tanggal Daftar')
@@ -372,6 +522,8 @@ class EptRegistrationResource extends BaseResource
 
                             $record->update([
                                 'status' => 'approved',
+                                'approved_at' => now(),
+                                'rejected_at' => null,
                                 'test_quota' => $testQuota,
                                 'grup_1_id' => $groupAssignments[0] ?? null,
                                 'grup_2_id' => $testQuota >= 2 ? ($groupAssignments[1] ?? null) : null,
@@ -447,6 +599,8 @@ class EptRegistrationResource extends BaseResource
                         ->action(function ($record, array $data) {
                             $record->update([
                                 'status' => 'rejected',
+                                'rejected_at' => now(),
+                                'approved_at' => null,
                                 'rejection_reason' => $data['rejection_reason'],
                             ]);
 

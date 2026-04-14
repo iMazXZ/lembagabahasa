@@ -62,6 +62,11 @@ class EptGroup extends Model
             ->orWhere('grup_4_id', $this->id);
     }
 
+    public function scheduleNotifications(): HasMany
+    {
+        return $this->hasMany(EptScheduleNotification::class, 'ept_group_id');
+    }
+
     /**
      * Cek apakah jadwal sudah ditetapkan
      */

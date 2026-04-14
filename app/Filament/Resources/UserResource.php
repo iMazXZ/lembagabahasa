@@ -40,7 +40,7 @@ class UserResource extends BaseResource
                     ->validationMessages([
                         'required' => 'Wajib Diisi',
                     ])
-                    ->dehydrateStateUsing(fn (string $state): string => ucwords(strtolower($state))),
+                    ->dehydrateStateUsing(fn (string $state): string => mb_strtoupper(trim($state), 'UTF-8')),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()

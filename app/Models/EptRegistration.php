@@ -6,6 +6,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
@@ -28,6 +29,8 @@ class EptRegistration extends Model
         'test_quota',
         'bukti_pembayaran',
         'status',
+        'approved_at',
+        'rejected_at',
         'rejection_reason',
         'grup_1_id',
         'grup_2_id',
@@ -37,6 +40,8 @@ class EptRegistration extends Model
 
     protected $casts = [
         'test_quota' => 'integer',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -51,6 +56,11 @@ class EptRegistration extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function scheduleNotifications(): HasMany
+    {
+        return $this->hasMany(EptScheduleNotification::class, 'ept_registration_id');
     }
 
     public static function studentStatusOptions(): array
@@ -195,6 +205,18 @@ class EptRegistration extends Model
         }
 
         return null;
+    }
+
+    public function scheduleNotificationForGroupId(int $groupId): ?EptScheduleNotification
+    {
+        if ($this->relationLoaded('scheduleNotifications')) {
+            return $this->scheduleNotifications
+                ->firstWhere('ept_group_id', $groupId);
+        }
+
+        return $this->scheduleNotifications()
+            ->where('ept_group_id', $groupId)
+            ->first();
     }
 
     /**
