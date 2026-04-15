@@ -20,6 +20,7 @@ class Post extends Model
 
     protected $fillable = [
         'author_id',
+        'ept_group_id',
         'title',
         'slug',
         'type',
@@ -290,6 +291,11 @@ class Post extends Model
     public function author()
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    public function eptGroup()
+    {
+        return $this->belongsTo(EptGroup::class, 'ept_group_id');
     }
 
     /**

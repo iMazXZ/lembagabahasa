@@ -14,7 +14,7 @@
 
     // Fallback variabel penandatangan bila belum dipass dari controller
     $ttdDate  = $ttdDate  ?? now()->timezone(config('app.timezone','Asia/Jakarta'))->format('d F Y');
-    $chairName= $chairName?? 'Dedi Subandowo, M.A., Ph.D.';
+    $chairName= $chairName?? 'Dedy Subandowo, M.A., Ph.D.';
     $chairNip = $chairNip ?? '0215068603';
 
     // Peta warna grade diperluas — TIDAK mengubah teks huruf dari DB

@@ -19,7 +19,7 @@
         ?: ($verifyCode ? route('verification.show', ['code' => $verifyCode], true) : null);
 
     // Penandatangan
-    $chairName = 'Dedi Subandowo, M.A., Ph.D.';
+    $chairName = 'Dedy Subandowo, M.A., Ph.D.';
     $chairNip  = '0215068603';
 @endphp
 <!DOCTYPE html>

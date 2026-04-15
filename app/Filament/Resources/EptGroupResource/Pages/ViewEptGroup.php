@@ -4,6 +4,7 @@ namespace App\Filament\Resources\EptGroupResource\Pages;
 
 use App\Filament\Resources\EptGroupResource;
 use App\Models\EptGroup;
+use App\Support\EptSchedulePostSyncService;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -36,10 +37,24 @@ class ViewEptGroup extends ViewRecord
                 ])
                 ->action(function (array $data) {
                     $this->record->update(['jadwal' => $data['jadwal']]);
+                    app(EptSchedulePostSyncService::class)->sync($this->record->fresh(), auth()->id());
                     Notification::make()
                         ->success()
                         ->title('Jadwal berhasil ditetapkan')
                         ->send();
+                }),
+            Actions\Action::make('sync_schedule_post')
+                ->label('Sinkronkan ke Posting Informasi')
+                ->icon('heroicon-o-document-text')
+                ->color('warning')
+                ->visible(fn () => $this->record->jadwal !== null)
+                ->requiresConfirmation()
+                ->modalHeading('Sinkronkan Jadwal ke Posting Informasi')
+                ->modalDescription(fn () =>
+                    'Gunakan ini untuk membuat atau memperbarui posting jadwal publik dari grup "' . $this->record->name . '".'
+                )
+                ->action(function () {
+                    EptGroupResource::syncSchedulePostForView($this->record);
                 }),
             
             // Kirim Notif Bulk

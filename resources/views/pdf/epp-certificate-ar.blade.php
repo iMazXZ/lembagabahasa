@@ -14,7 +14,7 @@
 
     // Variabel dari controller
     $ttdDate   = $certificate->issued_at->format('d F Y');
-    $chairName = $chairName ?? 'Dedi Subandowo, M.A., Ph.D.';
+    $chairName = $chairName ?? 'Dedy Subandowo, M.A., Ph.D.';
     $chairNip  = $chairNip ?? '0215068603';
 
     // Grade color

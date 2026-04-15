@@ -13,9 +13,11 @@ use Filament\Forms\Components\{
     TextInput, Select, Toggle, DateTimePicker, Hidden, 
     Section, Group, Textarea, Grid, FileUpload
 };
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Forms\{Get, Set};
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use FilamentTiptapEditor\TiptapEditor;
 use Illuminate\Support\Facades\Storage;
@@ -40,13 +42,57 @@ class PostResource extends BaseResource
             // === KOLOM KIRI (KONTEN UTAMA) ===
             Group::make()->schema([
                 Section::make('Konten Utama')->schema([
+                    Forms\Components\Placeholder::make('ept_schedule_sync_notice')
+                        ->hiddenLabel()
+                        ->content(function (Get $get): HtmlString {
+                            $groupId = (int) ($get('ept_group_id') ?? 0);
+                            $groupUrl = $groupId > 0
+                                ? EptGroupResource::getUrl('view', ['record' => $groupId])
+                                : '#';
+
+                            return new HtmlString(
+                                '<div class="rounded-xl border border-info-200 bg-info-50 px-4 py-3 text-sm text-info-900">'
+                                . '<div class="font-semibold">Post jadwal ini tersinkron otomatis dari Grup EPT.</div>'
+                                . '<div class="mt-1">Ubah jadwal, ruangan, judul, isi, dan publikasi dari menu Grup EPT agar tetap konsisten.</div>'
+                                . ($groupId > 0
+                                    ? '<div class="mt-2"><a href="' . e($groupUrl) . '" class="font-medium underline">Buka Grup EPT terkait</a></div>'
+                                    : '')
+                                . '</div>'
+                            );
+                        })
+                        ->visible(fn (Get $get): bool => static::isSyncedEptSchedule($get))
+                        ->columnSpanFull(),
+
                     TextInput::make('title')
                         ->label('Judul')
                         ->required()
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
+                        ->suffixAction(
+                            FormAction::make('fill_schedule_title')
+                                ->label('Auto')
+                                ->icon('heroicon-o-sparkles')
+                                ->tooltip('Isi judul otomatis dari nomor grup dan tanggal tes.')
+                                ->visible(fn (Get $get): bool => $get('type') === 'schedule' && ! static::isSyncedEptSchedule($get))
+                                ->disabled(fn (Get $get): bool => blank($get('group_number')) || blank($get('event_date')))
+                                ->action(function (Get $get, Set $set): void {
+                                    $title = static::generateScheduleTitle(
+                                        $get('group_number'),
+                                        $get('event_date'),
+                                    );
+
+                                    if ($title !== null) {
+                                        $set('title', $title);
+                                    }
+                                })
+                        )
+                        ->helperText(fn (Get $get): ?string => $get('type') === 'schedule'
+                            ? 'Untuk jadwal ujian, klik tombol Auto agar judul terisi dari nomor grup dan tanggal tes.'
+                            : null),
 
                     TextInput::make('slug')
                         ->label('Slug URL')
+                        ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                         ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? Str::slug($state) : null)
                         ->dehydrated()
                         ->unique(ignoreRecord: true)
@@ -56,15 +102,20 @@ class PostResource extends BaseResource
                         ->label('Ringkasan / Intro')
                         ->rows(3)
                         ->maxLength(180)
+                        ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                         ->columnSpanFull()
                         ->helperText('Teks singkat yang muncul di daftar posting (Maks. 180 karakter).'),
 
                     TiptapEditor::make('body')
                         ->label('Isi Konten')
                         ->required()
+                        ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                         ->columnSpanFull()
+                        ->clearAfterStateUpdatedHooks()
                         ->formatStateUsing(fn ($state): string => static::normalizeEditorBody($state))
                         ->dehydrateStateUsing(fn ($state): string => static::sanitizeEditorBody(static::normalizeEditorBody($state)))
+                        ->disableBubbleMenus()
+                        ->disableFloatingMenus()
                         ->disk('public')
                         ->directory('posts/body')
                         ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, callable $set) {
@@ -101,6 +152,7 @@ class PostResource extends BaseResource
                     Select::make('type')
                         ->label('Kategori')
                         ->options(\App\Models\Post::TYPES)
+                        ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                         ->default(function (): ?string {
                             $type = request()->query('type');
 
@@ -210,40 +262,38 @@ class PostResource extends BaseResource
                                 ->label('Nomor Grup')
                                 ->numeric()
                                 ->required()
+                                ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                                 ->minValue(1)
                                 ->maxValue(999)
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
-                                    $eventDate = $get('event_date');
-                                    if ($state && $eventDate) {
-                                        $date = \Carbon\Carbon::parse($eventDate);
-                                        $formatted = $date->translatedFormat('l, d F Y');
-                                        $set('title', "Jadwal Tes EPT Grup {$state} ({$formatted})");
+                                ->dehydrated(false)
+                                ->afterStateHydrated(function (Set $set, Get $get, $state): void {
+                                    if (filled($state) || $get('type') !== 'schedule') {
+                                        return;
+                                    }
+
+                                    $groupNumber = static::extractScheduleGroupNumber((string) ($get('title') ?? ''));
+
+                                    if ($groupNumber !== null) {
+                                        $set('group_number', $groupNumber);
                                     }
                                 }),
 
                             Forms\Components\DatePicker::make('event_date')
                                 ->label('Tanggal Tes')
+                                ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                                 ->native(false)
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
-                                    $groupNumber = $get('group_number');
-                                    if ($groupNumber && $state) {
-                                        $date = \Carbon\Carbon::parse($state);
-                                        $formatted = $date->translatedFormat('l, d F Y');
-                                        $set('title', "Jadwal Tes EPT Grup {$groupNumber} ({$formatted})");
-                                    }
-                                }),
+                                ->required(),
 
                             Forms\Components\TimePicker::make('event_time')
                                 ->label('Waktu Tes')
+                                ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                                 ->native(false)
                                 ->seconds(false)
                                 ->default('08:30'),
 
                             TextInput::make('event_location')
                                 ->label('Lokasi/Ruangan')
+                                ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                                 ->maxLength(255)
                                 ->default('Kampus 3, Ruang Standford'),
                         ])
@@ -337,12 +387,14 @@ class PostResource extends BaseResource
 
                     Toggle::make('is_published')
                         ->label('Terbitkan Sekarang')
+                        ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                         ->onColor('success')
                         ->offColor('danger')
                         ->default(false),
 
                     DateTimePicker::make('published_at')
                         ->label('Waktu Tayang')
+                        ->disabled(fn (Get $get): bool => static::isSyncedEptSchedule($get))
                         ->seconds(false)
                         ->native(false)
                         ->default(now())
@@ -350,6 +402,8 @@ class PostResource extends BaseResource
                 ]),
 
                 // Hidden field tetap ada
+                Hidden::make('ept_group_id')
+                    ->dehydrated(false),
                 Hidden::make('author_id')
                     ->default(fn () => auth()->id()),
             ])->columnSpan(['lg' => 1]), // 1/3 layar di desktop
@@ -361,6 +415,8 @@ class PostResource extends BaseResource
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
                 'relatedScores:id,related_post_id,slug,published_at',
+                'relatedPost:id,title',
+                'eptGroup:id,name',
             ]))
             ->columns([
                 Tables\Columns\TextColumn::make('title')
@@ -386,7 +442,29 @@ class PostResource extends BaseResource
                         'announcement' => 'danger',
                         default        => 'gray',
                     })
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['all'])),
+
+                Tables\Columns\TextColumn::make('schedule_source')
+                    ->label('Sumber')
+                    ->state(function (Post $record): string {
+                        if ($record->type !== 'schedule') {
+                            return '-';
+                        }
+
+                        return $record->ept_group_id ? 'Otomatis dari Grup EPT' : 'Manual';
+                    })
+                    ->description(fn (Post $record): ?string => $record->type === 'schedule'
+                        ? ($record->eptGroup?->name ?: null)
+                        : null)
+                    ->badge()
+                    ->wrap()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Otomatis dari Grup EPT' => 'info',
+                        'Manual' => 'gray',
+                        default => 'gray',
+                    })
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['all', 'schedule'])),
 
                 Tables\Columns\TextColumn::make('career_status')
                     ->label('Status Karier')
@@ -402,7 +480,8 @@ class PostResource extends BaseResource
                         'Dibuka' => 'success',
                         'Ditutup' => 'danger',
                         default => 'gray',
-                    }),
+                    })
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['career'])),
 
                 Tables\Columns\TextColumn::make('news_category')
                     ->label('Kategori Berita')
@@ -411,7 +490,8 @@ class PostResource extends BaseResource
                         : '-')
                     ->badge()
                     ->color('gray')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['news'])),
 
                 Tables\Columns\TextColumn::make('scores_status')
                     ->label('Status Nilai')
@@ -427,14 +507,42 @@ class PostResource extends BaseResource
                         'Sudah Ada' => 'success',
                         'Belum Ada' => 'warning',
                         default => 'gray',
-                    }),
+                    })
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['schedule'])),
+
+                Tables\Columns\TextColumn::make('event_date')
+                    ->label('Tanggal Tes')
+                    ->date('d M Y')
+                    ->sortable()
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['schedule'])),
+
+                Tables\Columns\TextColumn::make('event_time')
+                    ->label('Jam Tes')
+                    ->time('H:i')
+                    ->sortable()
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['schedule'])),
+
+                Tables\Columns\TextColumn::make('event_location')
+                    ->label('Ruangan')
+                    ->limit(28)
+                    ->wrap()
+                    ->tooltip(fn (?string $state): ?string => filled($state) ? $state : null)
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['schedule'])),
+
+                Tables\Columns\TextColumn::make('relatedPost.title')
+                    ->label('Jadwal Terkait')
+                    ->limit(32)
+                    ->wrap()
+                    ->tooltip(fn (?string $state): ?string => filled($state) ? $state : null)
+                    ->placeholder('-')
+                    ->visible(fn ($livewire): bool => static::shouldShowTableColumnForTab($livewire, ['scores'])),
 
                 Tables\Columns\ToggleColumn::make('is_published')
                     ->label('Tayang'),
 
                 Tables\Columns\TextColumn::make('published_at')
                     ->dateTime('d M Y, H:i')
-                    ->label('Waktu')
+                    ->label('Dipublish')
                     ->sortable()
                     ->toggleable(),
 
@@ -660,6 +768,64 @@ class PostResource extends BaseResource
         return (string) $content;
     }
 
+    protected static function generateScheduleTitle(mixed $groupNumber, mixed $eventDate): ?string
+    {
+        $groupNumber = filled($groupNumber) ? trim((string) $groupNumber) : null;
+
+        if (($groupNumber === null) || blank($eventDate)) {
+            return null;
+        }
+
+        try {
+            $date = $eventDate instanceof \Carbon\CarbonInterface
+                ? $eventDate
+                : \Carbon\Carbon::parse($eventDate);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $formatted = $date->translatedFormat('l, d F Y');
+
+        return "Jadwal Tes EPT Grup {$groupNumber} ({$formatted})";
+    }
+
+    protected static function extractScheduleGroupNumber(?string $title): ?string
+    {
+        if (! filled($title)) {
+            return null;
+        }
+
+        preg_match('/Grup\s*(\d+)/i', $title, $matches);
+
+        return $matches[1] ?? null;
+    }
+
+    protected static function getCurrentTableTab(mixed $livewire): string
+    {
+        if (is_object($livewire) && property_exists($livewire, 'activeTab')) {
+            $activeTab = $livewire->activeTab;
+
+            if (is_string($activeTab) && $activeTab !== '') {
+                return $activeTab;
+            }
+
+            if (method_exists($livewire, 'getDefaultActiveTab')) {
+                $defaultActiveTab = $livewire->getDefaultActiveTab();
+
+                if (is_string($defaultActiveTab) && $defaultActiveTab !== '') {
+                    return $defaultActiveTab;
+                }
+            }
+        }
+
+        return 'schedule';
+    }
+
+    protected static function shouldShowTableColumnForTab(mixed $livewire, array $tabs): bool
+    {
+        return in_array(static::getCurrentTableTab($livewire), $tabs, true);
+    }
+
     protected static function fillScoresTitleFromRelatedPost(Set $set, int $relatedPostId): void
     {
         $related = Post::query()
@@ -676,6 +842,11 @@ class PostResource extends BaseResource
         $groupLabel = $groupNum !== '' ? " {$groupNum}" : '';
 
         $set('title', "Nilai EPT Grup{$groupLabel} ({$formattedDate})");
+    }
+
+    protected static function isSyncedEptSchedule(Get $get): bool
+    {
+        return $get('type') === 'schedule' && filled($get('ept_group_id'));
     }
 
     protected static function latestScorePostForSchedule(Post $schedulePost): ?Post

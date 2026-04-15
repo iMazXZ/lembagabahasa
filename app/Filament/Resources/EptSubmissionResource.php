@@ -32,6 +32,31 @@ class EptSubmissionResource extends BaseResource
     protected static ?string $pluralModelLabel = 'Pengajuan Surat Rekomendasi';
     protected static ?int $navigationSort = 3;
 
+    protected static function suggestedSuratNomor(?EptSubmission $ignoreRecord = null): string
+    {
+        $year = now()->year;
+        $pattern = '/^(\d{3})\/II\.3\.AU\/F\/KET\/LB_UMM\/' . preg_quote((string) $year, '/') . '$/';
+
+        $maxSequence = EptSubmission::query()
+            ->whereNotNull('surat_nomor')
+            ->when(
+                $ignoreRecord?->exists,
+                fn ($query) => $query->whereKeyNot($ignoreRecord->getKey()),
+            )
+            ->pluck('surat_nomor')
+            ->reduce(static function (int $carry, ?string $nomor) use ($pattern): int {
+                if (! is_string($nomor) || ! preg_match($pattern, $nomor, $matches)) {
+                    return $carry;
+                }
+
+                return max($carry, (int) $matches[1]);
+            }, 0);
+
+        $nextSequence = str_pad((string) ($maxSequence + 1), 3, '0', STR_PAD_LEFT);
+
+        return "{$nextSequence}/II.3.AU/F/KET/LB_UMM/{$year}";
+    }
+
     public static function form(Form $form): Form
     {
         // Admin memverifikasi via tabel/view, jadi form kosong
@@ -256,13 +281,7 @@ class EptSubmissionResource extends BaseResource
                             $record->status === 'pending' && auth()->user()?->hasAnyRole(['Admin','Staf Administrasi'])
                         )
                         ->form(function (EptSubmission $record) {
-                            // Saran nomor surat default (sequence per tahun)
-                            $year   = now()->year;
-                            $count  = EptSubmission::whereYear('approved_at', $year)
-                                        ->whereNotNull('surat_nomor')
-                                        ->count();
-                            $seq    = str_pad((string)($count + 1), 3, '0', STR_PAD_LEFT);
-                            $suggest= "{$seq}/II.3.AU/F/KET/LB_UMM/{$year}";
+                            $suggest = static::suggestedSuratNomor($record);
 
                             return [
                                 Forms\Components\Placeholder::make('warning')

@@ -218,7 +218,7 @@ class PostController extends Controller
     private function renderPost(Post $post)
     {
         // Lengkapi relasi bila belum dimuat
-        $post->loadMissing(['author:id,name']);
+        $post->loadMissing(['author:id,name', 'eptGroup:id,name,quota,jadwal,lokasi']);
 
         $relatedSelect = [
             'id',
@@ -274,7 +274,23 @@ class PostController extends Controller
 
         $body = $this->formatBody($post->body ?? '');
 
-        return view('front.posts.show', compact('post', 'related', 'body'));
+        $scheduleParticipants = collect();
+
+        if ($post->type === 'schedule' && $post->eptGroup) {
+            $scheduleParticipants = $post->eptGroup
+                ->allRegistrations()
+                ->approved()
+                ->orderByRaw('COALESCE(approved_at, created_at) ASC')
+                ->orderBy('id')
+                ->with([
+                    'user:id,name,srn,year,prody_id',
+                    'user.prody:id,name',
+                ])
+                ->get()
+                ->values();
+        }
+
+        return view('front.posts.show', compact('post', 'related', 'body', 'scheduleParticipants'));
     }
 
     /**

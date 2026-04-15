@@ -130,6 +130,27 @@
         if ($n >= 1000)    return number_format($n / 1000, 1) . 'K';
         return number_format($n);
     };
+    $scheduleGroupCode = null;
+    $isSyncedSchedule = ($post->type ?? null) === 'schedule' && filled($post->ept_group_id);
+    if (($post->type ?? null) === 'schedule' && filled($post->eptGroup?->name)) {
+        preg_match('/(\d+)/', (string) $post->eptGroup->name, $matches);
+        $scheduleGroupCode = $matches[1] ?? $post->eptGroup->name;
+    }
+    $scheduleDateLabel = $isSyncedSchedule && $post->event_date
+        ? \Carbon\Carbon::parse($post->event_date)->translatedFormat('l, d F Y')
+        : null;
+    $scheduleTimeLabel = $isSyncedSchedule && $post->event_time
+        ? \Carbon\Carbon::parse($post->event_time)->format('H:i')
+        : null;
+    $statusShort = function (?string $status): string {
+        return match ($status) {
+            \App\Models\EptRegistration::STUDENT_STATUS_REGULAR => 'R',
+            \App\Models\EptRegistration::STUDENT_STATUS_KONVERSI => 'C',
+            \App\Models\EptRegistration::STUDENT_STATUS_MAGISTER => 'M',
+            \App\Models\EptRegistration::STUDENT_STATUS_GENERAL => 'G',
+            default => '-',
+        };
+    };
 @endphp
 
 @push('styles')
@@ -357,6 +378,351 @@
       font-size: 1.125rem;
     }
   }
+
+  .schedule-shell {
+    border: 1px solid #dbe5f0;
+    border-radius: 24px;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  .schedule-banner {
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid #e5eef8;
+    background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+  }
+  .schedule-banner-title {
+    font-size: .82rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #c2410c;
+    margin-bottom: .35rem;
+  }
+  .schedule-banner-body {
+    color: #374151;
+    line-height: 1.75;
+    font-size: .97rem;
+  }
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0;
+  }
+  .schedule-section {
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid #edf2f7;
+  }
+  .schedule-section--info {
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  }
+  .schedule-section-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: .85rem;
+  }
+  .schedule-meta {
+    display: grid;
+    gap: .75rem;
+  }
+  .schedule-meta-item {
+    padding: .1rem 0;
+  }
+  .schedule-meta-label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #2563eb;
+    margin-bottom: .25rem;
+  }
+  .schedule-meta-value {
+    color: #111827;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+  .schedule-rules {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    color: #374151;
+  }
+  .schedule-rules > li {
+    position: relative;
+    margin: .45rem 0;
+    padding-left: 1rem;
+    line-height: 1.7;
+  }
+  .schedule-rules > li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: #2563eb;
+    font-weight: 800;
+  }
+  .schedule-footer-note {
+    padding: 1rem 1.1rem;
+    color: #475569;
+    line-height: 1.7;
+    border-bottom: 1px solid #edf2f7;
+  }
+  .schedule-participants {
+    background: #fff;
+    overflow: hidden;
+  }
+  .schedule-participants .tbl-wrap {
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 0;
+    margin: 0;
+  }
+  .schedule-participants-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: 1rem 1.1rem .8rem;
+    border-bottom: 1px solid #edf2f7;
+    background: #fff;
+  }
+  .schedule-participants-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    color: #111827;
+  }
+  .schedule-participants-subtitle {
+    margin-top: .2rem;
+    font-size: .88rem;
+    color: #64748b;
+  }
+  .schedule-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.2rem;
+    height: 2rem;
+    padding: 0 .7rem;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: .82rem;
+    font-weight: 800;
+  }
+  .schedule-scroll-note {
+    padding: 0 1.1rem .85rem;
+    font-size: .85rem;
+    color: #64748b;
+    font-style: italic;
+  }
+  .participants-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: .92rem;
+    color: #1f2937;
+  }
+  .participants-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: #f8fafc;
+    color: #475569;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .9rem .9rem;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .participants-table tbody td {
+    padding: .95rem .9rem;
+    border-bottom: 1px solid #eef2f7;
+    vertical-align: middle;
+    background: #fff;
+  }
+  .participants-table tbody tr:nth-child(even) td {
+    background: #fcfdff;
+  }
+  .participants-table tbody tr:hover td {
+    background: #f8fbff;
+  }
+  .participants-col-no {
+    width: 4.2rem;
+    text-align: center;
+  }
+  .participants-col-name {
+    min-width: 15rem;
+  }
+  .participants-col-status {
+    width: 7rem;
+    text-align: center;
+  }
+  .participants-col-year {
+    width: 6.2rem;
+  }
+  .participants-col-srn {
+    width: 9rem;
+  }
+  .participants-col-group {
+    width: 6rem;
+    text-align: center;
+  }
+  .participants-no {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 800;
+    font-size: .82rem;
+  }
+  .participants-name {
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.45;
+    white-space: nowrap;
+  }
+  .participants-subtle {
+    display: block;
+    margin-top: .2rem;
+    font-size: .8rem;
+    color: #64748b;
+  }
+  .participants-mono {
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    color: #334155;
+    font-size: .88rem;
+  }
+  .participants-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.1rem;
+    height: 2rem;
+    padding: 0 .7rem;
+    border-radius: 999px;
+    font-size: .82rem;
+    font-weight: 800;
+    line-height: 1;
+    border: 1px solid transparent;
+  }
+  .participants-chip--status {
+    background: #ecfeff;
+    color: #0f766e;
+    border-color: #a5f3fc;
+  }
+  .participants-chip--group {
+    background: #eef2ff;
+    color: #4338ca;
+    border-color: #c7d2fe;
+  }
+  .participants-prodi {
+    color: #334155;
+    line-height: 1.5;
+    min-width: 14rem;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    .schedule-participants-head {
+      padding: .9rem .95rem .65rem;
+      align-items: flex-start;
+    }
+    .schedule-participants-title {
+      font-size: .96rem;
+      line-height: 1.3;
+    }
+    .schedule-participants-subtitle {
+      margin-top: .15rem;
+      font-size: .8rem;
+    }
+    .schedule-chip {
+      min-width: 1.9rem;
+      height: 1.9rem;
+      padding: 0 .55rem;
+      font-size: .75rem;
+    }
+    .schedule-scroll-note {
+      padding: 0 .95rem .65rem;
+      font-size: .78rem;
+    }
+    .participants-table {
+      min-width: 700px;
+      font-size: .78rem;
+    }
+    .participants-table thead th {
+      padding: .55rem .5rem;
+      font-size: .62rem;
+      letter-spacing: .04em;
+    }
+    .participants-table tbody td {
+      padding: .58rem .5rem;
+    }
+    .participants-col-no {
+      width: 2.7rem;
+    }
+    .participants-col-name {
+      min-width: 10.5rem;
+    }
+    .participants-col-status {
+      width: 4.2rem;
+    }
+    .participants-col-year {
+      width: 4.6rem;
+    }
+    .participants-col-srn {
+      width: 6.5rem;
+    }
+    .participants-no {
+      width: 1.45rem;
+      height: 1.45rem;
+      font-size: .68rem;
+    }
+    .participants-name {
+      font-size: .72rem;
+      line-height: 1.2;
+    }
+    .participants-mono {
+      font-size: .72rem;
+    }
+    .participants-chip {
+      min-width: 1.55rem;
+      height: 1.55rem;
+      padding: 0 .35rem;
+      font-size: .68rem;
+    }
+    .participants-prodi {
+      min-width: 9rem;
+      font-size: .72rem;
+      line-height: 1.2;
+    }
+  }
+  @media (min-width: 1024px) {
+    .schedule-grid {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+      gap: 0;
+    }
+    .schedule-banner {
+      padding: 1.2rem 1.25rem;
+    }
+    .schedule-section,
+    .schedule-footer-note,
+    .schedule-participants-head,
+    .schedule-scroll-note {
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+    }
+  }
 </style>
 @endpush
 
@@ -504,22 +870,150 @@
       </details>
     </div>
 
-    <article class="bg-white rounded-lg border border-gray-200 p-4 lg:p-6">
-      <div id="post-body"
-           class="prose prose-sm lg:prose-lg max-w-none
-                  prose-headings:font-bold prose-headings:text-gray-900 prose-headings:mt-2 prose-headings:mb-2
-                  prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-base prose-h6:text-sm
-                  prose-p:text-gray-700 prose-p:leading-relaxed
-                  prose-a:text-blue-600 prose-a:font-medium hover:prose-a:text-blue-700 hover:prose-a:underline
-                  prose-img:rounded-md prose-img:shadow-none prose-img:my-6
-                  prose-figure:my-2 prose-figcaption:text-center prose-figcaption:text-sm prose-figcaption:text-gray-500 prose-figcaption:mt-2
-                  prose-ul:my-2 prose-ol:my-2
-                  prose-li:text-gray-700 prose-li:my-2
-                  prose-strong:text-gray-900 prose-strong:font-semibold
-                  prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-lg">
-        {!! $renderBody($body) !!}
+    @if($isSyncedSchedule)
+      <div class="schedule-shell">
+        <div class="schedule-banner">
+          <div class="schedule-banner-title">Pengumuman Jadwal EPT</div>
+          <div class="schedule-banner-body">
+            Peserta ujian agar memperhatikan jadwal ujian. Jika setelah pengumuman ini ditetapkan, YBS tidak hadir maka YBS dianggap gugur dan harus daftar ulang lagi.
+          </div>
+        </div>
+
+        <div class="schedule-grid">
+          <section class="schedule-section">
+            <h2 class="schedule-section-title">Perhatian Sebelum Ujian</h2>
+            <p class="text-slate-700 leading-7 mb-3">Saat ujian EPT atau memasuki Lab. Bahasa, peserta wajib:</p>
+            <ul class="schedule-rules mt-0">
+              <li>Menonaktifkan HP atau alat elektronik lainnya.</li>
+              <li>Menunjukkan kartu peserta ujian (print) dan Kartu Tanda Penduduk.</li>
+              <li>Memakai pakaian yang sopan.</li>
+            </ul>
+          </section>
+
+          <section class="schedule-section schedule-section--info">
+            <h2 class="schedule-section-title">Jadwal Ujian</h2>
+            <div class="schedule-meta">
+              <div class="schedule-meta-item">
+                <span class="schedule-meta-label">Hari, Tanggal</span>
+                <div class="schedule-meta-value">{{ $scheduleDateLabel ?? '-' }}</div>
+              </div>
+              <div class="schedule-meta-item">
+                <span class="schedule-meta-label">Pukul</span>
+                <div class="schedule-meta-value">{{ $scheduleTimeLabel ? $scheduleTimeLabel . ' s/d selesai' : '-' }}</div>
+              </div>
+              <div class="schedule-meta-item">
+                <span class="schedule-meta-label">Ruang</span>
+                <div class="schedule-meta-value">{{ $post->event_location ?? '-' }}</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="schedule-footer-note">
+          Hal yang kurang jelas dapat ditanyakan langsung pada bagian Pendaftaran EPT di Lembaga Bahasa UM Metro.
+        </div>
+
+        @if($post->eptGroup && $scheduleParticipants->count())
+          <section class="schedule-participants compact-table">
+            <div class="schedule-participants-head">
+              <div>
+                <div class="schedule-participants-title">Daftar Peserta Grup {{ $scheduleGroupCode ?? $post->eptGroup->name }}</div>
+                <div class="schedule-participants-subtitle">{{ $scheduleParticipants->count() }} peserta terdaftar pada jadwal ini.</div>
+              </div>
+              <span class="schedule-chip">{{ $scheduleParticipants->count() }}</span>
+            </div>
+            <div class="tbl-wrap can-scroll">
+              <table class="participants-table">
+                <thead>
+                  <tr>
+                    <th class="participants-col-no">No</th>
+                    <th class="participants-col-name">Nama Peserta</th>
+                    <th class="participants-col-status">Status</th>
+                    <th class="participants-col-year">Year</th>
+                    <th class="participants-col-srn">SRN</th>
+                    <th>Program Studi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach($scheduleParticipants as $participant)
+                    <tr>
+                      <td class="participants-col-no">
+                        <span class="participants-no">{{ $loop->iteration }}</span>
+                      </td>
+                      <td class="participants-col-name">
+                        <div class="participants-name">{{ $participant->user?->name ?? '-' }}</div>
+                      </td>
+                      <td class="participants-col-status">
+                        <span class="participants-chip participants-chip--status">{{ $statusShort($participant->student_status) }}</span>
+                      </td>
+                      <td class="participants-col-year">
+                        <span class="participants-mono">{{ $participant->user?->year ?? '-' }}</span>
+                      </td>
+                      <td class="participants-col-srn">
+                        <span class="participants-mono">{{ $participant->user?->srn ?? '-' }}</span>
+                      </td>
+                      <td>
+                        <div class="participants-prodi">{{ $participant->user?->prody?->name ?? '-' }}</div>
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
+          </section>
+        @endif
       </div>
-    </article>
+    @else
+      <article class="bg-white rounded-lg border border-gray-200 p-4 lg:p-6">
+        <div id="post-body"
+             class="prose prose-sm lg:prose-lg max-w-none
+                    prose-headings:font-bold prose-headings:text-gray-900 prose-headings:mt-2 prose-headings:mb-2
+                    prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-base prose-h6:text-sm
+                    prose-p:text-gray-700 prose-p:leading-relaxed
+                    prose-a:text-blue-600 prose-a:font-medium hover:prose-a:text-blue-700 hover:prose-a:underline
+                    prose-img:rounded-md prose-img:shadow-none prose-img:my-6
+                    prose-figure:my-2 prose-figcaption:text-center prose-figcaption:text-sm prose-figcaption:text-gray-500 prose-figcaption:mt-2
+                    prose-ul:my-2 prose-ol:my-2
+                    prose-li:text-gray-700 prose-li:my-2
+                    prose-strong:text-gray-900 prose-strong:font-semibold
+                    prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-lg">
+          {!! $renderBody($body) !!}
+        </div>
+
+        @if(($post->type ?? null) === 'schedule' && $post->eptGroup && $scheduleParticipants->count())
+          <div class="mt-8 compact-table">
+            <div class="tbl-wrap can-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>NO</th>
+                    <th>NAMA</th>
+                    <th>R/C/M/G</th>
+                    <th>YEAR</th>
+                    <th>SRN</th>
+                    <th>PRODI</th>
+                    <th>GROUP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach($scheduleParticipants as $participant)
+                    <tr>
+                      <td>{{ $loop->iteration }}</td>
+                      <td>{{ $participant->user?->name ?? '-' }}</td>
+                      <td>{{ $statusShort($participant->student_status) }}</td>
+                      <td>{{ $participant->user?->year ?? '-' }}</td>
+                      <td>{{ $participant->user?->srn ?? '-' }}</td>
+                      <td>{{ $participant->user?->prody?->name ?? '-' }}</td>
+                      <td>{{ $scheduleGroupCode ?? '-' }}</td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
+          </div>
+        @endif
+      </article>
+    @endif
 
     @if($related->count())
       <div class="mt-16">

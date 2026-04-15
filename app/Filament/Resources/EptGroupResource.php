@@ -8,6 +8,7 @@ use App\Models\EptRegistration;
 use App\Models\EptScheduleNotification;
 use App\Notifications\EptScheduleAssignedNotification;
 use App\Support\EptScheduleNotificationTracker;
+use App\Support\EptSchedulePostSyncService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -62,16 +63,19 @@ class EptGroupResource extends BaseResource
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Grup')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('quota')
                     ->label('Kuota')
                     ->alignCenter()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('jadwal')
                     ->label('Jadwal Tes')
                     ->dateTime('d M Y, H:i')
                     ->placeholder('Belum ditetapkan')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('lokasi')
                     ->label('Lokasi')
                     ->toggleable(),
@@ -80,11 +84,13 @@ class EptGroupResource extends BaseResource
                     ->alignCenter()
                     ->getStateUsing(fn (EptGroup $record) =>
                         (int) ($record->participants_total ?? $record->allRegistrations()->count())
-                    ),
+                    )
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('notification_overview')
                     ->label('Status Notif')
                     ->wrap()
-                    ->getStateUsing(fn (EptGroup $record) => static::notificationSummary($record)),
+                    ->getStateUsing(fn (EptGroup $record) => static::notificationSummary($record))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('remaining_quota')
                     ->label('Sisa')
                     ->alignCenter()
@@ -92,7 +98,8 @@ class EptGroupResource extends BaseResource
                         $remaining = (int) $record->quota - (int) ($record->participants_total ?? $record->allRegistrations()->count());
 
                         return max(0, $remaining);
-                    }),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d M Y')
@@ -131,11 +138,25 @@ class EptGroupResource extends BaseResource
                         ])
                         ->action(function (EptGroup $record, array $data) {
                             $record->update(['jadwal' => $data['jadwal']]);
+                            app(EptSchedulePostSyncService::class)->sync($record->fresh(), auth()->id());
                             Notification::make()
                                 ->success()
                                 ->title('Jadwal berhasil ditetapkan')
                                 ->body('Pendaftar sekarang bisa melihat jadwal di dashboard.')
                                 ->send();
+                        }),
+                    Tables\Actions\Action::make('sync_schedule_post')
+                        ->label('Sinkronkan ke Posting Informasi')
+                        ->icon('heroicon-o-document-text')
+                        ->color('warning')
+                        ->visible(fn (EptGroup $record) => $record->jadwal !== null)
+                        ->requiresConfirmation()
+                        ->modalHeading('Sinkronkan Jadwal ke Posting Informasi')
+                        ->modalDescription(fn (EptGroup $record) =>
+                            'Gunakan ini untuk membuat atau memperbarui posting jadwal publik dari grup "' . $record->name . '". Cocok untuk grup lama yang sudah punya jadwal sebelum fitur sinkron otomatis ditambahkan.'
+                        )
+                        ->action(function (EptGroup $record) {
+                            static::syncSchedulePostAndNotify($record);
                         }),
 
                     // ACTION: KIRIM NOTIF
@@ -210,6 +231,44 @@ class EptGroupResource extends BaseResource
                 ->icon('heroicon-m-cog-6-tooth'),
             ])
             ->bulkActions([
+                Tables\Actions\BulkAction::make('bulk_sync_schedule_posts')
+                    ->label('Sinkronkan ke Posting Informasi')
+                    ->icon('heroicon-o-document-text')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->action(function (Collection $records) {
+                        $created = 0;
+                        $updated = 0;
+                        $skipped = 0;
+
+                        foreach ($records as $record) {
+                            if (! $record->jadwal) {
+                                $skipped++;
+                                continue;
+                            }
+
+                            $result = static::syncSchedulePost($record);
+
+                            if ($result['created']) {
+                                $created++;
+                                continue;
+                            }
+
+                            if ($result['post']) {
+                                $updated++;
+                                continue;
+                            }
+
+                            $skipped++;
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title('Sinkronisasi selesai')
+                            ->body("Dibuat: {$created}, Diperbarui: {$updated}, Dilewati: {$skipped}")
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
                 // BULK: KIRIM NOTIF KE BANYAK GRUP
                 Tables\Actions\BulkAction::make('bulk_kirim_notif')
                     ->label('Kirim Notifikasi')
@@ -595,5 +654,45 @@ class EptGroupResource extends BaseResource
     protected static function currentGroupSignatureSql(string $groupsTable): string
     {
         return "SHA2(CONCAT_WS('|', CAST({$groupsTable}.id AS CHAR), TRIM({$groupsTable}.name), COALESCE(DATE_FORMAT({$groupsTable}.jadwal, '%Y-%m-%d %H:%i:%s'), ''), TRIM(COALESCE({$groupsTable}.lokasi, ''))), 256)";
+    }
+
+    public static function syncSchedulePostForView(EptGroup $group): void
+    {
+        static::syncSchedulePostAndNotify($group);
+    }
+
+    protected static function syncSchedulePostAndNotify(EptGroup $group): void
+    {
+        $result = static::syncSchedulePost($group);
+
+        if (! $result['post']) {
+            Notification::make()
+                ->warning()
+                ->title('Posting jadwal tidak disinkronkan')
+                ->body('Pastikan grup sudah memiliki jadwal dan author tersedia.')
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title($result['created'] ? 'Posting jadwal berhasil dibuat' : 'Posting jadwal berhasil diperbarui')
+            ->body('Jadwal grup sekarang tersedia di Posting Informasi dan halaman publik.')
+            ->send();
+    }
+
+    /**
+     * @return array{post:\App\Models\Post|null,created:bool}
+     */
+    protected static function syncSchedulePost(EptGroup $group): array
+    {
+        $existing = $group->schedulePost()->first();
+        $post = app(EptSchedulePostSyncService::class)->sync($group->fresh(), auth()->id());
+
+        return [
+            'post' => $post,
+            'created' => $existing === null && $post !== null,
+        ];
     }
 }

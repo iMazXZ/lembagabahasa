@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EptGroup extends Model
 {
@@ -67,11 +68,24 @@ class EptGroup extends Model
         return $this->hasMany(EptScheduleNotification::class, 'ept_group_id');
     }
 
+    public function schedulePost(): HasOne
+    {
+        return $this->hasOne(Post::class, 'ept_group_id')
+            ->where('type', 'schedule');
+    }
+
     /**
      * Cek apakah jadwal sudah ditetapkan
      */
     public function hasSchedule(): bool
     {
         return $this->jadwal !== null;
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (EptGroup $group): void {
+            app(\App\Support\EptSchedulePostSyncService::class)->detachOnGroupDelete($group);
+        });
     }
 }
