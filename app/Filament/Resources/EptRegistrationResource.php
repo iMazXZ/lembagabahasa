@@ -811,7 +811,8 @@ class EptRegistrationResource extends BaseResource
         $groups = EptGroup::query()
             ->select(['id', 'name', 'quota'])
             ->where(function (Builder $query) use ($currentGroupIds): void {
-                $query->whereNull('jadwal');
+                $query->whereNull('jadwal')
+                    ->orWhere('jadwal', '>=', now());
 
                 if ($currentGroupIds !== []) {
                     $query->orWhereIn('id', $currentGroupIds);
@@ -884,9 +885,9 @@ class EptRegistrationResource extends BaseResource
         ]));
 
         foreach ($groups as $group) {
-            if ($group->jadwal !== null && ! in_array($group->id, $currentGroupIds, true)) {
+            if ($group->jadwal !== null && $group->jadwal->isPast() && ! in_array($group->id, $currentGroupIds, true)) {
                 $message = sprintf(
-                    'Grup "%s" sudah memiliki jadwal tes dan tidak bisa dipilih lagi.',
+                    'Grup "%s" jadwal tesnya sudah lewat dan tidak bisa dipilih lagi.',
                     $group->name,
                 );
 
