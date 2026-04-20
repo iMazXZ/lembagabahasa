@@ -126,7 +126,7 @@
 
 {{-- SECTION: Jadwal / Nilai (Card Grid) & Berita (Split Layout) --}}
 <section id="berita" class="bg-white py-2">
-  <x-post.card-grid title="Jadwal Tes EPT Offline" :items="$schedules" :moreRoute="route('front.schedule')" emptyText="Belum ada jadwal." type="schedule"/>
+  <x-post.card-grid title="Jadwal Tes EPT Offline" :items="$schedules" :moreRoute="route('front.schedule')" emptyText="Belum ada jadwal." type="schedule" :maxItems="12"/>
   <x-post.card-grid title="Nilai Tes EPT" :items="$scores" :moreRoute="route('front.scores')" emptyText="Belum ada pengumuman nilai." type="scores"/>
 </section>
 

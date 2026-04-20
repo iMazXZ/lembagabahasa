@@ -77,17 +77,32 @@ class PostController extends Controller
                     ->published()
                     ->select(['id', 'slug', 'related_post_id', 'published_at', 'title']),
             ]);
+        } elseif ($type === 'scores') {
+            $query->with([
+                'relatedPost' => fn ($q) => $q->select(['id', 'slug', 'title', 'event_date']),
+            ]);
         }
 
         // Pencarian (opsional)
         $search = trim((string) $request->query('q'));
         $fullTextSearch = null;
         if ($search !== '') {
-            $query->searchText($search);
+            $scheduleGroupNumber = $type === 'schedule'
+                ? $this->extractScheduleGroupNumber($search)
+                : null;
 
-            $candidate = Post::buildBooleanFullTextQuery($search);
-            if ($candidate !== null && Post::hasSearchFullTextIndex()) {
-                $fullTextSearch = $candidate;
+            if ($scheduleGroupNumber !== null) {
+                $query->whereRaw(
+                    'LOWER(title) REGEXP ?',
+                    [$this->buildScheduleGroupTitlePattern($scheduleGroupNumber)]
+                );
+            } else {
+                $query->searchText($search);
+
+                $candidate = Post::buildBooleanFullTextQuery($search);
+                if ($candidate !== null && Post::hasSearchFullTextIndex()) {
+                    $fullTextSearch = $candidate;
+                }
             }
         }
 
@@ -213,6 +228,22 @@ class PostController extends Controller
         abort_unless($post->type === 'career', 404);
 
         return $this->renderPost($post);
+    }
+
+    private function extractScheduleGroupNumber(string $search): ?string
+    {
+        $normalized = mb_strtolower(trim($search));
+
+        if (! preg_match('/\bgrup\s+(\d{1,4})\b/u', $normalized, $matches)) {
+            return null;
+        }
+
+        return $matches[1] ?? null;
+    }
+
+    private function buildScheduleGroupTitlePattern(string $groupNumber): string
+    {
+        return 'grup[[:space:]]+' . preg_quote($groupNumber, '/') . '([^0-9]|$)';
     }
 
     private function renderPost(Post $post)

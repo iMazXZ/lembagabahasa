@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Services\WhatsAppService;
 use App\Support\EptScheduleNotificationTracker;
+use App\Support\EptSubmissionNotificationTracker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -35,10 +36,7 @@ class SendWhatsAppMessage implements ShouldQueue
     public function handle(WhatsAppService $waService): void
     {
         if (! $waService->isEnabled()) {
-            EptScheduleNotificationTracker::markWhatsAppFailed(
-                $this->tracking,
-                'Service WhatsApp sedang nonaktif.'
-            );
+            $this->markWhatsAppFailed('Service WhatsApp sedang nonaktif.');
             return;
         }
 
@@ -46,18 +44,37 @@ class SendWhatsAppMessage implements ShouldQueue
 
         if (! $sent) {
             Log::warning("Failed to queue-send WhatsApp message to {$this->phone}");
-            EptScheduleNotificationTracker::markWhatsAppFailed(
-                $this->tracking,
-                "Pesan WhatsApp ke {$this->phone} gagal dikirim oleh service."
-            );
+            $this->markWhatsAppFailed("Pesan WhatsApp ke {$this->phone} gagal dikirim oleh service.");
+            return;
+        }
+
+        $this->markWhatsAppSent();
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        $this->markWhatsAppFailed($exception->getMessage());
+    }
+
+    protected function markWhatsAppSent(): void
+    {
+        if (($this->tracking['kind'] ?? null) === 'ept_submission') {
+            EptSubmissionNotificationTracker::markWhatsAppSent($this->tracking);
+
             return;
         }
 
         EptScheduleNotificationTracker::markWhatsAppSent($this->tracking);
     }
 
-    public function failed(Throwable $exception): void
+    protected function markWhatsAppFailed(?string $error = null): void
     {
-        EptScheduleNotificationTracker::markWhatsAppFailed($this->tracking, $exception->getMessage());
+        if (($this->tracking['kind'] ?? null) === 'ept_submission') {
+            EptSubmissionNotificationTracker::markWhatsAppFailed($this->tracking, $error);
+
+            return;
+        }
+
+        EptScheduleNotificationTracker::markWhatsAppFailed($this->tracking, $error);
     }
 }

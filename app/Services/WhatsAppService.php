@@ -18,10 +18,10 @@ class WhatsAppService
     public function __construct()
     {
         $this->enabled = config('whatsapp.enabled', false);
-        $this->baseUrl = config('whatsapp.url', 'https://wa-api.lembagabahasa.site');
-        $this->apiKey = config('whatsapp.api_key', '');
-        $this->timeout = config('whatsapp.timeout', 30);
-        $this->retry = config('whatsapp.retry', 2);
+        $this->baseUrl = (string) (config('whatsapp.url', 'https://wa-api.lembagabahasa.site') ?? 'https://wa-api.lembagabahasa.site');
+        $this->apiKey = (string) (config('whatsapp.api_key', '') ?? '');
+        $this->timeout = (int) config('whatsapp.timeout', 30);
+        $this->retry = (int) config('whatsapp.retry', 2);
     }
 
     /**

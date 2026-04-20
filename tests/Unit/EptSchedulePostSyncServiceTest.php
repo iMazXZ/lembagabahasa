@@ -40,7 +40,7 @@ class EptSchedulePostSyncServiceTest extends TestCase
         $this->assertSame('schedule', $post->type);
         $this->assertSame('Ruang Stanford', $post->event_location);
         $this->assertTrue($post->is_published);
-        $this->assertStringContainsString('Jadwal Tes EPT Grup 04 E 25/26', $post->title);
+        $this->assertSame('Jadwal Tes EPT Grup 04 (Senin, 20 April 2026)', $post->title);
     }
 
     public function test_it_unpublishes_existing_schedule_post_when_group_schedule_removed(): void

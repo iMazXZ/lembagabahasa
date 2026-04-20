@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Support\EptScheduleNotificationTracker;
+use App\Support\EptSubmissionNotificationTracker;
 use App\Support\QueueMonitor;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
@@ -69,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(NotificationSent::class, function (NotificationSent $event) {
             EptScheduleNotificationTracker::handleNotificationSent($event);
+            EptSubmissionNotificationTracker::handleNotificationSent($event);
         });
 
         Queue::before(function (JobProcessing $event) {
@@ -99,6 +101,10 @@ class AppServiceProvider extends ServiceProvider
 
             if ($queuedNotificationJob instanceof SendQueuedNotifications) {
                 EptScheduleNotificationTracker::handleQueuedNotificationFailure(
+                    $queuedNotificationJob,
+                    $event->exception,
+                );
+                EptSubmissionNotificationTracker::handleQueuedNotificationFailure(
                     $queuedNotificationJob,
                     $event->exception,
                 );

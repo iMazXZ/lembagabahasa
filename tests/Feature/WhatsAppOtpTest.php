@@ -17,6 +17,10 @@ class WhatsAppOtpTest extends TestCase
     public function it_dispatches_job_when_sending_otp(): void
     {
         Queue::fake();
+        config([
+            'whatsapp.enabled' => true,
+            'whatsapp.api_key' => 'test-key',
+        ]);
 
         $user = User::factory()->create();
         SiteSetting::updateOrCreate(
@@ -35,6 +39,11 @@ class WhatsAppOtpTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_rejects_duplicate_whatsapp_number(): void
     {
+        config([
+            'whatsapp.enabled' => true,
+            'whatsapp.api_key' => 'test-key',
+        ]);
+
         $existing = User::factory()->create(['whatsapp' => '6281234567890']);
         $user = User::factory()->create();
         SiteSetting::updateOrCreate(

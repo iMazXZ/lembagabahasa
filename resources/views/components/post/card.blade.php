@@ -37,104 +37,12 @@
     };
 @endphp
 
-<article class="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
-  @if($compact && $type === 'schedule')
-    @php
-      $eventDate = $post->event_date ?? null;
-      $eventTime = $post->event_time ?? null;
-      $eventDateTime = null;
-      if ($eventDate) {
-        $eventDateTime = \Carbon\Carbon::parse($eventDate);
-        if ($eventTime) {
-          $time = \Carbon\Carbon::parse($eventTime);
-          $eventDateTime->setTime($time->hour, $time->minute);
-        }
-      }
-
-      $isToday = $eventDateTime?->isToday() ?? false;
-      $isUpcoming = $eventDateTime?->isFuture() ?? false;
-      $daysLeft = $eventDateTime ? now()->startOfDay()->diffInDays($eventDateTime->startOfDay(), false) : null;
-      $statusLabel = $isToday
-        ? 'Hari Ini'
-        : ($isUpcoming && $daysLeft !== null
-            ? ($daysLeft === 1 ? 'Besok' : "{$daysLeft} Hari Lagi")
-            : 'Selesai');
-
-      $statusClass = $isToday
-        ? 'bg-emerald-600 text-white'
-        : ($isUpcoming ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600');
-
-      $scorePost = null;
-      if ($post->relationLoaded('relatedScores')) {
-        $scorePost = $post->relatedScores->first();
-      }
-    @endphp
-
-    <div class="p-6">
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold {{ $chipClass }}">
-              {{ strtoupper($chipLabel) }}
-            </span>
-            @if($eventDateTime)
-              <span class="text-slate-400">•</span>
-              <time datetime="{{ $eventDateTime->toDateString() }}">
-                {{ $eventDateTime->translatedFormat('d M Y') }}
-              </time>
-            @endif
-          </div>
-
-          <a href="{{ $postUrl }}"
-             class="block text-lg lg:text-xl font-extrabold text-slate-900 mb-3 line-clamp-2 sm:group-hover:text-blue-700 transition-colors"
-             aria-label="Baca {{ $post->title }}">
-            {{ preg_replace('/\s*\([^)]+\)\s*$/', '', $post->title) }}
-          </a>
-
-          <div class="text-sm text-slate-600 space-y-1">
-            @if($eventDateTime)
-              <div class="flex items-center gap-2 flex-nowrap">
-                <span class="inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
-                <span class="min-w-0 flex-1 truncate" title="{{ $eventDateTime->translatedFormat('l, d F Y') }}">
-                  {{ $eventDateTime->translatedFormat('l, d F Y') }}
-                </span>
-                @if($eventTime)
-                  <span class="text-slate-300">|</span>
-                  <span class="font-semibold text-slate-700 whitespace-nowrap shrink-0">
-                    {{ \Carbon\Carbon::parse($eventTime)->format('H:i') . ' WIB' }}
-                  </span>
-                @endif
-              </div>
-            @endif
-            @if(!empty($post->event_location))
-              <div class="flex items-center gap-2 text-slate-500">
-                <span class="inline-flex h-2 w-2 rounded-full bg-slate-300"></span>
-                <span>{{ $post->event_location }}</span>
-              </div>
-            @endif
-          </div>
-        </div>
-
-        <span class="shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $statusClass }}">
-          {{ $statusLabel }}
-        </span>
-      </div>
-
-      <div class="mt-5 flex flex-wrap gap-2">
-        <a href="{{ $postUrl }}"
-           class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors">
-          Detail Jadwal
-        </a>
-
-        @if($scorePost)
-          <a href="{{ route('front.post.show', $scorePost->slug) }}"
-             class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors">
-            Lihat Nilai
-          </a>
-        @endif
-      </div>
-    </div>
-  @else
+@if($compact && $type === 'schedule')
+  <x-post.schedule-card :post="$post" />
+@elseif($compact && $type === 'scores')
+  <x-post.score-card :post="$post" />
+@else
+  <article class="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
     @unless($compact)
       <a href="{{ $postUrl }}"
          aria-label="Baca {{ $post->title }}"
@@ -233,5 +141,5 @@
         </a>
       @endif
     </div>
-  @endif
-</article>
+  </article>
+@endif

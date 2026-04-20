@@ -150,19 +150,44 @@ class Post extends Model
             return $q;
         }
 
+        $tokens = static::tokenizeSearchTerms($search);
+
+        if ($tokens === []) {
+            return $q;
+        }
+
         $booleanQuery = static::buildBooleanFullTextQuery($search);
 
         if ($booleanQuery !== null && static::supportsFullTextSearch()) {
-            return $q->whereRaw(
-                'MATCH(title, excerpt, body) AGAINST (? IN BOOLEAN MODE)',
-                [$booleanQuery]
-            );
+            $shortTokens = array_values(array_filter(
+                $tokens,
+                fn (string $token): bool => mb_strlen($token) < 3
+            ));
+
+            return $q->where(function (Builder $searchQuery) use ($booleanQuery, $shortTokens): void {
+                $searchQuery->whereRaw(
+                    'MATCH(title, excerpt, body) AGAINST (? IN BOOLEAN MODE)',
+                    [$booleanQuery]
+                );
+
+                foreach ($shortTokens as $token) {
+                    $searchQuery->where(function (Builder $tokenQuery) use ($token): void {
+                        $tokenQuery->where('title', 'like', "%{$token}%")
+                            ->orWhere('excerpt', 'like', "%{$token}%")
+                            ->orWhere('body', 'like', "%{$token}%");
+                    });
+                }
+            });
         }
 
-        return $q->where(function (Builder $searchQuery) use ($search): void {
-            $searchQuery->where('title', 'like', "%{$search}%")
-                ->orWhere('excerpt', 'like', "%{$search}%")
-                ->orWhere('body', 'like', "%{$search}%");
+        return $q->where(function (Builder $searchQuery) use ($tokens): void {
+            foreach ($tokens as $token) {
+                $searchQuery->where(function (Builder $tokenQuery) use ($token): void {
+                    $tokenQuery->where('title', 'like', "%{$token}%")
+                        ->orWhere('excerpt', 'like', "%{$token}%")
+                        ->orWhere('body', 'like', "%{$token}%");
+                });
+            }
         });
     }
 
@@ -171,28 +196,38 @@ class Post extends Model
      */
     public static function buildBooleanFullTextQuery(string $search): ?string
     {
-        $parts = preg_split('/\s+/u', mb_strtolower(trim($search)), -1, PREG_SPLIT_NO_EMPTY);
-
-        if ($parts === false) {
-            return null;
-        }
-
-        $tokens = [];
-
-        foreach ($parts as $part) {
-            $token = preg_replace('/[^\pL\pN]+/u', '', $part);
-            if (!is_string($token) || $token === '' || mb_strlen($token) < 3) {
-                continue;
-            }
-
-            $tokens[] = '+' . $token . '*';
-        }
+        $tokens = array_map(
+            fn (string $token): string => '+' . $token . '*',
+            array_values(array_filter(
+                static::tokenizeSearchTerms($search),
+                fn (string $token): bool => mb_strlen($token) >= 3
+            ))
+        );
 
         if ($tokens === []) {
             return null;
         }
 
         return implode(' ', array_values(array_unique($tokens)));
+    }
+
+    /**
+     * Normalize raw search input into distinct searchable tokens.
+     *
+     * @return array<int, string>
+     */
+    protected static function tokenizeSearchTerms(string $search): array
+    {
+        $parts = preg_split('/[^\pL\pN]+/u', mb_strtolower(trim($search)), -1, PREG_SPLIT_NO_EMPTY);
+
+        if ($parts === false) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            $parts,
+            fn ($part): bool => is_string($part) && $part !== ''
+        )));
     }
 
     /**

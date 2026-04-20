@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EptSubmission extends Model
 {
@@ -40,6 +41,11 @@ class EptSubmission extends Model
     public function suratNomorUpdatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'surat_nomor_updated_by');
+    }
+
+    public function notificationTracking(): HasOne
+    {
+        return $this->hasOne(EptSubmissionNotification::class, 'ept_submission_id');
     }
 
     /**

@@ -3,12 +3,11 @@
 namespace App\Notifications;
 
 use App\Services\WhatsAppService;
+use App\Support\EptSubmissionNotificationTracker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use App\Jobs\SendWhatsAppNotification;
-use App\Support\WhatsAppOutboundThrottle;
 
 class EptSubmissionStatusNotification extends Notification implements ShouldQueue
 {
@@ -19,7 +18,33 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
         public ?string $verificationUrl = null,
         public ?string $pdfUrl = null,
         public ?string $adminNote = null,
-    ) {}
+        public ?int $submissionId = null,
+        public ?string $contentSignature = null,
+    ) {
+        $this->contentSignature ??= static::signatureFor(
+            $this->submissionId,
+            $this->status,
+            $this->verificationUrl,
+            $this->pdfUrl,
+            $this->adminNote,
+        );
+    }
+
+    public static function signatureFor(
+        ?int $submissionId,
+        string $status,
+        ?string $verificationUrl,
+        ?string $pdfUrl,
+        ?string $adminNote,
+    ): string {
+        return hash('sha256', implode('|', [
+            (string) ($submissionId ?? 0),
+            $status,
+            trim((string) $verificationUrl),
+            trim((string) $pdfUrl),
+            trim((string) $adminNote),
+        ]));
+    }
 
     public function via(object $notifiable): array
     {
@@ -70,19 +95,24 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
         }
         
         $actionUrl = $this->verificationUrl ?? route('dashboard.ept');
+        $message = "*Status Surat Rekomendasi EPT*\n\n";
+        $message .= "Yth. *{$notifiable->name}*,\n\n";
+        $message .= $details;
 
-        // Kirim via job dengan rate limit (lihat SendWhatsAppNotification)
-        SendWhatsAppNotification::dispatch(
-            phone: $notifiable->whatsapp,
-            type: 'ept_status',
-            status: $this->status,
-            userName: $notifiable->name,
-            details: $details,
-            actionUrl: $actionUrl
-        )->delay(WhatsAppOutboundThrottle::nextDelaySeconds());
+        if (filled($actionUrl)) {
+            $message .= "\n\nLihat detail di:\n{$actionUrl}";
+        }
 
-        // Return true supaya notification dianggap berhasil diantrikan.
-        return true;
+        $tracking = null;
+
+        if (filled($this->submissionId) && filled($this->contentSignature)) {
+            $tracking = EptSubmissionNotificationTracker::tracking(
+                (int) $this->submissionId,
+                (string) $this->contentSignature,
+            );
+        }
+
+        return app(WhatsAppService::class)->queueMessage($notifiable->whatsapp, $message, $tracking);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -149,6 +179,7 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
 
         return [
             'type' => 'ept_submission_status',
+            'submission_id' => $this->submissionId,
             'status' => $this->status,
             'title' => $title,
             'body' => $body,

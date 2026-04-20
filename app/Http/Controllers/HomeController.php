@@ -34,11 +34,19 @@ class HomeController extends Controller
                 ->latest('published_at')->limit(6)
                 ->get(['title','slug','type','news_category','excerpt','cover_path','published_at']),
             'schedules' => Post::published()->type('schedule')
-                ->latest('published_at')->limit(6)
-                ->get(['title','slug','type','excerpt','cover_path','published_at','event_date','event_time','event_location']),
+                ->with([
+                    'relatedScores' => fn ($query) => $query
+                        ->published()
+                        ->select(['id', 'slug', 'related_post_id', 'published_at', 'title']),
+                ])
+                ->latest('published_at')->limit(12)
+                ->get(['id','title','slug','type','excerpt','cover_path','published_at','event_date','event_time','event_location']),
             'scores'    => Post::published()->type('scores')
+                ->with([
+                    'relatedPost' => fn ($query) => $query->select(['id', 'slug', 'title', 'event_date']),
+                ])
                 ->latest('published_at')->limit(6)
-                ->get(['title','slug','type','excerpt','cover_path','published_at']),
+                ->get(['id','title','slug','type','excerpt','cover_path','published_at','related_post_id']),
             'services'  => Post::published()->type('service')
                 ->latest('published_at')->limit(6)
                 ->get(['id','title','slug','excerpt','cover_path','published_at']),

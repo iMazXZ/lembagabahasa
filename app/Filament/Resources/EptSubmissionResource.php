@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\EptSubmissionResource\Pages;
 use App\Models\EptSubmission;
+use App\Models\EptSubmissionNotification;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Tables;
@@ -12,6 +13,7 @@ use Filament\Tables\Table;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components;
 use App\Notifications\EptSubmissionStatusNotification;
+use App\Support\EptSubmissionNotificationTracker;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use App\Support\Verification;
@@ -66,6 +68,7 @@ class EptSubmissionResource extends BaseResource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['notificationTracking', 'user.prody']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
@@ -93,7 +96,8 @@ class EptSubmissionResource extends BaseResource
                     ->label('Nomor Surat')
                     ->searchable()
                     ->limit(15)
-                    ->toggleable(),                Tables\Columns\TextColumn::make('created_at')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('created_at')
                     ->label('Diajukan')
                     ->formatStateUsing(fn ($state) => $state?->diffForHumans() ?? '-')
                     ->sortable()
@@ -114,6 +118,33 @@ class EptSubmissionResource extends BaseResource
                         default => 'gray',
                     })
                     ->sortable(),
+                Tables\Columns\TextColumn::make('notification_status')
+                    ->label('Status Notif')
+                    ->badge()
+                    ->state(fn (EptSubmission $record): string => static::overallNotificationStatus($record))
+                    ->formatStateUsing(fn (string $state): string => EptSubmissionNotification::statusLabel($state))
+                    ->color(fn (string $state): string => EptSubmissionNotification::statusColor($state))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('mail_notification_status')
+                    ->label('Email')
+                    ->badge()
+                    ->state(fn (EptSubmission $record): string => static::notificationChannelStatus($record, 'mail'))
+                    ->formatStateUsing(fn (string $state): string => EptSubmissionNotification::statusLabel($state))
+                    ->color(fn (string $state): string => EptSubmissionNotification::statusColor($state))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('wa_notification_status')
+                    ->label('WA')
+                    ->badge()
+                    ->state(fn (EptSubmission $record): string => static::notificationChannelStatus($record, 'whatsapp'))
+                    ->formatStateUsing(fn (string $state): string => EptSubmissionNotification::statusLabel($state))
+                    ->color(fn (string $state): string => EptSubmissionNotification::statusColor($state))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('notification_last_requested_at')
+                    ->label('Terakhir Diproses')
+                    ->since()
+                    ->placeholder('Belum pernah')
+                    ->state(fn (EptSubmission $record) => $record->notificationTracking?->last_requested_at)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('catatan_admin')
                     ->label('Catatan Staf')
                     ->wrap()
@@ -183,13 +214,33 @@ class EptSubmissionResource extends BaseResource
 
                             $verificationUrl = $record->verification_url;
                             $pdfUrl = route('ept-submissions.pdf', $record);
-
-                            $pemohon->notify(new EptSubmissionStatusNotification(
+                            $notification = new EptSubmissionStatusNotification(
                                 'approved',
                                 $verificationUrl,
                                 $pdfUrl,
-                                $record->catatan_admin
-                            ));
+                                $record->catatan_admin,
+                                $record->getKey(),
+                            );
+
+                            $channels = $notification->via($pemohon);
+                            $tracking = EptSubmissionNotificationTracker::prime(
+                                $record,
+                                static::expectsWhatsApp($record),
+                                $channels,
+                                (string) $notification->contentSignature,
+                            );
+
+                            try {
+                                $pemohon->notify($notification);
+                            } catch (\Throwable $e) {
+                                EptSubmissionNotificationTracker::markDispatchFailure(
+                                    $tracking,
+                                    static::expectsWhatsApp($record),
+                                    $e->getMessage(),
+                                );
+
+                                throw $e;
+                            }
 
                             Notification::make()
                                 ->title('Notifikasi diproses')
@@ -342,7 +393,33 @@ class EptSubmissionResource extends BaseResource
                                 $verificationUrl = $fresh->verification_url;
                                 // Sertakan link unduh PDF jika memang route-nya ada & aksesnya sesuai
                                 $pdfUrl = route('ept-submissions.pdf', $fresh);
-                                $pemohon->notify(new EptSubmissionStatusNotification('approved', $verificationUrl, $pdfUrl, $data['catatan_admin'] ?? null));
+                                $notification = new EptSubmissionStatusNotification(
+                                    'approved',
+                                    $verificationUrl,
+                                    $pdfUrl,
+                                    $data['catatan_admin'] ?? null,
+                                    $fresh->getKey(),
+                                );
+
+                                $channels = $notification->via($pemohon);
+                                $tracking = EptSubmissionNotificationTracker::prime(
+                                    $fresh,
+                                    static::expectsWhatsApp($fresh),
+                                    $channels,
+                                    (string) $notification->contentSignature,
+                                );
+
+                                try {
+                                    $pemohon->notify($notification);
+                                } catch (\Throwable $e) {
+                                    EptSubmissionNotificationTracker::markDispatchFailure(
+                                        $tracking,
+                                        static::expectsWhatsApp($fresh),
+                                        $e->getMessage(),
+                                    );
+
+                                    throw $e;
+                                }
                             }
 
                             Notification::make()->title('Pengajuan disetujui. Notifikasi diproses.')->success()->send();
@@ -389,9 +466,32 @@ class EptSubmissionResource extends BaseResource
 
                             try {
                                 // rejected tidak perlu link
-                                $pemohon->notify(new EptSubmissionStatusNotification('rejected', null, null, $data['catatan_admin']));
+                                $notification = new EptSubmissionStatusNotification(
+                                    'rejected',
+                                    null,
+                                    null,
+                                    $data['catatan_admin'],
+                                    $fresh->getKey(),
+                                );
+                                $channels = $notification->via($pemohon);
+                                $tracking = EptSubmissionNotificationTracker::prime(
+                                    $fresh,
+                                    static::expectsWhatsApp($fresh),
+                                    $channels,
+                                    (string) $notification->contentSignature,
+                                );
+
+                                $pemohon->notify($notification);
                                 Notification::make()->title('Pengajuan ditolak. Notifikasi diproses.')->success()->send();
                             } catch (\Throwable $e) {
+                                if (isset($tracking)) {
+                                    EptSubmissionNotificationTracker::markDispatchFailure(
+                                        $tracking,
+                                        static::expectsWhatsApp($fresh),
+                                        $e->getMessage(),
+                                    );
+                                }
+
                                 Log::error('Gagal kirim email rejected', [
                                     'e' => $e->getMessage(),
                                     'record_id' => $record->id,
@@ -438,10 +538,38 @@ class EptSubmissionResource extends BaseResource
                             'rejected' => 'danger',
                             default => 'gray',
                         }),
+                    Components\TextEntry::make('notification_status')
+                        ->label('Status Notif')
+                        ->badge()
+                        ->state(fn (EptSubmission $record): string => static::overallNotificationStatus($record))
+                        ->formatStateUsing(fn (string $state): string => EptSubmissionNotification::statusLabel($state))
+                        ->color(fn (string $state): string => EptSubmissionNotification::statusColor($state)),
+                    Components\TextEntry::make('notification_last_requested_at')
+                        ->label('Terakhir Diproses')
+                        ->since()
+                        ->state(fn (EptSubmission $record) => $record->notificationTracking?->last_requested_at)
+                        ->placeholder('Belum pernah'),
                     Components\TextEntry::make('catatan_admin')
                         ->label('Catatan dari Staf')
                         ->visible(fn ($record) => filled($record?->catatan_admin)),
                 ])->columns(3),
+
+            Components\Section::make('Status Kanal Notifikasi')
+                ->schema([
+                    Components\TextEntry::make('mail_notification_status')
+                        ->label('Email')
+                        ->badge()
+                        ->state(fn (EptSubmission $record): string => static::notificationChannelStatus($record, 'mail'))
+                        ->formatStateUsing(fn (string $state): string => EptSubmissionNotification::statusLabel($state))
+                        ->color(fn (string $state): string => EptSubmissionNotification::statusColor($state)),
+                    Components\TextEntry::make('wa_notification_status')
+                        ->label('WA')
+                        ->badge()
+                        ->state(fn (EptSubmission $record): string => static::notificationChannelStatus($record, 'whatsapp'))
+                        ->formatStateUsing(fn (string $state): string => EptSubmissionNotification::statusLabel($state))
+                        ->color(fn (string $state): string => EptSubmissionNotification::statusColor($state)),
+                ])
+                ->columns(2),
 
             Components\Section::make('Data Tes 1')
                 ->schema([
@@ -550,5 +678,26 @@ class EptSubmissionResource extends BaseResource
     public static function canCreate(): bool
     {
         return false; // admin tidak membuat data di sini
+    }
+
+    protected static function expectsWhatsApp(EptSubmission $record): bool
+    {
+        return in_array($record->status, ['approved', 'rejected'], true)
+            && filled($record->user?->whatsapp)
+            && filled($record->user?->whatsapp_verified_at);
+    }
+
+    protected static function overallNotificationStatus(EptSubmission $record): string
+    {
+        return $record->notificationTracking?->overallStatus(static::expectsWhatsApp($record))
+            ?? EptSubmissionNotification::STATUS_NOT_SENT;
+    }
+
+    protected static function notificationChannelStatus(EptSubmission $record, string $channel): string
+    {
+        return $record->notificationTracking?->channelStatus($channel, static::expectsWhatsApp($record))
+            ?? ($channel === 'whatsapp' && ! static::expectsWhatsApp($record)
+                ? EptSubmissionNotification::STATUS_SKIPPED
+                : EptSubmissionNotification::STATUS_NOT_SENT);
     }
 }
