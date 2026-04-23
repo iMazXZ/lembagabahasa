@@ -68,6 +68,16 @@ class EptGroup extends Model
         return $this->hasMany(EptScheduleNotification::class, 'ept_group_id');
     }
 
+    public function eptOnlineAccessTokens(): HasMany
+    {
+        return $this->hasMany(\App\Models\EptOnlineAccessToken::class, 'ept_group_id');
+    }
+
+    public function eptOnlineAttempts(): HasMany
+    {
+        return $this->hasMany(\App\Models\EptOnlineAttempt::class, 'ept_group_id');
+    }
+
     public function schedulePost(): HasOne
     {
         return $this->hasOne(Post::class, 'ept_group_id')

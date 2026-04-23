@@ -1,8 +1,12 @@
 <!DOCTYPE html>
-<html lang="id" class="scroll-smooth"> {{-- Tambah scroll-smooth --}}
+<html lang="id" class="scroll-smooth {{ trim((string) $__env->yieldContent('translate_no')) === '1' ? 'notranslate' : '' }}" @if(trim((string) $__env->yieldContent('translate_no')) === '1') translate="no" @endif> {{-- Tambah scroll-smooth --}}
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  @if(trim((string) $__env->yieldContent('translate_no')) === '1')
+    <meta name="google" content="notranslate">
+    <meta name="googlebot" content="notranslate">
+  @endif
   <title>@yield('title', 'Lembaga Bahasa UM Metro')</title>
   <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
   <link rel="shortcut icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
@@ -58,14 +62,18 @@
     }
   </style>
 </head>
-<body class="bg-white text-gray-900 antialiased flex flex-col min-h-screen"> 
+<body class="bg-white text-gray-900 antialiased flex flex-col min-h-screen {{ trim((string) $__env->yieldContent('translate_no')) === '1' ? 'notranslate' : '' }}" @if(trim((string) $__env->yieldContent('translate_no')) === '1') translate="no" @endif> 
   @php($frontBodyScript = \App\Models\SiteSetting::get('front_body_script'))
+  @php($hideNavbar = trim((string) $__env->yieldContent('hide_navbar')) === '1')
+  @php($hideFooter = trim((string) $__env->yieldContent('hide_footer')) === '1')
   @if(!empty($frontBodyScript))
     {!! $frontBodyScript !!}
   @endif
 
   {{-- Navbar global --}}
-  @include('partials.navbar')
+  @unless($hideNavbar)
+    @include('partials.navbar')
+  @endunless
 
   {{-- Konten halaman --}}
   <main class="flex-grow"> {{-- flex-grow agar footer selalu di bawah meski konten sedikit --}}
@@ -73,7 +81,9 @@
   </main>
 
   {{-- Footer global --}}
-  @include('partials.footer')
+  @unless($hideFooter)
+    @include('partials.footer')
+  @endunless
 
   {{-- JS global --}}
   <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>

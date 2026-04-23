@@ -63,6 +63,16 @@ class EptRegistration extends Model
         return $this->hasMany(EptScheduleNotification::class, 'ept_registration_id');
     }
 
+    public function eptOnlineAccessTokens(): HasMany
+    {
+        return $this->hasMany(\App\Models\EptOnlineAccessToken::class, 'ept_registration_id');
+    }
+
+    public function eptOnlineAttempts(): HasMany
+    {
+        return $this->hasMany(\App\Models\EptOnlineAttempt::class, 'ept_registration_id');
+    }
+
     public static function studentStatusOptions(): array
     {
         return [

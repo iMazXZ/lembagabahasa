@@ -25,6 +25,8 @@ use App\Http\Controllers\BasicListeningProfileController;
 use App\Http\Controllers\BasicListeningScheduleController;
 use App\Http\Controllers\BlSurveyController;
 use App\Http\Controllers\ManualCertificateController;
+use App\Http\Controllers\EptOnlineController;
+use App\Http\Controllers\EptOnlineAttemptController;
 
 // Middleware
 use App\Http\Middleware\CountPostView;
@@ -318,6 +320,52 @@ Route::middleware('auth')->group(function () {
     Route::get('/bl/tutor-mahasiswa/export', TutorMahasiswaBulkExportController::class)
         ->middleware('signed')
         ->name('bl.tutor-mahasiswa.export');
+});
+
+/*
+|--------------------------------------------------------------------------
+| EPT Online – Akses Peserta
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth')->group(function () {
+    Route::get('/ept-online', [EptOnlineController::class, 'index'])
+        ->name('ept-online.index');
+
+    Route::post('/ept-online/access', [EptOnlineController::class, 'verify'])
+        ->name('ept-online.access');
+
+    Route::get('/ept-online/attempt/{attempt:public_id}', [EptOnlineAttemptController::class, 'show'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.show');
+
+    Route::post('/ept-online/attempt/{attempt:public_id}/start-section', [EptOnlineAttemptController::class, 'startSection'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.start-section');
+
+    Route::post('/ept-online/attempt/{attempt:public_id}/part-intro', [EptOnlineAttemptController::class, 'revealListeningPart'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.part-intro');
+
+    Route::post('/ept-online/attempt/{attempt:public_id}/section-intro', [EptOnlineAttemptController::class, 'acknowledgeSectionIntro'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.section-intro');
+
+    Route::post('/ept-online/attempt/{attempt:public_id}/answer', [EptOnlineAttemptController::class, 'answer'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.answer');
+
+    Route::post('/ept-online/attempt/{attempt:public_id}/progress', [EptOnlineAttemptController::class, 'progress'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.progress');
+
+    Route::post('/ept-online/attempt/{attempt:public_id}/ping', [EptOnlineAttemptController::class, 'ping'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.ping');
+
+    Route::get('/ept-online/attempt/{attempt:public_id}/finished', [EptOnlineAttemptController::class, 'finished'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.finished');
 });
 
 /*
