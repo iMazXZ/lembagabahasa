@@ -5,9 +5,11 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EptOnlineAttemptResource\Pages;
 use App\Models\EptOnlineAttempt;
 use App\Models\EptOnlineForm;
+use App\Support\EptOnlineAttemptFinalizer;
 use Filament\Forms\Form;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class EptOnlineAttemptResource extends BaseResource
 {
@@ -93,5 +95,13 @@ class EptOnlineAttemptResource extends BaseResource
         return [
             'index' => Pages\ListEptOnlineAttempts::route('/'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        app(EptOnlineAttemptFinalizer::class)->finalizeExpiredAttempts(100);
+
+        return parent::getEloquentQuery()
+            ->with(['form:id,code,title', 'user:id,name', 'group:id,name']);
     }
 }

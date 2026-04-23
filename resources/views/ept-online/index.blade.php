@@ -3,6 +3,8 @@
 @section('hide_navbar', '1')
 @section('hide_footer', '1')
 
+@include('ept-online.partials.mobile-device-guard')
+
 @section('content')
 @php
     $hasActiveAttempts = $activeAttempts->isNotEmpty();
@@ -15,7 +17,7 @@
         <div class="mx-auto w-full max-w-xl">
             <div class="text-center">
                 <p class="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-                    UPT Bahasa - Universitas Muhammadiyah Metro
+                    Language Center - Muhammadiyah Metro University
                 </p>
                 <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
                     English Proficiency Test Online
@@ -73,8 +75,8 @@
                     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                         <div class="flex items-center justify-between gap-4">
                             <div>
-                                <h2 class="text-lg font-semibold text-slate-900">Attempt Aktif</h2>
-                                <p class="mt-1 text-sm text-slate-600">Lanjutkan sesi tes yang belum selesai.</p>
+                                <h2 class="text-lg font-semibold text-slate-900">Active Attempt</h2>
+                                <p class="mt-1 text-sm text-slate-600">Continue your unfinished test session.</p>
                             </div>
                         </div>
 
@@ -83,12 +85,12 @@
                                 <a href="{{ route('ept-online.attempt.show', ['attempt' => $attempt->public_id]) }}" class="block rounded-xl border border-slate-200 px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50">
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
-                                            <div class="text-sm font-semibold text-slate-900">{{ $attempt->form?->title ?? 'Paket Tes Online' }}</div>
+                                            <div class="text-sm font-semibold text-slate-900">{{ $attempt->form?->title ?? 'Online Test Package' }}</div>
                                             <div class="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
                                                 {{ strtoupper($attempt->current_section_type ?? '-') }} • {{ \App\Models\EptOnlineAttempt::statusOptions()[$attempt->status] ?? $attempt->status }}
                                             </div>
                                         </div>
-                                        <span class="text-xs font-semibold text-slate-700">Lanjut</span>
+                                        <span class="text-xs font-semibold text-slate-700">Continue</span>
                                     </div>
                                 </a>
                             @endforeach
@@ -99,8 +101,8 @@
                 @if ($hasCompletedAttempts)
                     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                         <div>
-                            <h2 class="text-lg font-semibold text-slate-900">Selesai Terakhir</h2>
-                            <p class="mt-1 text-sm text-slate-600">Riwayat tes yang sudah dikumpulkan.</p>
+                            <h2 class="text-lg font-semibold text-slate-900">Recent Completed</h2>
+                            <p class="mt-1 text-sm text-slate-600">View your most recently submitted attempts.</p>
                         </div>
 
                         <div class="mt-4 space-y-3">
@@ -108,12 +110,12 @@
                                 <a href="{{ route('ept-online.attempt.finished', ['attempt' => $attempt->public_id]) }}" class="block rounded-xl border border-slate-200 px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50">
                                     <div class="flex items-center justify-between gap-4">
                                         <div>
-                                            <div class="text-sm font-semibold text-slate-900">{{ $attempt->form?->title ?? 'Paket Tes Online' }}</div>
+                                            <div class="text-sm font-semibold text-slate-900">{{ $attempt->form?->title ?? 'Online Test Package' }}</div>
                                             <div class="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
-                                                {{ optional($attempt->submitted_at)->translatedFormat('d M Y H:i') ?? '-' }}
+                                                {{ optional($attempt->submitted_at)?->format('d M Y H:i') ?? '-' }}
                                             </div>
                                         </div>
-                                        <span class="text-xs font-semibold text-slate-700">Lihat</span>
+                                        <span class="text-xs font-semibold text-slate-700">View</span>
                                     </div>
                                 </a>
                             @endforeach

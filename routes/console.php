@@ -22,6 +22,11 @@ Schedule::job(new QueueHeartbeatPing())
     ->everyMinute()
     ->name('queue-heartbeat-ping');
 
+Schedule::command('ept-online:expire-attempts')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->name('ept-online-expire-attempts');
+
 Artisan::command('bl:seed-survey-dummy 
     {--count=20 : Jumlah respon per survey}
     {--category= : Hanya untuk kategori tertentu (tutor|supervisor|materi)}

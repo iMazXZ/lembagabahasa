@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\EptOnlineAnswer;
 use App\Models\EptOnlineAttempt;
 use App\Models\EptOnlineQuestion;
-use App\Models\EptOnlineResult;
 use App\Models\EptOnlineSection;
+use App\Support\EptOnlineAttemptFinalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +17,8 @@ class EptOnlineAttemptController extends Controller
     public function show(EptOnlineAttempt $attempt, Request $request)
     {
         $this->authorizeAttempt($attempt, $request);
+        app(EptOnlineAttemptFinalizer::class)->catchUpExpiredAttempt($attempt);
+        $attempt->refresh();
 
         if ($attempt->status === EptOnlineAttempt::STATUS_SUBMITTED || $attempt->submitted_at) {
             return redirect()->route('ept-online.attempt.finished', $this->attemptRouteParams($attempt));
@@ -24,7 +26,7 @@ class EptOnlineAttemptController extends Controller
 
         $section = $this->currentSection($attempt);
         if (! $section) {
-            abort(404, 'Section ujian tidak ditemukan.');
+            abort(404, 'Test section not found.');
         }
 
         if ($this->shouldShowListeningIntro($attempt, $section)) {
@@ -48,7 +50,7 @@ class EptOnlineAttemptController extends Controller
         $attempt->refresh();
         $section = $this->currentSection($attempt);
         if (! $section) {
-            abort(404, 'Section ujian tidak ditemukan.');
+            abort(404, 'Test section not found.');
         }
 
         $questions = $section->questions()
@@ -57,7 +59,7 @@ class EptOnlineAttemptController extends Controller
             ->get();
 
         if ($questions->isEmpty()) {
-            abort(404, 'Belum ada soal pada section ini.');
+            abort(404, 'There are no questions in this section yet.');
         }
 
         $currentIndex = max(0, (int) $request->query('q', 0));
@@ -128,7 +130,7 @@ class EptOnlineAttemptController extends Controller
 
         $section = $this->currentSection($attempt);
         if (! $section) {
-            abort(404, 'Section ujian tidak ditemukan.');
+            abort(404, 'Test section not found.');
         }
 
         if (! $this->shouldShowListeningIntro($attempt, $section)) {
@@ -139,7 +141,7 @@ class EptOnlineAttemptController extends Controller
         if (! $attempt->started_at && $attempt->accessToken && ! $attempt->accessToken->withinWindow()) {
             return redirect()
                 ->route('ept-online.index')
-                ->withErrors(['code' => 'Waktu akses tes sudah habis sebelum listening dimulai.']);
+                ->withErrors(['code' => 'The test access window expired before listening could begin.']);
         }
 
         $now = now();
@@ -169,19 +171,19 @@ class EptOnlineAttemptController extends Controller
                 route('ept-online.attempt.finished', $this->attemptRouteParams($attempt)),
                 $isAjax,
                 409,
-                'Tes sudah dikumpulkan.',
+                'This test has already been submitted.',
             );
         }
 
         $section = $this->currentSection($attempt);
         if (! $section) {
-            abort(404, 'Section ujian tidak ditemukan.');
+            abort(404, 'Test section not found.');
         }
 
         $this->ensureSectionTiming($attempt, $section);
 
         if ($redirectUrl = $this->handleExpiredSection($attempt, $section)) {
-            return $this->redirectResponse($redirectUrl, $isAjax, 408, 'Waktu section habis.');
+            return $this->redirectResponse($redirectUrl, $isAjax, 408, 'This section time has expired.');
         }
 
         $data = $request->validate([
@@ -252,7 +254,7 @@ class EptOnlineAttemptController extends Controller
 
         $section = $this->currentSection($attempt);
         if (! $section || $section->type !== EptOnlineSection::TYPE_LISTENING) {
-            abort(404, 'Section listening tidak ditemukan.');
+            abort(404, 'Listening section not found.');
         }
 
         $part = strtoupper((string) $data['part']);
@@ -292,7 +294,7 @@ class EptOnlineAttemptController extends Controller
 
         $section = $this->currentSection($attempt);
         if (! $section) {
-            abort(404, 'Section ujian tidak ditemukan.');
+            abort(404, 'Test section not found.');
         }
 
         $this->markSectionIntroAcknowledged($attempt, $section->type);
@@ -322,6 +324,8 @@ class EptOnlineAttemptController extends Controller
     public function ping(EptOnlineAttempt $attempt, Request $request): JsonResponse
     {
         $this->authorizeAttempt($attempt, $request);
+        app(EptOnlineAttemptFinalizer::class)->catchUpExpiredAttempt($attempt);
+        $attempt->refresh();
 
         if ($attempt->status === EptOnlineAttempt::STATUS_SUBMITTED || $attempt->submitted_at) {
             return response()->json([
@@ -367,6 +371,8 @@ class EptOnlineAttemptController extends Controller
     public function finished(EptOnlineAttempt $attempt, Request $request)
     {
         $this->authorizeAttempt($attempt, $request);
+        app(EptOnlineAttemptFinalizer::class)->catchUpExpiredAttempt($attempt);
+        $attempt->refresh();
 
         if ($attempt->status !== EptOnlineAttempt::STATUS_SUBMITTED || ! $attempt->submitted_at) {
             return redirect()->route('ept-online.attempt.show', $this->attemptRouteParams($attempt));
@@ -686,7 +692,17 @@ class EptOnlineAttemptController extends Controller
             return null;
         }
 
-        return $this->advanceOrFinalize($attempt);
+        app(EptOnlineAttemptFinalizer::class)->catchUpExpiredAttempt($attempt);
+        $attempt->refresh();
+
+        if ($attempt->status === EptOnlineAttempt::STATUS_SUBMITTED || $attempt->submitted_at) {
+            return route('ept-online.attempt.finished', $this->attemptRouteParams($attempt));
+        }
+
+        return route('ept-online.attempt.show', [
+            'attempt' => $attempt->public_id,
+            'q' => 0,
+        ]);
     }
 
     private function advanceOrFinalize(EptOnlineAttempt $attempt): string
@@ -727,84 +743,7 @@ class EptOnlineAttemptController extends Controller
 
     private function finalize(EptOnlineAttempt $attempt): void
     {
-        $attempt->refresh();
-        if ($attempt->status === EptOnlineAttempt::STATUS_SUBMITTED || $attempt->submitted_at) {
-            return;
-        }
-
-        $attempt->loadMissing([
-            'form.sections',
-            'answers',
-        ]);
-
-        $questions = $attempt->form
-            ->questions()
-            ->get(['id', 'section_id', 'correct_option']);
-
-        $sectionsById = $attempt->form->sections->keyBy('id');
-        $answersByQuestionId = $attempt->answers->keyBy('question_id');
-
-        $rawScores = [
-            EptOnlineSection::TYPE_LISTENING => 0,
-            EptOnlineSection::TYPE_STRUCTURE => 0,
-            EptOnlineSection::TYPE_READING => 0,
-        ];
-
-        foreach ($questions as $question) {
-            $sectionType = $sectionsById->get($question->section_id)?->type;
-            if (! $sectionType || ! array_key_exists($sectionType, $rawScores)) {
-                continue;
-            }
-
-            $selected = $answersByQuestionId->get($question->id)?->selected_option;
-            if ($selected && $selected === $question->correct_option) {
-                $rawScores[$sectionType]++;
-            }
-        }
-
-        $listeningScaled = EptOnlineResult::scaleSectionScore(
-            EptOnlineSection::TYPE_LISTENING,
-            $rawScores[EptOnlineSection::TYPE_LISTENING]
-        );
-        $structureScaled = EptOnlineResult::scaleSectionScore(
-            EptOnlineSection::TYPE_STRUCTURE,
-            $rawScores[EptOnlineSection::TYPE_STRUCTURE]
-        );
-        $readingScaled = EptOnlineResult::scaleSectionScore(
-            EptOnlineSection::TYPE_READING,
-            $rawScores[EptOnlineSection::TYPE_READING]
-        );
-        $totalScaled = EptOnlineResult::calculateTotalScaled(
-            $listeningScaled,
-            $structureScaled,
-            $readingScaled
-        );
-
-        EptOnlineResult::updateOrCreate(
-            ['attempt_id' => $attempt->id],
-            [
-                'listening_raw' => $rawScores[EptOnlineSection::TYPE_LISTENING],
-                'structure_raw' => $rawScores[EptOnlineSection::TYPE_STRUCTURE],
-                'reading_raw' => $rawScores[EptOnlineSection::TYPE_READING],
-                'listening_scaled' => $listeningScaled,
-                'structure_scaled' => $structureScaled,
-                'reading_scaled' => $readingScaled,
-                'total_scaled' => $totalScaled,
-                'scale_version' => EptOnlineResult::SCALE_VERSION_AUTO,
-                'is_published' => false,
-                'published_at' => null,
-                'meta' => [
-                    'scoring_mode' => 'auto_conversion_table',
-                    'finalized_at' => now()->toDateTimeString(),
-                ],
-            ]
-        );
-
-        $attempt->forceFill([
-            'status' => EptOnlineAttempt::STATUS_SUBMITTED,
-            'submitted_at' => now(),
-            'expires_at' => null,
-        ])->save();
+        app(EptOnlineAttemptFinalizer::class)->finalize($attempt);
     }
 
     private function redirectResponse(

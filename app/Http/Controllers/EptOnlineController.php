@@ -39,7 +39,7 @@ class EptOnlineController extends Controller
         $request->validate([
             'code' => ['required', 'string', 'max:128'],
         ], [
-            'code.required' => 'Masukkan kode akses tes.',
+            'code.required' => 'Enter your test access code.',
         ]);
 
         $user = $request->user();
@@ -63,19 +63,19 @@ class EptOnlineController extends Controller
 
         if (! $token->form || $token->form->status !== EptOnlineForm::STATUS_PUBLISHED) {
             throw ValidationException::withMessages([
-                'code' => 'Paket tes belum siap digunakan.',
+                'code' => 'This test package is not available yet.',
             ]);
         }
 
         if ($token->user_id && (int) $token->user_id !== (int) $user->id) {
             throw ValidationException::withMessages([
-                'code' => 'Kode ini tidak terdaftar untuk akun Anda.',
+                'code' => 'This code is not registered for your account.',
             ]);
         }
 
         if ($token->registration && (int) $token->registration->user_id !== (int) $user->id) {
             throw ValidationException::withMessages([
-                'code' => 'Kode ini tidak cocok dengan pendaftaran EPT Anda.',
+                'code' => 'This code does not match your EPT registration.',
             ]);
         }
 
@@ -102,7 +102,7 @@ class EptOnlineController extends Controller
 
             if ((int) $lockedToken->used_attempts >= (int) $lockedToken->max_attempts) {
                 throw ValidationException::withMessages([
-                    'code' => 'Kode ini sudah mencapai batas attempt.',
+                    'code' => 'This code has reached its attempt limit.',
                 ]);
             }
 
@@ -113,7 +113,7 @@ class EptOnlineController extends Controller
             $firstSection = $form->sections->first();
             if (! $firstSection) {
                 throw ValidationException::withMessages([
-                    'code' => 'Paket tes belum memiliki section yang siap dikerjakan.',
+                    'code' => 'This test package does not have any available sections yet.',
                 ]);
             }
 

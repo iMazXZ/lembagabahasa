@@ -29,6 +29,7 @@ class EptOnlineQuestion extends Model
     protected $casts = [
         'number_in_section' => 'integer',
         'sort_order' => 'integer',
+        'correct_option' => 'encrypted',
         'meta' => 'array',
     ];
 

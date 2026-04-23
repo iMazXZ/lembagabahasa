@@ -1,5 +1,7 @@
 @extends('layouts.front')
-@section('title', 'EPT Online Selesai')
+@section('title', 'EPT Online Complete')
+
+@include('ept-online.partials.mobile-device-guard')
 
 @php
     $scoreVisibleAfterSubmit = (bool) ($attempt->form?->show_score_after_submit && filled($result?->total_scaled));
@@ -15,9 +17,9 @@
                 <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">EPT Online</div>
                 <div class="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <h1 class="text-3xl font-black tracking-tight text-slate-950">Tes selesai</h1>
+                        <h1 class="text-3xl font-black tracking-tight text-slate-950">Test complete</h1>
                         <p class="mt-2 text-sm leading-6 text-slate-600">
-                            Jawaban sudah dikunci dan submit berhasil dicatat pada sistem.
+                            Your answers have been locked and your submission has been recorded successfully.
                         </p>
                     </div>
 
@@ -31,10 +33,10 @@
                 <div class="space-y-6">
                     <div class="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
                         @if ($canShowScore)
-                            <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Nilai Akhir</div>
+                            <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Final Score</div>
                             <div class="mt-3 flex items-end gap-3">
                                 <div class="text-5xl font-black tracking-tight text-slate-950">{{ $result->total_scaled }}</div>
-                                <div class="pb-1 text-sm font-medium text-slate-500">skor akhir</div>
+                                <div class="pb-1 text-sm font-medium text-slate-500">overall score</div>
                             </div>
 
                             <div class="mt-5 grid gap-3 sm:grid-cols-3">
@@ -52,10 +54,10 @@
                                 </div>
                             </div>
                         @else
-                            <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Status Nilai</div>
-                            <div class="mt-3 text-2xl font-black tracking-tight text-slate-950">Menunggu publikasi nilai</div>
+                            <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Score Status</div>
+                            <div class="mt-3 text-2xl font-black tracking-tight text-slate-950">Waiting for score publication</div>
                             <p class="mt-3 text-sm leading-7 text-slate-600">
-                                Nilai akhir belum dipublikasikan oleh admin atau pengawas. Halaman peserta tidak menampilkan kunci jawaban setelah submit.
+                                The final score has not been published yet by the administrator or proctor. The participant page does not display answer keys after submission.
                             </p>
                         @endif
                     </div>
@@ -63,14 +65,14 @@
                     <div class="rounded-[28px] border border-slate-200 bg-white p-6">
                         <div class="grid gap-5 sm:grid-cols-2">
                             <div>
-                                <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Paket Tes</div>
-                                <div class="mt-2 text-lg font-bold text-slate-900">{{ $attempt->form?->title ?? 'Paket Tes Online' }}</div>
+                                <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Test Package</div>
+                                <div class="mt-2 text-lg font-bold text-slate-900">{{ $attempt->form?->title ?? 'Online Test Package' }}</div>
                                 <div class="mt-1 text-sm text-slate-500">{{ $attempt->form?->code ?? '-' }}</div>
                             </div>
 
                             <div>
-                                <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Waktu Submit</div>
-                                <div class="mt-2 text-lg font-bold text-slate-900">{{ optional($attempt->submitted_at)->translatedFormat('d M Y, H:i') ?? '-' }} WIB</div>
+                                <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Submitted At</div>
+                                <div class="mt-2 text-lg font-bold text-slate-900">{{ optional($attempt->submitted_at)?->format('d M Y, H:i') ?? '-' }} WIB</div>
                                 <div class="mt-1 text-sm text-slate-500">{{ \App\Models\EptOnlineAttempt::statusOptions()[$attempt->status] ?? $attempt->status }}</div>
                             </div>
                         </div>
@@ -79,23 +81,23 @@
 
                 <div class="space-y-4">
                     <div class="rounded-[28px] border border-slate-200 bg-white p-6">
-                        <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Catatan</div>
+                        <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Notes</div>
                         <div class="mt-3 text-sm leading-7 text-slate-600">
-                            Jawaban benar dan pembahasan tidak ditampilkan pada halaman peserta.
+                            Correct answers and explanations are not displayed on the participant page.
                             @unless($scoreVisibleAfterSubmit)
-                                Skor hanya tampil jika sudah dipublikasikan atau paket tes mengaktifkan nilai langsung setelah submit.
+                                Scores appear only after publication or when the test package enables immediate score release after submission.
                             @endunless
                         </div>
                     </div>
 
                     <div class="rounded-[28px] border border-slate-200 bg-white p-6">
-                        <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Aksi</div>
+                        <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Actions</div>
                         <div class="mt-4 flex flex-col gap-3">
                             <a href="{{ route('ept-online.index') }}" class="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                                Kembali ke EPT Online
+                                Back to EPT Online
                             </a>
                             <a href="{{ route('dashboard') }}" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
-                                Kembali ke Dashboard
+                                Back to Dashboard
                             </a>
                         </div>
                     </div>

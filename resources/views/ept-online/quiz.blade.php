@@ -4,6 +4,7 @@
 @section('hide_footer', '1')
 @section('translate_no', '1')
 
+@include('ept-online.partials.mobile-device-guard')
 @include('ept-online.partials.exam-guard')
 
 @push('styles')
@@ -44,6 +45,30 @@
     }
     .option-btn:hover { border-color: #0f766e; transform: translateY(-1px); box-shadow: 0 12px 24px rgba(15,23,42,.06); }
     .option-btn.selected { border-color: #0f766e; background: #f0fdfa; box-shadow: 0 0 0 3px rgba(15,118,110,.10); }
+    .listening-question-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        background: #f8fafc;
+        padding: .95rem 1rem;
+    }
+    .listening-question-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid #99f6e4;
+        background: #ecfdf5;
+        padding: .45rem .8rem;
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: #0f766e;
+    }
     .audio-mini-btn {
         display: inline-flex; align-items: center; justify-content: center;
         border-radius: 999px; border: 1px solid #cbd5e1; background: white;
@@ -95,27 +120,40 @@
     .reading-passage-frame {
         min-width: 0;
         width: 100%;
+        padding-left: 1rem;
+    }
+    .reading-passage-label {
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: #64748b;
     }
     .reading-line {
-        display: grid;
-        grid-template-columns: 1rem minmax(0, 1fr);
-        gap: .3rem;
-        align-items: start;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-        font-size: .82rem;
-        line-height: 1.58;
+        position: relative;
+        font-family: Georgia, "Times New Roman", ui-serif, serif;
+        font-size: .98rem;
+        line-height: 1.72;
         color: #334155;
     }
     .reading-line.paragraph-gap {
-        min-height: .75rem;
+        min-height: 1rem;
     }
     .reading-line-number {
         user-select: none;
-        text-align: left;
-        font-weight: 700;
-        color: #94a3b8;
+        position: absolute;
+        left: -1rem;
+        top: 0;
+        width: .75rem;
+        text-align: right;
+        font-weight: 600;
+        color: rgba(148, 163, 184, .72);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: .72rem;
+        line-height: 1.72;
     }
     .reading-line-text {
+        display: block;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         word-break: normal;
@@ -306,6 +344,24 @@
     $readingPassageLines = $question->passage && $section->type === \App\Models\EptOnlineSection::TYPE_READING
         ? $wrapPassageLines($question->passage->content)
         : [];
+    $displayQuestionNumber = $question->number_in_section ?: ($currentIndex + 1);
+    $passageQuestionNumbers = collect();
+    if ($question->passage && $section->type === \App\Models\EptOnlineSection::TYPE_READING) {
+        $passageQuestionNumbers = $questions
+            ->filter(fn ($candidate) => $candidate->passage_id === $question->passage_id)
+            ->pluck('number_in_section')
+            ->filter()
+            ->sort()
+            ->values();
+    }
+    $readingPassageLabel = null;
+    if ($passageQuestionNumbers->isNotEmpty()) {
+        $firstPassageQuestion = $passageQuestionNumbers->first();
+        $lastPassageQuestion = $passageQuestionNumbers->last();
+        $readingPassageLabel = $firstPassageQuestion === $lastPassageQuestion
+            ? 'This passage is for question ' . $firstPassageQuestion . '.'
+            : 'This passage is for questions ' . $firstPassageQuestion . '-' . $lastPassageQuestion . '.';
+    }
 
     $hideListeningAnswers = $section->type === 'listening'
         && $listeningPartTransition
@@ -320,26 +376,26 @@
         <div class="flex h-full items-center justify-between gap-4 px-4 lg:px-8">
             <div class="min-w-0" id="examMeta">
                 <div class="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">EPT Online</div>
-                <div class="truncate text-sm font-bold text-slate-900 sm:text-base">{{ $attempt->form?->title ?? 'Paket Tes Online' }}</div>
-                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{{ strtoupper($section->type) }} • Soal {{ $currentIndex + 1 }}/{{ $questions->count() }}</div>
+                <div class="truncate text-sm font-bold text-slate-900 sm:text-base">{{ $attempt->form?->title ?? 'Online Test Package' }}</div>
+                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{{ strtoupper($section->type) }} • Question {{ $currentIndex + 1 }}/{{ $questions->count() }}</div>
             </div>
 
             <div class="flex items-center gap-3">
                 @if ($isReadingSplitLayout)
                     <button type="button" id="readingNavToggle" class="reading-nav-toggle">
-                        Nomor Soal
+                        Questions
                     </button>
                 @endif
 
                 @if ($audioSrc && $section->type === 'listening')
                     <button type="button" id="audioPlayButton" class="audio-mini-btn hidden">
-                        Putar Audio
+                        Play Audio
                     </button>
                 @endif
 
                 @if (!is_null($remainingSeconds))
                     <div class="timer-pill" id="timerBadge">
-                        <span>Waktu</span>
+                        <span>Time</span>
                         <span id="timerText">--:--</span>
                     </div>
                 @endif
@@ -356,7 +412,7 @@
             <div id="readingNavDrawer" class="reading-nav-drawer hidden">
                 <div id="questionSidebar" class="rounded-[28px] p-4">
                     <div class="flex items-center justify-between">
-                        <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Soal</div>
+                        <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Questions</div>
                         <div class="text-xs font-semibold text-slate-500">{{ $questions->count() - $unansweredCount }}/{{ $questions->count() }}</div>
                     </div>
                     <div class="question-grid mt-4">
@@ -382,7 +438,7 @@
                 <aside class="space-y-6">
                     <div id="questionSidebar" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div class="flex items-center justify-between">
-                            <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Soal</div>
+                            <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Questions</div>
                             <div class="text-xs font-semibold text-slate-500">{{ $questions->count() - $unansweredCount }}/{{ $questions->count() }}</div>
                         </div>
                         <div class="question-grid mt-4">
@@ -415,13 +471,13 @@
                         <div id="audioRecoveryCard" class="mb-5 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4">
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <div class="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Sesi Dipulihkan</div>
+                                    <div class="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Session Restored</div>
                                     <div class="mt-1 text-sm leading-6 text-amber-900">
-                                        Audio terakhir tersimpan di {{ $audioRecoveryLabel ?? 'posisi sebelumnya' }}. Tekan tombol di samping untuk melanjutkan dari posisi itu.
+                                        The last saved audio position was {{ $audioRecoveryLabel ?? 'the previous position' }}. Press the button to continue from that point.
                                     </div>
                                 </div>
                                 <button type="button" id="audioResumeButton" class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                                    Lanjutkan Audio
+                                    Resume Audio
                                 </button>
                             </div>
                         </div>
@@ -443,7 +499,7 @@
                                 @csrf
                                 <input type="hidden" name="q" value="{{ $currentIndex }}">
                                 <button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                                    Mulai Mengerjakan
+                                    Start Answering
                                 </button>
                             </form>
                         </div>
@@ -469,7 +525,7 @@
                                     <div class="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Part {{ $listeningPartTransition['part'] }}</div>
                                 </div>
                                 <span class="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">
-                                    Part Baru
+                                    New Part
                                 </span>
                             </div>
 
@@ -517,7 +573,7 @@
                                     <input type="hidden" name="audio_position" value="" data-audio-position>
                                     <input type="hidden" name="audio_playing" value="0" data-audio-playing>
                                     <button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                                        {{ $currentIndex === 0 ? 'Mulai Nomor 1' : 'Tampilkan Soal ' . ($currentIndex + 1) }}
+                                        {{ $currentIndex === 0 ? 'Start Question 1' : 'Show Question ' . ($currentIndex + 1) }}
                                     </button>
                                 </form>
                             @endif
@@ -550,7 +606,7 @@
                                 <div class="reading-passage-panel xl:max-h-[calc(100vh-150px)] xl:overflow-y-auto">
                                     @if ($question->passage)
                                         <div class="flex items-center justify-between gap-3">
-                                            <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{{ $question->passage->passage_code }}{{ $question->passage->title ? ' • ' . $question->passage->title : '' }}</div>
+                                            <div class="reading-passage-label">{{ $readingPassageLabel ?? 'Read the passage below.' }}</div>
                                         </div>
                                         @if ($readingPassageLines !== [])
                                             <div class="reading-passage-wrap mt-3">
@@ -565,7 +621,7 @@
                                                         @else
                                                             @php($displayLine++)
                                                             <div class="reading-line">
-                                                                <div class="reading-line-number">{{ $displayLine }}</div>
+                                                                <div class="reading-line-number">{{ $displayLine % 5 === 0 ? $displayLine : '' }}</div>
                                                                 <div class="reading-line-text">{!! $formatInline($lineText) !!}</div>
                                                             </div>
                                                         @endif
@@ -606,7 +662,7 @@
                                     <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
                                         @if ($currentIndex > 0)
                                             <a href="{{ route('ept-online.attempt.show', ['attempt' => $attempt->public_id, 'q' => $currentIndex - 1]) }}" class="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50" data-attempt-nav="1">
-                                                Soal Sebelumnya
+                                                Previous Question
                                             </a>
                                         @else
                                             <span></span>
@@ -616,7 +672,7 @@
                                             <form method="POST" action="{{ route('ept-online.attempt.progress', ['attempt' => $attempt->public_id]) }}" data-allow-unload="1" data-section-progress-form="1" onsubmit="return confirmSectionProgress({{ $unansweredCount }}, {{ $nextSectionType ? 'true' : 'false' }}, @js($section->type));">
                                                 @csrf
                                                 <button type="submit" data-allow-unload="1" class="inline-flex items-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                                                    {{ $nextSectionType ? 'Selesaikan Section & Lanjut' : 'Selesai & Kumpulkan' }}
+                                                    {{ $nextSectionType ? 'Finish Section & Continue' : 'Finish & Submit' }}
                                                 </button>
                                             </form>
                                         @endif
@@ -626,7 +682,7 @@
                         @else
                             @if ($question->passage)
                                 <div class="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                                    <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{{ $question->passage->passage_code }}{{ $question->passage->title ? ' • ' . $question->passage->title : '' }}</div>
+                                    <div class="reading-passage-label">{{ $readingPassageLabel ?? 'Read the passage below.' }}</div>
                                     @if ($readingPassageLines !== [])
                                         <div class="reading-passage-wrap mt-4">
                                             <div class="reading-passage-frame space-y-1">
@@ -640,7 +696,7 @@
                                                     @else
                                                         @php($displayLine++)
                                                         <div class="reading-line">
-                                                            <div class="reading-line-number">{{ $displayLine }}</div>
+                                                            <div class="reading-line-number">{{ $displayLine % 5 === 0 ? $displayLine : '' }}</div>
                                                             <div class="reading-line-text">{!! $formatInline($lineText) !!}</div>
                                                         </div>
                                                     @endif
@@ -656,6 +712,17 @@
                             @if ($section->type !== 'listening')
                                 <div class="mt-7 text-xl font-bold leading-snug text-slate-900">
                                     {!! $formatMultiline($question->prompt) !!}
+                                </div>
+                            @else
+                                <div class="listening-question-banner">
+                                    <div>
+                                        <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Listening Question</div>
+                                        <div class="mt-2 text-2xl font-black tracking-tight text-slate-900">Question {{ $displayQuestionNumber }}</div>
+                                    </div>
+
+                                    @if ($question->part_label)
+                                        <span class="listening-question-pill">Part {{ strtoupper((string) $question->part_label) }}</span>
+                                    @endif
                                 </div>
                             @endif
 
@@ -679,7 +746,7 @@
                             <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
                                 @if ($currentIndex > 0)
                                     <a href="{{ route('ept-online.attempt.show', ['attempt' => $attempt->public_id, 'q' => $currentIndex - 1]) }}" class="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50" data-attempt-nav="1">
-                                        Soal Sebelumnya
+                                        Previous Question
                                     </a>
                                 @else
                                     <span></span>
@@ -689,7 +756,7 @@
                                     <form method="POST" action="{{ route('ept-online.attempt.progress', ['attempt' => $attempt->public_id]) }}" data-allow-unload="1" data-section-progress-form="1" onsubmit="return confirmSectionProgress({{ $unansweredCount }}, {{ $nextSectionType ? 'true' : 'false' }}, @js($section->type));">
                                         @csrf
                                         <button type="submit" data-allow-unload="1" class="inline-flex items-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                                            {{ $nextSectionType ? 'Selesaikan Section & Lanjut' : 'Selesai & Kumpulkan' }}
+                                            {{ $nextSectionType ? 'Finish Section & Continue' : 'Finish & Submit' }}
                                         </button>
                                     </form>
                                 @endif
@@ -703,19 +770,19 @@
 </div>
 <div id="sectionExitModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-slate-950/50 px-4">
     <div class="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
-        <div id="sectionExitBadge" class="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Konfirmasi</div>
-        <h2 id="sectionExitTitle" class="mt-3 text-2xl font-black text-slate-950">Lanjut?</h2>
+        <div id="sectionExitBadge" class="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Confirmation</div>
+        <h2 id="sectionExitTitle" class="mt-3 text-2xl font-black text-slate-950">Continue?</h2>
         <div class="mt-4 space-y-3 text-sm leading-7 text-slate-700">
-            <p id="sectionExitBody">Konfirmasi tindakan ini.</p>
+            <p id="sectionExitBody">Confirm this action.</p>
             <p id="sectionExitUnanswered" class="{{ $unansweredCount > 0 ? '' : 'hidden' }}"></p>
         </div>
 
         <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
             <button type="button" id="sectionExitCancel" class="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
-                Batal
+                Cancel
             </button>
             <button type="button" id="sectionExitConfirm" class="inline-flex items-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                Lanjut
+                Continue
             </button>
         </div>
     </div>
@@ -785,30 +852,30 @@
         if (!sectionExitModal) {
             if (currentUnanswered <= 0) return true;
 
-            const actionText = hasNextSection ? 'lanjut ke section berikutnya' : 'mengumpulkan tes';
-            return window.confirm(`Masih ada ${currentUnanswered} soal kosong. Tetap ingin ${actionText}?`);
+            const actionText = hasNextSection ? 'continue to the next section' : 'submit the test';
+            return window.confirm(`There are still ${currentUnanswered} unanswered questions. Do you still want to ${actionText}?`);
         }
 
         const sectionLabel = formatSectionLabel(sectionType);
 
         if (sectionExitBadge) {
-            sectionExitBadge.textContent = hasNextSection ? 'Konfirmasi Pindah Section' : 'Konfirmasi Pengumpulan';
+            sectionExitBadge.textContent = hasNextSection ? 'Section Transition' : 'Submission Confirmation';
         }
 
         if (sectionExitTitle) {
-            sectionExitTitle.textContent = hasNextSection ? 'Lanjut ke section berikutnya?' : 'Selesaikan tes sekarang?';
+            sectionExitTitle.textContent = hasNextSection ? 'Continue to the next section?' : 'Submit the test now?';
         }
 
         if (sectionExitBody) {
             sectionExitBody.innerHTML = hasNextSection
-                ? `Jika Anda melanjutkan, sesi <strong>${sectionLabel}</strong> akan ditutup dan Anda <strong>tidak bisa kembali lagi</strong> ke bagian ini.`
-                : 'Jika Anda mengumpulkan tes sekarang, seluruh jawaban yang sudah tersimpan akan dikunci dan tidak bisa diubah lagi.';
+                ? `If you continue, the <strong>${sectionLabel}</strong> section will be closed and you <strong>will not be able to return</strong> to it.`
+                : 'If you submit the test now, all saved answers will be locked and can no longer be changed.';
         }
 
         if (sectionExitUnanswered) {
             if (currentUnanswered > 0) {
                 sectionExitUnanswered.classList.remove('hidden');
-                sectionExitUnanswered.innerHTML = `Masih ada <strong>${currentUnanswered}</strong> soal kosong di section ${sectionLabel.toLowerCase()}.`;
+                sectionExitUnanswered.innerHTML = `There are still <strong>${currentUnanswered}</strong> unanswered questions in the ${sectionLabel.toLowerCase()} section.`;
             } else {
                 sectionExitUnanswered.classList.add('hidden');
                 sectionExitUnanswered.textContent = '';
@@ -816,11 +883,11 @@
         }
 
         if (sectionExitCancel) {
-            sectionExitCancel.textContent = hasNextSection ? `Tetap di ${sectionLabel}` : 'Kembali ke Tes';
+            sectionExitCancel.textContent = hasNextSection ? `Stay in ${sectionLabel}` : 'Back to Test';
         }
 
         if (sectionExitConfirm) {
-            sectionExitConfirm.textContent = hasNextSection ? 'Ya, lanjutkan' : 'Ya, kumpulkan';
+            sectionExitConfirm.textContent = hasNextSection ? 'Yes, continue' : 'Yes, submit';
         }
 
         sectionExitModal.classList.remove('hidden');
