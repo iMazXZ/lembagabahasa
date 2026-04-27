@@ -39,4 +39,25 @@ class EptOnlineResultScoreConversionTest extends TestCase
     {
         $this->assertNull(EptOnlineResult::calculateTotalScaled(68, null, 67));
     }
+
+    public function test_total_score_maps_to_cefr_level(): void
+    {
+        $this->assertSame('C1', EptOnlineResult::totalCefrLevel(677));
+        $this->assertSame('B2', EptOnlineResult::totalCefrLevel(543));
+        $this->assertSame('B1', EptOnlineResult::totalCefrLevel(433));
+        $this->assertSame('A2', EptOnlineResult::totalCefrLevel(343));
+        $this->assertSame(EptOnlineResult::CEFR_BELOW_A2, EptOnlineResult::totalCefrLevel(342));
+        $this->assertNull(EptOnlineResult::totalCefrLevel(null));
+    }
+
+    public function test_section_score_maps_to_cefr_level(): void
+    {
+        $this->assertSame('C1', EptOnlineResult::sectionCefrLevel(EptOnlineSection::TYPE_LISTENING, 62));
+        $this->assertSame('B2', EptOnlineResult::sectionCefrLevel(EptOnlineSection::TYPE_STRUCTURE, 53));
+        $this->assertSame('B1', EptOnlineResult::sectionCefrLevel(EptOnlineSection::TYPE_READING, 41));
+        $this->assertSame('A2', EptOnlineResult::sectionCefrLevel(EptOnlineSection::TYPE_READING, 33));
+        $this->assertSame(EptOnlineResult::CEFR_BELOW_A2, EptOnlineResult::sectionCefrLevel(EptOnlineSection::TYPE_STRUCTURE, 31));
+        $this->assertNull(EptOnlineResult::sectionCefrLevel('unknown', 50));
+        $this->assertNull(EptOnlineResult::sectionCefrLevel(EptOnlineSection::TYPE_LISTENING, null));
+    }
 }

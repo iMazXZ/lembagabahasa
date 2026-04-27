@@ -173,6 +173,21 @@
                 </div>
             </div>
         @endif
+
+        {{-- Section: Beta --}}
+        <div class="pt-2">
+            <a href="{{ route('ept-online.index') }}"
+               title="EPT Online (Beta) — start or continue the online test session"
+               class="group flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2.5 text-sm font-medium transition-all duration-200 {{ request()->routeIs('ept-online*') ? 'border-amber-200 bg-amber-50 text-amber-700 shadow-sm ring-1 ring-amber-100' : 'border-slate-200 text-slate-600 hover:border-amber-200 hover:bg-amber-50/70 hover:text-slate-900' }}">
+                <div class="flex items-center gap-3 min-w-0">
+                    <i class="fa-solid fa-laptop-file w-5 shrink-0 text-center transition-transform group-hover:scale-110 {{ request()->routeIs('ept-online*') ? 'text-amber-600' : 'text-slate-400 group-hover:text-amber-600' }}"></i>
+                    <span :class="!sidebarOpen && 'lg:hidden'" class="truncate whitespace-nowrap">EPT Online</span>
+                </div>
+                <span :class="!sidebarOpen && 'lg:hidden'" class="inline-flex shrink-0 items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                    Beta
+                </span>
+            </a>
+        </div>
     </nav>
 
     {{-- Footer User Profile --}}

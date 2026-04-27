@@ -88,6 +88,35 @@ class EptOnlineResultResource extends BaseResource
                         ->label('Published At')
                         ->seconds(false)
                         ->visible(fn (Get $get): bool => (bool) $get('is_published')),
+                    Forms\Components\Placeholder::make('cefr_summary')
+                        ->label('CEFR')
+                        ->content(function (?EptOnlineResult $record, Get $get): string {
+                            $listeningState = $get('listening_scaled');
+                            $structureState = $get('structure_scaled');
+                            $readingState = $get('reading_scaled');
+                            $totalState = $get('total_scaled');
+
+                            $listening = $listeningState !== null && $listeningState !== ''
+                                ? (int) $listeningState
+                                : $record?->listening_scaled;
+                            $structure = $structureState !== null && $structureState !== ''
+                                ? (int) $structureState
+                                : $record?->structure_scaled;
+                            $reading = $readingState !== null && $readingState !== ''
+                                ? (int) $readingState
+                                : $record?->reading_scaled;
+                            $total = $totalState !== null && $totalState !== ''
+                                ? (int) $totalState
+                                : $record?->total_scaled;
+
+                            return collect([
+                                'Overall: ' . (EptOnlineResult::totalCefrLevel($total) ?? '-'),
+                                'Listening: ' . (EptOnlineResult::sectionCefrLevel('listening', $listening) ?? '-'),
+                                'Structure: ' . (EptOnlineResult::sectionCefrLevel('structure', $structure) ?? '-'),
+                                'Reading: ' . (EptOnlineResult::sectionCefrLevel('reading', $reading) ?? '-'),
+                            ])->implode(' | ');
+                        })
+                        ->columnSpanFull(),
                 ])
                 ->columns(2),
         ]);
@@ -121,6 +150,17 @@ class EptOnlineResultResource extends BaseResource
                     ->label('Total')
                     ->alignCenter()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('cefr')
+                    ->label('CEFR')
+                    ->state(fn (EptOnlineResult $record): string => $record->overallCefrLevel() ?? '-')
+                    ->badge()
+                    ->color(fn (EptOnlineResult $record): string => match ($record->overallCefrLevel()) {
+                        'C1' => 'success',
+                        'B2' => 'info',
+                        'B1' => 'warning',
+                        'A2' => 'gray',
+                        default => 'gray',
+                    }),
                 Tables\Columns\IconColumn::make('is_published')
                     ->label('Published')
                     ->boolean(),

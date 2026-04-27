@@ -1,5 +1,6 @@
 @extends('layouts.front')
 @section('title', 'EPT Online Complete')
+@section('translate_no', '1')
 
 @include('ept-online.partials.mobile-device-guard')
 
@@ -7,6 +8,7 @@
     $scoreVisibleAfterSubmit = (bool) ($attempt->form?->show_score_after_submit && filled($result?->total_scaled));
     $scorePublished = (bool) ($result?->is_published && filled($result?->total_scaled));
     $canShowScore = $scoreVisibleAfterSubmit || $scorePublished;
+    $overallCefr = $result?->overallCefrLevel();
 @endphp
 
 @section('content')
@@ -34,23 +36,37 @@
                     <div class="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
                         @if ($canShowScore)
                             <div class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Final Score</div>
-                            <div class="mt-3 flex items-end gap-3">
+                            <div class="mt-3 flex flex-wrap items-end gap-3">
                                 <div class="text-5xl font-black tracking-tight text-slate-950">{{ $result->total_scaled }}</div>
                                 <div class="pb-1 text-sm font-medium text-slate-500">overall score</div>
+                                @if ($overallCefr)
+                                    <div class="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-sm font-bold text-sky-700">
+                                        CEFR {{ $overallCefr }}
+                                    </div>
+                                @endif
                             </div>
 
                             <div class="mt-5 grid gap-3 sm:grid-cols-3">
                                 <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
                                     <div class="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Listening</div>
                                     <div class="mt-2 text-xl font-bold text-slate-900">{{ $result->listening_scaled ?? $result->listening_raw ?? '-' }}</div>
+                                    @if ($result?->listeningCefrLevel())
+                                        <div class="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{{ $result->listeningCefrLevel() }}</div>
+                                    @endif
                                 </div>
                                 <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
                                     <div class="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Structure</div>
                                     <div class="mt-2 text-xl font-bold text-slate-900">{{ $result->structure_scaled ?? $result->structure_raw ?? '-' }}</div>
+                                    @if ($result?->structureCefrLevel())
+                                        <div class="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{{ $result->structureCefrLevel() }}</div>
+                                    @endif
                                 </div>
                                 <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
                                     <div class="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Reading</div>
                                     <div class="mt-2 text-xl font-bold text-slate-900">{{ $result->reading_scaled ?? $result->reading_raw ?? '-' }}</div>
+                                    @if ($result?->readingCefrLevel())
+                                        <div class="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{{ $result->readingCefrLevel() }}</div>
+                                    @endif
                                 </div>
                             </div>
                         @else

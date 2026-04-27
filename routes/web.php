@@ -339,6 +339,11 @@ Route::middleware('auth')->group(function () {
         ->whereUlid('attempt')
         ->name('ept-online.attempt.show');
 
+    Route::get('/ept-online/attempt/{attempt:public_id}/audio', [EptOnlineAttemptController::class, 'audio'])
+        ->middleware('signed')
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.audio');
+
     Route::post('/ept-online/attempt/{attempt:public_id}/start-section', [EptOnlineAttemptController::class, 'startSection'])
         ->whereUlid('attempt')
         ->name('ept-online.attempt.start-section');
@@ -362,6 +367,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/ept-online/attempt/{attempt:public_id}/ping', [EptOnlineAttemptController::class, 'ping'])
         ->whereUlid('attempt')
         ->name('ept-online.attempt.ping');
+
+    Route::post('/ept-online/attempt/{attempt:public_id}/integrity', [EptOnlineAttemptController::class, 'integrity'])
+        ->whereUlid('attempt')
+        ->name('ept-online.attempt.integrity');
 
     Route::get('/ept-online/attempt/{attempt:public_id}/finished', [EptOnlineAttemptController::class, 'finished'])
         ->whereUlid('attempt')

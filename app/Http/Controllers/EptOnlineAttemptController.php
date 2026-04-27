@@ -7,10 +7,15 @@ use App\Models\EptOnlineAttempt;
 use App\Models\EptOnlineQuestion;
 use App\Models\EptOnlineSection;
 use App\Support\EptOnlineAttemptFinalizer;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Contracts\Routing\UrlGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class EptOnlineAttemptController extends Controller
 {
@@ -96,6 +101,9 @@ class EptOnlineAttemptController extends Controller
             && $audioStartAt !== null
             && $audioStartAt > 0.5
             && ! $request->boolean('autoplay');
+        $audioUrl = $section->type === EptOnlineSection::TYPE_LISTENING
+            ? $this->attemptAudioUrl($attempt, $section)
+            : null;
 
         return view('ept-online.quiz', [
             'attempt' => $attempt,
@@ -117,7 +125,46 @@ class EptOnlineAttemptController extends Controller
             'resumeAudio' => $request->boolean('resume_audio') || $request->boolean('autoplay'),
             'showAudioRecoveryPrompt' => $showAudioRecoveryPrompt,
             'audioRecoveryLabel' => $showAudioRecoveryPrompt ? $this->formatAudioPositionLabel($audioStartAt) : null,
+            'audioUrl' => $audioUrl,
         ]);
+    }
+
+    public function audio(EptOnlineAttempt $attempt, Request $request): BinaryFileResponse
+    {
+        $this->authorizeAttempt($attempt, $request);
+
+        if ($attempt->status === EptOnlineAttempt::STATUS_SUBMITTED || $attempt->submitted_at) {
+            abort(404);
+        }
+
+        $section = $this->currentSection($attempt);
+        if (! $section || $section->type !== EptOnlineSection::TYPE_LISTENING) {
+            abort(404);
+        }
+
+        $audioFile = $this->resolveAttemptAudioFile($attempt, $section);
+        if (! $audioFile) {
+            abort(404);
+        }
+
+        $this->recordIntegrityEvent($attempt, 'audio_stream_opened', [
+            'section' => $section->type,
+            'disk' => $audioFile['disk'],
+        ]);
+
+        $response = response()->file($audioFile['absolute_path'], [
+            'Content-Type' => $audioFile['mime_type'],
+            'Content-Disposition' => 'inline; filename="' . basename($audioFile['absolute_path']) . '"',
+            'Accept-Ranges' => 'bytes',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+            'X-Robots-Tag' => 'noindex, nofollow, noarchive',
+        ]);
+
+        $response->setPrivate();
+        $response->headers->set('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+
+        return $response;
     }
 
     public function startSection(EptOnlineAttempt $attempt, Request $request)
@@ -366,6 +413,57 @@ class EptOnlineAttemptController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    public function integrity(EptOnlineAttempt $attempt, Request $request): JsonResponse
+    {
+        $this->authorizeAttempt($attempt, $request);
+
+        if ($attempt->status === EptOnlineAttempt::STATUS_SUBMITTED || $attempt->submitted_at) {
+            return response()->json([
+                'ok' => true,
+                'submitted' => true,
+                'redirect' => route('ept-online.attempt.finished', $this->attemptRouteParams($attempt)),
+            ]);
+        }
+
+        $data = $request->validate([
+            'event' => ['required', 'string', 'max:80'],
+            'context' => ['nullable', 'array'],
+        ]);
+
+        $context = is_array($data['context'] ?? null) ? $data['context'] : [];
+        $response = ['ok' => true];
+
+        if ($data['event'] === 'tab_switch_violation') {
+            $count = $this->recordTabSwitchViolation($attempt, $context);
+
+            $response['tab_switch_count'] = $count;
+            $response['tab_switch_limit'] = EptOnlineAttempt::TAB_SWITCH_LIMIT;
+
+            if ($count >= EptOnlineAttempt::TAB_SWITCH_LIMIT) {
+                app(EptOnlineAttemptFinalizer::class)->finalize($attempt, now(), [
+                    'finalized_reason' => 'integrity_tab_switch_limit',
+                    'finalized_by' => 'integrity_guard',
+                    'tab_switch_count' => $count,
+                ]);
+
+                $attempt->refresh();
+
+                $response['submitted'] = true;
+                $response['redirect'] = route('ept-online.attempt.finished', $this->attemptRouteParams($attempt));
+            }
+
+            return response()->json($response);
+        }
+
+        $this->recordIntegrityEvent(
+            $attempt,
+            $data['event'],
+            $context
+        );
+
+        return response()->json($response);
     }
 
     public function finished(EptOnlineAttempt $attempt, Request $request)
@@ -842,6 +940,164 @@ class EptOnlineAttemptController extends Controller
             'position' => $this->normalizeAudioPosition($state['position'] ?? null),
             'was_playing' => (bool) ($state['was_playing'] ?? false),
         ];
+    }
+
+    private function attemptAudioUrl(EptOnlineAttempt $attempt, EptOnlineSection $section): ?string
+    {
+        if (! $this->resolveAttemptAudioFile($attempt, $section)) {
+            return null;
+        }
+
+        $expiresAt = now()->addMinutes(max(15, ((int) $section->duration_minutes) + 30));
+
+        return app(UrlGenerator::class)->temporarySignedRoute(
+            'ept-online.attempt.audio',
+            $expiresAt,
+            $this->attemptRouteParams($attempt),
+        );
+    }
+
+    private function resolveAttemptAudioFile(EptOnlineAttempt $attempt, EptOnlineSection $section): ?array
+    {
+        $audioPath = trim((string) ($section->audio_path ?: $attempt->form?->listening_audio_path));
+        if ($audioPath === '' || Str::startsWith($audioPath, ['http://', 'https://'])) {
+            return null;
+        }
+
+        foreach ($this->attemptAudioDisks() as $diskName) {
+            $disk = Storage::disk($diskName);
+
+            if (! $disk->exists($audioPath)) {
+                continue;
+            }
+
+            return [
+                'disk' => $diskName,
+                'absolute_path' => $this->filesystemAbsolutePath($disk, $audioPath),
+                'mime_type' => $disk->mimeType($audioPath) ?: 'audio/mpeg',
+            ];
+        }
+
+        return null;
+    }
+
+    private function attemptAudioDisks(): array
+    {
+        $defaultDisk = (string) config('filament.default_filesystem_disk', config('filesystems.default', 'local'));
+
+        return collect([$defaultDisk, 'local', 'public'])
+            ->filter(fn (string $disk): bool => $disk !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function filesystemAbsolutePath(Filesystem $disk, string $path): string
+    {
+        if (method_exists($disk, 'path')) {
+            return $disk->path($path);
+        }
+
+        abort(500, 'Audio filesystem path resolver is not supported.');
+    }
+
+    private function recordIntegrityEvent(EptOnlineAttempt $attempt, string $event, array $context = []): array
+    {
+        $eventKey = Str::of($event)
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_')
+            ->value();
+
+        if ($eventKey === '') {
+            return [];
+        }
+
+        $flags = is_array($attempt->integrity_flags) ? $attempt->integrity_flags : [];
+        $entry = is_array($flags[$eventKey] ?? null) ? $flags[$eventKey] : [];
+
+        if (! isset($entry['first_at'])) {
+            $entry['first_at'] = now()->toIso8601String();
+        }
+
+        $entry['count'] = (int) ($entry['count'] ?? 0) + 1;
+        $entry['last_at'] = now()->toIso8601String();
+
+        $sanitizedContext = $this->sanitizeIntegrityContext($context);
+        if ($sanitizedContext !== []) {
+            $entry['last_context'] = $sanitizedContext;
+        }
+
+        $flags[$eventKey] = $entry;
+
+        $attempt->forceFill([
+            'integrity_flags' => $flags,
+        ])->save();
+
+        return $entry;
+    }
+
+    private function recordTabSwitchViolation(EptOnlineAttempt $attempt, array $context = []): int
+    {
+        $cycleId = trim((string) ($context['cycle_id'] ?? ''));
+        $meta = is_array($attempt->meta) ? $attempt->meta : [];
+        $seenCycleIds = collect(is_array($meta['tab_switch_cycles'] ?? null) ? $meta['tab_switch_cycles'] : [])
+            ->filter(fn (mixed $value): bool => is_string($value) && $value !== '')
+            ->values()
+            ->all();
+
+        if ($cycleId !== '' && in_array($cycleId, $seenCycleIds, true)) {
+            $flags = is_array($attempt->integrity_flags) ? $attempt->integrity_flags : [];
+            $entry = is_array($flags['tab_switch_violation'] ?? null) ? $flags['tab_switch_violation'] : [];
+
+            return (int) ($entry['count'] ?? 0);
+        }
+
+        $entry = $this->recordIntegrityEvent($attempt, 'tab_switch_violation', $context);
+
+        if ($cycleId !== '') {
+            $seenCycleIds[] = $cycleId;
+            $meta['tab_switch_cycles'] = array_slice(array_values(array_unique($seenCycleIds)), -25);
+            $attempt->forceFill(['meta' => $meta])->save();
+        }
+
+        return (int) ($entry['count'] ?? 0);
+    }
+
+    private function sanitizeIntegrityContext(array $context): array
+    {
+        $allowedKeys = [
+            'page',
+            'section',
+            'key',
+            'shortcut',
+            'visibility',
+            'reason',
+            'width_gap',
+            'height_gap',
+            'user_agent',
+            'source',
+            'audio_state',
+            'tag',
+            'cycle_id',
+            'hidden_ms',
+        ];
+
+        return collect($context)
+            ->only($allowedKeys)
+            ->map(function (mixed $value): mixed {
+                if (is_bool($value) || is_numeric($value)) {
+                    return $value;
+                }
+
+                if (! is_scalar($value)) {
+                    return null;
+                }
+
+                return Str::limit((string) $value, 160, '');
+            })
+            ->reject(fn (mixed $value): bool => $value === null || $value === '')
+            ->all();
     }
 
     private function attemptRouteParams(EptOnlineAttempt $attempt, array $extra = []): array

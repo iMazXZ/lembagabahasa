@@ -56,10 +56,11 @@ class EptOnlineFormResource extends BaseResource
                 ->schema([
                     Forms\Components\FileUpload::make('listening_audio_path')
                         ->label('Audio Listening (1 file)')
+                        ->disk('local')
                         ->directory('ept-online/audio')
-                        ->visibility('public')
+                        ->visibility('private')
                         ->acceptedFileTypes(['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-m4a'])
-                        ->helperText('Audio listening diupload terpisah dari workbook soal.')
+                        ->helperText('Audio listening diupload terpisah dari workbook soal dan akan disajikan lewat stream private ke peserta.')
                         ->columnSpanFull(),
                 ]),
             Forms\Components\Section::make('Ringkasan Import')

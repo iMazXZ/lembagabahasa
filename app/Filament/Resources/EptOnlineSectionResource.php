@@ -61,8 +61,9 @@ class EptOnlineSectionResource extends BaseResource
                 ->required(),
             Forms\Components\FileUpload::make('audio_path')
                 ->label('Audio Section')
+                ->disk('local')
                 ->directory('ept-online/audio')
-                ->visibility('public')
+                ->visibility('private')
                 ->acceptedFileTypes(['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-m4a']),
             Forms\Components\TextInput::make('audio_duration_seconds')
                 ->label('Durasi Audio (detik)')

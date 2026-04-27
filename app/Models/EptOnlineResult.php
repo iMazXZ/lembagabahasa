@@ -8,6 +8,35 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class EptOnlineResult extends Model
 {
     public const SCALE_VERSION_AUTO = 'EPT_AUTO_TABLE_V1';
+    public const CEFR_BELOW_A2 = 'Below A2';
+
+    private const TOTAL_CEFR_CUT_SCORES = [
+        'C1' => 620,
+        'B2' => 543,
+        'B1' => 433,
+        'A2' => 343,
+    ];
+
+    private const SECTION_CEFR_CUT_SCORES = [
+        'listening' => [
+            'C1' => 62,
+            'B2' => 55,
+            'B1' => 46,
+            'A2' => 38,
+        ],
+        'structure' => [
+            'C1' => 64,
+            'B2' => 53,
+            'B1' => 43,
+            'A2' => 32,
+        ],
+        'reading' => [
+            'C1' => 60,
+            'B2' => 55,
+            'B1' => 41,
+            'A2' => 33,
+        ],
+    ];
 
     private const LISTENING_SCALE_MAP = [
         50 => 68, 49 => 67, 48 => 66, 47 => 65, 46 => 63, 45 => 62, 44 => 61, 43 => 60, 42 => 59, 41 => 58,
@@ -65,6 +94,26 @@ class EptOnlineResult extends Model
         return $this->belongsTo(EptOnlineAttempt::class, 'attempt_id');
     }
 
+    public function overallCefrLevel(): ?string
+    {
+        return self::totalCefrLevel($this->total_scaled);
+    }
+
+    public function listeningCefrLevel(): ?string
+    {
+        return self::sectionCefrLevel('listening', $this->listening_scaled);
+    }
+
+    public function structureCefrLevel(): ?string
+    {
+        return self::sectionCefrLevel('structure', $this->structure_scaled);
+    }
+
+    public function readingCefrLevel(): ?string
+    {
+        return self::sectionCefrLevel('reading', $this->reading_scaled);
+    }
+
     public static function scaleSectionScore(string $sectionType, int $rawScore): ?int
     {
         $map = match ($sectionType) {
@@ -97,5 +146,40 @@ class EptOnlineResult extends Model
         }
 
         return (int) round((($listeningScaled + $structureScaled + $readingScaled) / 3) * 10, 0, PHP_ROUND_HALF_UP);
+    }
+
+    public static function totalCefrLevel(?int $totalScaled): ?string
+    {
+        if ($totalScaled === null) {
+            return null;
+        }
+
+        foreach (self::TOTAL_CEFR_CUT_SCORES as $level => $cutScore) {
+            if ($totalScaled >= $cutScore) {
+                return $level;
+            }
+        }
+
+        return self::CEFR_BELOW_A2;
+    }
+
+    public static function sectionCefrLevel(string $sectionType, ?int $scaledScore): ?string
+    {
+        if ($scaledScore === null) {
+            return null;
+        }
+
+        $cutScores = self::SECTION_CEFR_CUT_SCORES[$sectionType] ?? null;
+        if ($cutScores === null) {
+            return null;
+        }
+
+        foreach ($cutScores as $level => $cutScore) {
+            if ($scaledScore >= $cutScore) {
+                return $level;
+            }
+        }
+
+        return self::CEFR_BELOW_A2;
     }
 }

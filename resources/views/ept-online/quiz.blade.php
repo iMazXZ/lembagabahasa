@@ -227,20 +227,12 @@
 
 @section('content')
 @php
-    use Illuminate\Support\Facades\Storage;
     use Illuminate\Support\Str;
 
     $progressPercent = round((($currentIndex + 1) / max(1, $questions->count())) * 100, 2);
     $isLastQuestion = $currentIndex >= $questions->count() - 1;
     $autoplayAudio = $autoplayAudio ?? false;
-    $audioSrc = null;
-    $audioDisk = Storage::disk(config('filament.default_filesystem_disk', config('filesystems.default')));
-    $audioPath = $section->audio_path ?: $attempt->form?->listening_audio_path;
-    if (!empty($audioPath)) {
-        $audioSrc = Str::startsWith($audioPath, ['http://', 'https://'])
-            ? $audioPath
-            : ($audioDisk->exists($audioPath) ? $audioDisk->url($audioPath) : null);
-    }
+    $audioSrc = $audioUrl ?? null;
     $audioStartAt = is_numeric($audioStartAt ?? null) ? max(0, (float) $audioStartAt) : null;
     $resumeAudio = (bool) ($resumeAudio ?? false);
     $listeningIntro = is_array($section->meta['intro'] ?? null) ? $section->meta['intro'] : [];
@@ -371,7 +363,16 @@
         && ! $hideListeningAnswers;
 @endphp
 
-<div class="exam-shell" data-exam-guard data-reading-mode="{{ $isReadingSplitLayout ? '1' : '0' }}">
+<div
+    class="exam-shell"
+    data-exam-guard
+    data-reading-mode="{{ $isReadingSplitLayout ? '1' : '0' }}"
+    data-integrity-url="{{ route('ept-online.attempt.integrity', ['attempt' => $attempt->public_id]) }}"
+    data-integrity-page="quiz"
+    data-integrity-section="{{ $section->type }}"
+    data-tab-switch-guard="1"
+    data-tab-switch-limit="{{ \App\Models\EptOnlineAttempt::TAB_SWITCH_LIMIT }}"
+>
     <div class="exam-topbar">
         <div class="flex h-full items-center justify-between gap-4 px-4 lg:px-8">
             <div class="min-w-0" id="examMeta">
@@ -787,6 +788,22 @@
         </div>
     </div>
 </div>
+<div id="tabSwitchModal" class="fixed inset-0 z-[85] hidden items-center justify-center bg-slate-950/60 px-4">
+    <div class="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
+        <div class="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Focus Warning</div>
+        <h2 class="mt-3 text-2xl font-black text-slate-950">Tab switch detected</h2>
+        <div class="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+            <p id="tabSwitchBody">You left the test tab. Stay on this page while the test is in progress.</p>
+            <p id="tabSwitchCountText" class="font-semibold text-slate-900"></p>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+            <button type="button" id="tabSwitchAcknowledge" class="inline-flex items-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
+                Return to Test
+            </button>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -825,6 +842,16 @@
     let beforeAttemptTransition = () => {};
     let afterAttemptFragmentsReplaced = () => {};
     let closeReadingNavDrawer = () => {};
+    let timeoutRedirectHandled = false;
+
+    const allowExamUnload = () => {
+        if (typeof window.__eptAllowUnload === 'function') {
+            window.__eptAllowUnload();
+            return;
+        }
+
+        window.dispatchEvent(new CustomEvent('ept:allow-unload'));
+    };
 
     function formatSectionLabel(sectionType) {
         const labels = {
@@ -905,6 +932,11 @@
             timerText.textContent = formatTime(currentSeconds);
 
             if (currentSeconds === 0) {
+                if (timeoutRedirectHandled) {
+                    return;
+                }
+
+                timeoutRedirectHandled = true;
                 window.fetch(pingUrl, {
                     method: 'POST',
                     headers: {
@@ -916,6 +948,7 @@
                 .then(response => response.json())
                 .then(payload => {
                     if (payload.redirect) {
+                        allowExamUnload();
                         window.location.href = payload.redirect;
                     }
                 });
@@ -934,6 +967,7 @@
             .then(response => response.json())
             .then(payload => {
                 if (payload.redirect) {
+                    allowExamUnload();
                     window.location.href = payload.redirect;
                 }
             })
@@ -1302,6 +1336,7 @@
             });
 
             if (!response.ok) {
+                allowExamUnload();
                 window.location.href = targetUrl;
                 return;
             }
@@ -1310,6 +1345,7 @@
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
             if (!replaceAttemptFragments(doc)) {
+                allowExamUnload();
                 window.location.href = targetUrl;
                 return;
             }
@@ -1321,6 +1357,7 @@
             document.title = doc.title || document.title;
             window.scrollTo({ top: 0, behavior: 'auto' });
         } catch (_) {
+            allowExamUnload();
             window.location.href = targetUrl;
         } finally {
             setAttemptNavigationLocked(false);
@@ -1363,8 +1400,10 @@
                 return;
             }
 
+            allowExamUnload();
             window.location.reload();
         } catch (_) {
+            allowExamUnload();
             form.submit();
         } finally {
             setAttemptNavigationLocked(false);

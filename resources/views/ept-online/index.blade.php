@@ -2,11 +2,13 @@
 @section('title', 'EPT Online')
 @section('hide_navbar', '1')
 @section('hide_footer', '1')
+@section('translate_no', '1')
 
 @include('ept-online.partials.mobile-device-guard')
 
 @section('content')
 @php
+    /** @var \App\Models\EptOnlineAttempt $attempt */
     $hasActiveAttempts = $activeAttempts->isNotEmpty();
     $hasCompletedAttempts = $completedAttempts->isNotEmpty();
     $hasHistoryPanels = $hasActiveAttempts || $hasCompletedAttempts;
@@ -102,20 +104,61 @@
                     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                         <div>
                             <h2 class="text-lg font-semibold text-slate-900">Recent Completed</h2>
-                            <p class="mt-1 text-sm text-slate-600">View your most recently submitted attempts.</p>
+                            <p class="mt-1 text-sm text-slate-600">Review your latest submitted attempts and final scores.</p>
                         </div>
 
                         <div class="mt-4 space-y-3">
                             @foreach ($completedAttempts as $attempt)
-                                <a href="{{ route('ept-online.attempt.finished', ['attempt' => $attempt->public_id]) }}" class="block rounded-xl border border-slate-200 px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50">
-                                    <div class="flex items-center justify-between gap-4">
-                                        <div>
+                                @php
+                                    $result = $attempt->result;
+                                    $scoreVisibleAfterSubmit = (bool) ($attempt->form?->show_score_after_submit && filled($result?->total_scaled));
+                                    $scorePublished = (bool) ($result?->is_published && filled($result?->total_scaled));
+                                    $canShowScore = $scoreVisibleAfterSubmit || $scorePublished;
+                                    $overallCefr = $result?->overallCefrLevel();
+                                @endphp
+                                <a href="{{ route('ept-online.attempt.finished', ['attempt' => $attempt->public_id]) }}" class="block rounded-2xl border border-slate-200 px-5 py-4 transition hover:border-slate-300 hover:bg-slate-50">
+                                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div class="min-w-0">
                                             <div class="text-sm font-semibold text-slate-900">{{ $attempt->form?->title ?? 'Online Test Package' }}</div>
                                             <div class="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
-                                                {{ optional($attempt->submitted_at)?->format('d M Y H:i') ?? '-' }}
+                                                Submitted {{ optional($attempt->submitted_at)?->format('d M Y H:i') ?? '-' }}
                                             </div>
+                                            @if ($canShowScore)
+                                                <div class="mt-3 flex flex-wrap items-center gap-2">
+                                                    @if ($overallCefr)
+                                                        <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                                                            {{ $overallCefr }}
+                                                        </span>
+                                                    @endif
+                                                    <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                                                        Final Score Available
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <div class="mt-3">
+                                                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                                                        Pending Result
+                                                    </span>
+                                                </div>
+                                            @endif
                                         </div>
-                                        <span class="text-xs font-semibold text-slate-700">View</span>
+
+                                        <div class="flex items-center justify-between gap-4 sm:justify-end">
+                                            <div class="text-right">
+                                                @if ($canShowScore)
+                                                    <div class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Final Score</div>
+                                                    <div class="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                                                        {{ $result->total_scaled }}
+                                                    </div>
+                                                @else
+                                                    <div class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Status</div>
+                                                    <div class="mt-1 text-sm font-semibold text-slate-700">Awaiting publication</div>
+                                                @endif
+                                            </div>
+                                            <span class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+                                                View
+                                            </span>
+                                        </div>
                                     </div>
                                 </a>
                             @endforeach

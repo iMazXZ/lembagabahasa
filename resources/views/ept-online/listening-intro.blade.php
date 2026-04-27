@@ -94,6 +94,9 @@
         background: linear-gradient(180deg, #111827, #0f172a);
         box-shadow: 0 18px 40px rgba(15,23,42,.16);
         padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
     }
     .prep-action-icon {
         display: inline-flex;
@@ -155,7 +158,13 @@
 @endpush
 
 @section('content')
-<div class="prep-shell" data-exam-guard>
+<div
+    class="prep-shell"
+    data-exam-guard
+    data-integrity-url="{{ route('ept-online.attempt.integrity', ['attempt' => $attempt->public_id]) }}"
+    data-integrity-page="listening_intro"
+    data-integrity-section="{{ $section->type }}"
+>
     <div class="prep-topbar">
         <div class="flex h-full items-center justify-between gap-4 px-4 lg:px-8">
             <div class="min-w-0">
@@ -236,19 +245,19 @@
                             </svg>
                         </div>
                         <div class="text-xs font-black uppercase tracking-[0.16em] text-emerald-300">Ready to Begin</div>
-                        <h2 class="mt-3 text-2xl font-black tracking-tight text-white">Start listening now</h2>
-                        <p class="mt-3 text-sm leading-7 text-slate-300">
+                        <h2 class="text-2xl font-black tracking-tight text-white">Start listening now</h2>
+                        <p class="text-sm leading-7 text-slate-300">
                             Make sure your headset and volume are ready. Once you begin, the timer will start immediately.
                         </p>
 
-                        <form method="POST" action="{{ route('ept-online.attempt.start-section', ['attempt' => $attempt->public_id]) }}" data-allow-unload="1" class="mt-6">
+                        <form method="POST" action="{{ route('ept-online.attempt.start-section', ['attempt' => $attempt->public_id]) }}" data-allow-unload="1" class="pt-1">
                             @csrf
                             <button type="submit" data-allow-unload="1" class="prep-start-btn">
                                 Start Listening
                             </button>
                         </form>
 
-                        <div class="mt-3 text-xs font-semibold leading-6 text-slate-400">
+                        <div class="text-xs font-semibold leading-6 text-slate-400">
                             Once started, the listening audio will play from the beginning of the section.
                         </div>
                     </div>

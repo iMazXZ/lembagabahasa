@@ -384,7 +384,6 @@
     <div>
         <h3 class="text-sm font-bold text-slate-900 mb-3 px-1">Menu Cepat</h3>
         
-        {{-- REVISI: lg:grid-cols-5 agar muat 5 item sejajar di laptop --}}
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 
             {{-- 1. Basic Listening (hanya untuk tahun 2025+ dan bukan S2) --}}

@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 
 class EptOnlineAttempt extends Model
 {
+    public const TAB_SWITCH_LIMIT = 3;
     public const STATUS_DRAFT = 'draft';
     public const STATUS_IN_PROGRESS = 'in_progress';
     public const STATUS_SUBMITTED = 'submitted';
