@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\BasicListeningGrade;
 use App\Models\Penerjemahan;
 use App\Models\SiteSetting;
 use App\Support\ImageTransformer;
@@ -24,29 +23,19 @@ class TranslationController extends Controller
     protected function userHasCompletedBasicListening(): bool
     {
         $u = Auth::user();
-        if (! $u) return false;
+        return $u ? SiteSetting::hasCompletedBasicListening($u) : false;
+    }
 
-        // S2 tidak perlu Basic Listening
-        $isS2 = $u->prody && str_starts_with($u->prody->name ?? '', 'S2');
-        if ($isS2) {
-            return true;
+    protected function basicListeningRequirementMessage(): string
+    {
+        $u = Auth::user();
+        $year = (int) ($u?->year ?? 0);
+
+        if ($year <= 2024) {
+            return 'Your archived or manual Basic Listening score has not been recorded yet. Please contact the Language Center if you have already completed the requirement.';
         }
 
-        $year = (int) $u->year;
-
-        if ($year < 2025) {
-            // 2024 kebawah tidak relevan di sini (pakai nilai manual)
-            return true;
-        }
-
-        $grade = BasicListeningGrade::query()
-            ->where('user_id', $u->id)
-            ->where('user_year', $u->year)
-            ->first();
-
-        return $grade !== null
-            && is_numeric($grade->attendance)
-            && is_numeric($grade->final_test);
+        return 'The request button will appear automatically after your Attendance and Final Test scores have been recorded.';
     }
 
     /* ============================= INDEX =================================== */
@@ -73,6 +62,7 @@ class TranslationController extends Controller
             'biodataComplete' => $biodataComplete,
             'completedBL'     => $completedBL,
             'canCreate'       => $canCreate,
+            'basicListeningRequirementMessage' => $this->basicListeningRequirementMessage(),
         ]);
     }
 
@@ -89,7 +79,7 @@ class TranslationController extends Controller
 
         if (! $this->userHasCompletedBasicListening()) {
             return redirect()->route('dashboard.translation')
-                ->with('error', 'Anda belum mengikuti Basic Listening. Setelah nilai Attendance & Final Test terisi, Anda dapat mengajukan penerjemahan.');
+                ->with('error', $this->basicListeningRequirementMessage());
         }
 
         return view('dashboard.translation.create', [

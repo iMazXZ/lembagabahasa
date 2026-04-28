@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\PenerjemahanResource\Pages;
 
 use App\Filament\Resources\PenerjemahanResource;
-use App\Models\BasicListeningGrade;
+use App\Models\SiteSetting;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Auth;
@@ -37,22 +37,19 @@ class ListPenerjemahans extends ListRecords
     private function userHasCompletedBasicListening(): bool
     {
         $u = Auth::user();
-        if (! $u) return false;
+        return $u ? SiteSetting::hasCompletedBasicListening($u) : false;
+    }
 
-        $year = (int) $u->year;
-        if ($year < 2025) {
-            // 2024- kebawah tidak relevan di sini (pakai nilai manual)
-            return true;
+    private function basicListeningRequirementMessage(): string
+    {
+        $u = Auth::user();
+        $year = (int) ($u?->year ?? 0);
+
+        if ($year <= 2024) {
+            return '⚠️ Nilai Basic Listening arsip/manual Anda belum tercatat. Jika sudah pernah lulus, silakan konfirmasi ke kantor Lembaga Bahasa.';
         }
 
-        $grade = BasicListeningGrade::query()
-            ->where('user_id', $u->id)
-            ->where('user_year', $u->year)
-            ->first();
-
-        return $grade !== null
-            && is_numeric($grade->attendance)
-            && is_numeric($grade->final_test);
+        return '⚠️ Anda belum mengikuti Basic Listening. Setelah nilai Attendance dan Final Test terisi, tombol “Permintaan Baru” akan muncul.';
     }
 
     protected function getHeaderActions(): array
@@ -117,7 +114,7 @@ class ListPenerjemahans extends ListRecords
             }
 
             if (! $this->userHasCompletedBasicListening()) {
-                return '⚠️ Anda belum mengikuti Basic Listening. Setelah nilai Attendance dan Final Test terisi, tombol “Permintaan Baru” akan muncul.';
+                return $this->basicListeningRequirementMessage();
             }
         }
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\BasicListeningGrade;
 use App\Support\LegacyBasicListeningScores;
 use Illuminate\Support\Facades\Cache;
 use App\Models\User;
@@ -286,6 +287,34 @@ class SiteSetting extends Model
     public static function canUserRegisterEpt(User $user): bool
     {
         return static::checkEptEligibility($user)[0] ?? false;
+    }
+
+    public static function hasCompletedBasicListening(User $user): bool
+    {
+        $prodyName = $user->prody?->name ?? '';
+        $isS2 = $prodyName !== '' && str_starts_with($prodyName, 'S2');
+        if ($isS2) {
+            return true;
+        }
+
+        $yearInt = (int) ($user->year ?? 0);
+        if ($yearInt <= 2024) {
+            return LegacyBasicListeningScores::effectiveScoreForUser($user) !== null;
+        }
+
+        if ($yearInt < 2025) {
+            return false;
+        }
+
+        $grade = BasicListeningGrade::query()
+            ->where('user_id', $user->id)
+            ->where('user_year', $user->year)
+            ->first();
+
+        return $grade !== null && (
+            (is_numeric($grade->attendance) && is_numeric($grade->final_test))
+            || is_numeric($grade->final_numeric_cached)
+        );
     }
 
     protected static function hasValidWhatsapp(User $user): bool

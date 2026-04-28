@@ -643,10 +643,11 @@
                                         {!! $formatMultiline($question->prompt) !!}
                                     </div>
 
-                                    <form method="POST" action="{{ route('ept-online.attempt.answer', ['attempt' => $attempt->public_id]) }}" class="mt-6 space-y-3" id="answerForm" data-preserve-audio="1" data-attempt-ajax="1">
+                                    <form method="POST" action="{{ route('ept-online.attempt.answer', ['attempt' => $attempt->public_id]) }}" class="mt-6 space-y-3" id="answerForm" data-preserve-audio="1" data-attempt-ajax="1" data-attempt-answer-form="1">
                                         @csrf
                                         <input type="hidden" name="question_id" value="{{ $question->id }}">
                                         <input type="hidden" name="q" value="{{ $currentIndex }}">
+                                        <input type="hidden" name="selected_answer" value="" data-selected-answer>
                                         <input type="hidden" name="audio_position" value="" data-audio-position>
                                         <input type="hidden" name="audio_playing" value="0" data-audio-playing>
 
@@ -727,10 +728,11 @@
                                 </div>
                             @endif
 
-                            <form method="POST" action="{{ route('ept-online.attempt.answer', ['attempt' => $attempt->public_id]) }}" class="mt-{{ $section->type === 'listening' ? '7' : '6' }} space-y-3" id="answerForm" data-preserve-audio="1" data-attempt-ajax="1">
+                            <form method="POST" action="{{ route('ept-online.attempt.answer', ['attempt' => $attempt->public_id]) }}" class="mt-{{ $section->type === 'listening' ? '7' : '6' }} space-y-3" id="answerForm" data-preserve-audio="1" data-attempt-ajax="1" data-attempt-answer-form="1">
                                 @csrf
                                 <input type="hidden" name="question_id" value="{{ $question->id }}">
                                 <input type="hidden" name="q" value="{{ $currentIndex }}">
+                                <input type="hidden" name="selected_answer" value="" data-selected-answer>
                                 <input type="hidden" name="audio_position" value="" data-audio-position>
                                 <input type="hidden" name="audio_playing" value="0" data-audio-playing>
 
@@ -1411,6 +1413,28 @@
     };
 
     document.addEventListener('click', (event) => {
+        const answerButton = event.target.closest('form[data-attempt-answer-form="1"] button[name="answer"]');
+        if (answerButton && !attemptNavigationLocked) {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const form = answerButton.form;
+            if (!form) {
+                return;
+            }
+
+            const hiddenAnswerInput = form.querySelector('[data-selected-answer]');
+            if (hiddenAnswerInput) {
+                hiddenAnswerInput.value = answerButton.value ?? '';
+            }
+
+            submitAttemptForm(form, answerButton);
+            return;
+        }
+
         const link = event.target.closest('[data-attempt-nav="1"]');
         if (!link || attemptNavigationLocked) {
             return;

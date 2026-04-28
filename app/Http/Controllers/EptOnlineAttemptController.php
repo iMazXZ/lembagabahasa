@@ -237,6 +237,7 @@ class EptOnlineAttemptController extends Controller
             'question_id' => ['required', 'integer'],
             'q' => ['nullable', 'integer'],
             'answer' => ['nullable', 'in:A,B,C,D'],
+            'selected_answer' => ['nullable', 'in:A,B,C,D'],
             'audio_position' => ['nullable', 'numeric', 'min:0'],
             'audio_playing' => ['nullable', 'boolean'],
         ]);
@@ -246,6 +247,36 @@ class EptOnlineAttemptController extends Controller
             ->where('section_id', $section->id)
             ->firstOrFail();
 
+        $submittedAnswer = $data['answer'] ?? $data['selected_answer'] ?? null;
+        $audioPosition = $this->normalizeAudioPosition($data['audio_position'] ?? null);
+        $audioPlaying = (bool) ($data['audio_playing'] ?? false);
+
+        if ($section->type === EptOnlineSection::TYPE_LISTENING) {
+            $this->storeSectionAudioState($attempt, $section->type, $audioPosition, $audioPlaying);
+        }
+
+        if (! filled($submittedAnswer)) {
+            $redirectParams = [
+                'attempt' => $attempt->public_id,
+                'q' => max(0, (int) ($data['q'] ?? 0)),
+            ];
+
+            if ($audioPosition !== null) {
+                $redirectParams['audio'] = $audioPosition;
+            }
+
+            if ($audioPlaying) {
+                $redirectParams['resume_audio'] = 1;
+            }
+
+            return $this->redirectResponse(
+                route('ept-online.attempt.show', $this->attemptRouteParams($attempt, $redirectParams)),
+                $isAjax,
+                422,
+                'No answer was received. Please choose an option again.',
+            );
+        }
+
         EptOnlineAnswer::updateOrCreate(
             [
                 'attempt_id' => $attempt->id,
@@ -253,8 +284,8 @@ class EptOnlineAttemptController extends Controller
             ],
             [
                 'section_id' => $section->id,
-                'selected_option' => $data['answer'] ?? null,
-                'answered_at' => filled($data['answer'] ?? null) ? now() : null,
+                'selected_option' => $submittedAnswer,
+                'answered_at' => now(),
             ]
         );
 
@@ -267,14 +298,8 @@ class EptOnlineAttemptController extends Controller
             'q' => $nextIndex,
         ];
 
-        if (($audioPosition = $this->normalizeAudioPosition($data['audio_position'] ?? null)) !== null) {
+        if ($audioPosition !== null) {
             $redirectParams['audio'] = $audioPosition;
-        }
-
-        $audioPlaying = (bool) ($data['audio_playing'] ?? false);
-
-        if ($section->type === EptOnlineSection::TYPE_LISTENING) {
-            $this->storeSectionAudioState($attempt, $section->type, $audioPosition, $audioPlaying);
         }
 
         if ($audioPlaying) {

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\EptOnlineAnswer;
 use App\Models\EptOnlineAttempt;
 use App\Models\EptOnlineForm;
+use App\Models\EptOnlineQuestion;
 use App\Models\EptOnlineSection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -266,5 +268,95 @@ class EptOnlineRuntimeSecurityTest extends TestCase
         $this->assertSame(EptOnlineAttempt::STATUS_IN_PROGRESS, $attempt->status);
         $this->assertSame(1, $attempt->integrity_flags['tab_switch_violation']['count'] ?? null);
         $this->assertSame(['cycle-same'], $attempt->meta['tab_switch_cycles'] ?? []);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function answer_submission_without_an_option_does_not_create_a_placeholder_row(): void
+    {
+        [$user, $attempt, $question] = $this->createAttemptWithSingleQuestion();
+
+        $response = $this->actingAs($user)
+            ->postJson(route('ept-online.attempt.answer', ['attempt' => $attempt->public_id]), [
+                'question_id' => $question->id,
+                'q' => 0,
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJson([
+                'status' => 'redirect',
+            ]);
+
+        $this->assertDatabaseCount('ept_online_answers', 0);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function answer_submission_uses_selected_answer_fallback_when_submitter_value_is_missing(): void
+    {
+        [$user, $attempt, $question] = $this->createAttemptWithSingleQuestion();
+
+        $response = $this->actingAs($user)
+            ->postJson(route('ept-online.attempt.answer', ['attempt' => $attempt->public_id]), [
+                'question_id' => $question->id,
+                'q' => 0,
+                'selected_answer' => 'C',
+            ]);
+
+        $response->assertOk();
+
+        $answer = EptOnlineAnswer::query()
+            ->where('attempt_id', $attempt->id)
+            ->where('question_id', $question->id)
+            ->first();
+
+        $this->assertNotNull($answer);
+        $this->assertSame('C', $answer->selected_option);
+        $this->assertNotNull($answer->answered_at);
+    }
+
+    /**
+     * @return array{0: \App\Models\User, 1: \App\Models\EptOnlineAttempt, 2: \App\Models\EptOnlineQuestion}
+     */
+    private function createAttemptWithSingleQuestion(): array
+    {
+        $user = User::factory()->create();
+
+        $form = EptOnlineForm::query()->create([
+            'code' => 'EPT-ANSWER-TEST-' . str()->upper(str()->random(6)),
+            'title' => 'EPT Answer Test',
+        ]);
+
+        $section = EptOnlineSection::query()->create([
+            'form_id' => $form->id,
+            'type' => EptOnlineSection::TYPE_LISTENING,
+            'title' => 'Listening',
+            'duration_minutes' => 35,
+            'sort_order' => 1,
+        ]);
+
+        $question = EptOnlineQuestion::query()->create([
+            'form_id' => $form->id,
+            'section_id' => $section->id,
+            'number_in_section' => 1,
+            'sort_order' => 1,
+            'prompt' => 'Sample question',
+            'option_a' => 'Option A',
+            'option_b' => 'Option B',
+            'option_c' => 'Option C',
+            'option_d' => 'Option D',
+            'correct_option' => 'A',
+        ]);
+
+        $attempt = EptOnlineAttempt::query()->create([
+            'form_id' => $form->id,
+            'user_id' => $user->id,
+            'current_section_type' => EptOnlineSection::TYPE_LISTENING,
+            'status' => EptOnlineAttempt::STATUS_IN_PROGRESS,
+            'started_at' => now(),
+            'current_section_started_at' => now(),
+            'expires_at' => now()->addMinutes(35),
+        ]);
+
+        return [$user, $attempt, $question];
     }
 }

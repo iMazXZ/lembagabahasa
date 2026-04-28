@@ -135,8 +135,8 @@
             </div>
             <h2 class="text-2xl font-bold text-slate-900 mb-3">Wajib Basic Listening</h2>
             <p class="text-slate-500 max-w-lg mx-auto mb-8 leading-relaxed">
-                Anda belum menyelesaikan program <strong>Basic Listening</strong>.
-                <br>Tombol pengajuan akan muncul otomatis setelah nilai Attendance & Final Test terdata.
+                Anda belum memenuhi syarat <strong>Basic Listening</strong>.
+                <br>{{ $basicListeningRequirementMessage ?? 'Tombol pengajuan akan muncul otomatis setelah nilai Attendance & Final Test terdata.' }}
             </p>
             <a href="{{ route('bl.index') }}"
                class="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base shadow-lg shadow-blue-600/30 transition-all hover:scale-105">
