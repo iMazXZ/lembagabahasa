@@ -17,6 +17,7 @@ use App\Support\EptSubmissionNotificationTracker;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use App\Support\Verification;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Support\Js;
 use Illuminate\Validation\Rule;
@@ -219,13 +220,13 @@ class EptSubmissionResource extends BaseResource
                         ->openUrlInNewTab(),
 
                     Action::make('resendWa')
-                        ->label('Kirim Ulang WA (Approved)')
+                        ->label('Kirim Ulang WA')
                         ->icon('heroicon-s-arrow-path')
                         ->color('warning')
                         ->requiresConfirmation()
-                        ->visible(fn (EptSubmission $record): bool =>
-                            $record->status === 'approved' && auth()->user()?->hasRole('Admin')
-                        )
+                        ->modalHeading('Kirim Ulang WhatsApp')
+                        ->modalDescription('Kirim ulang hanya kanal WhatsApp. Email dan notifikasi dashboard tidak akan dikirim ulang.')
+                        ->visible(fn (EptSubmission $record): bool => static::canResendWhatsApp($record))
                         ->action(function (EptSubmission $record) {
                             $pemohon = $record->user;
                             if (! $pemohon) {
@@ -242,39 +243,18 @@ class EptSubmissionResource extends BaseResource
                                 return;
                             }
 
-                            $verificationUrl = $record->verification_url;
-                            $pdfUrl = route('ept-submissions.pdf', $record);
-                            $notification = new EptSubmissionStatusNotification(
-                                'approved',
-                                $verificationUrl,
-                                $pdfUrl,
-                                $record->catatan_admin,
-                                $record->getKey(),
-                            );
+                            if (! static::queueWhatsAppResend($record)) {
+                                Notification::make()
+                                    ->title('WA gagal masuk antrean')
+                                    ->danger()
+                                    ->send();
 
-                            $channels = $notification->via($pemohon);
-                            $tracking = EptSubmissionNotificationTracker::prime(
-                                $record,
-                                static::expectsWhatsApp($record),
-                                $channels,
-                                (string) $notification->contentSignature,
-                            );
-
-                            try {
-                                $pemohon->notify($notification);
-                            } catch (\Throwable $e) {
-                                EptSubmissionNotificationTracker::markDispatchFailure(
-                                    $tracking,
-                                    static::expectsWhatsApp($record),
-                                    $e->getMessage(),
-                                );
-
-                                throw $e;
+                                return;
                             }
 
                             Notification::make()
-                                ->title('Notifikasi diproses')
-                                ->body('Email diproses dan WA masuk antrean jika nomor terverifikasi.')
+                                ->title('WA diproses ulang')
+                                ->body('Pesan WhatsApp masuk antrean kirim ulang.')
                                 ->success()
                                 ->send();
                         }),
@@ -536,6 +516,41 @@ class EptSubmissionResource extends BaseResource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('resend_failed_whatsapp')
+                        ->label('Kirim Ulang WA Gagal')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('Kirim Ulang WA Terpilih')
+                        ->modalDescription('Hanya data terpilih yang status WA-nya gagal/belum/dilewati dan nomor WA-nya valid yang akan diproses.')
+                        ->visible(fn (): bool => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']))
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (Collection $records): void {
+                            $queued = 0;
+                            $skipped = 0;
+                            $failed = 0;
+
+                            $records->loadMissing(['user', 'notificationTracking']);
+
+                            foreach ($records as $record) {
+                                if (! $record instanceof EptSubmission || ! static::canResendWhatsApp($record)) {
+                                    $skipped++;
+                                    continue;
+                                }
+
+                                if (static::queueWhatsAppResend($record)) {
+                                    $queued++;
+                                } else {
+                                    $failed++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Kirim ulang WA diproses')
+                                ->body("Masuk antrean: {$queued}. Dilewati: {$skipped}. Gagal antrean: {$failed}.")
+                                ->color($failed > 0 ? 'warning' : 'success')
+                                ->send();
+                        }),
                     Tables\Actions\DeleteBulkAction::make()
                         ->visible(fn () => auth()->user()?->hasAnyRole(['Admin']))
                 ]),
@@ -740,5 +755,96 @@ class EptSubmissionResource extends BaseResource
             ?? ($channel === 'whatsapp' && ! static::expectsWhatsApp($record)
                 ? EptSubmissionNotification::STATUS_SKIPPED
                 : EptSubmissionNotification::STATUS_NOT_SENT);
+    }
+
+    protected static function canResendWhatsApp(EptSubmission $record): bool
+    {
+        if (! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])) {
+            return false;
+        }
+
+        if (! in_array($record->status, ['approved', 'rejected'], true)) {
+            return false;
+        }
+
+        if (! static::expectsWhatsApp($record)) {
+            return false;
+        }
+
+        return in_array(static::notificationChannelStatus($record, 'whatsapp'), [
+            EptSubmissionNotification::STATUS_FAILED,
+            EptSubmissionNotification::STATUS_NOT_SENT,
+            EptSubmissionNotification::STATUS_SKIPPED,
+        ], true);
+    }
+
+    protected static function makeStatusNotification(EptSubmission $record): EptSubmissionStatusNotification
+    {
+        if ($record->status === 'approved') {
+            return new EptSubmissionStatusNotification(
+                status: 'approved',
+                verificationUrl: $record->verification_url,
+                pdfUrl: route('ept-submissions.pdf', $record),
+                adminNote: $record->catatan_admin,
+                submissionId: $record->getKey(),
+            );
+        }
+
+        return new EptSubmissionStatusNotification(
+            status: 'rejected',
+            adminNote: $record->catatan_admin,
+            submissionId: $record->getKey(),
+        );
+    }
+
+    protected static function queueWhatsAppResend(EptSubmission $record): bool
+    {
+        if (! static::expectsWhatsApp($record)) {
+            return false;
+        }
+
+        $pemohon = $record->user;
+
+        if (! $pemohon) {
+            return false;
+        }
+
+        $notification = static::makeStatusNotification($record);
+        $tracking = EptSubmissionNotificationTracker::prime(
+            $record,
+            true,
+            ['whatsapp'],
+            (string) $notification->contentSignature,
+        );
+
+        try {
+            $queued = $notification->toWhatsApp($pemohon);
+
+            if (! $queued) {
+                EptSubmissionNotificationTracker::markDispatchFailure(
+                    $tracking,
+                    true,
+                    'Pesan WhatsApp tidak berhasil masuk antrean.',
+                );
+
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            EptSubmissionNotificationTracker::markDispatchFailure(
+                $tracking,
+                true,
+                $e->getMessage(),
+            );
+
+            Log::error('Gagal antre ulang WA surat rekomendasi', [
+                'e' => $e->getMessage(),
+                'record_id' => $record->getKey(),
+                'user_id' => $pemohon->getKey(),
+            ]);
+
+            return false;
+        }
     }
 }

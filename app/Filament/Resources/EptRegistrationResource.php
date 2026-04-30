@@ -566,7 +566,11 @@ class EptRegistrationResource extends BaseResource
                         ->color('warning')
                         ->visible(fn ($record) => $record->status === 'approved')
                         ->form(function (EptRegistration $record): array {
-                            return static::groupAssignmentForm($record, $record);
+                            return static::groupAssignmentForm(
+                                $record,
+                                $record,
+                                allowPastScheduledGroups: true,
+                            );
                         })
                         ->action(function ($record, array $data) {
                             $testQuota = EptRegistration::normalizeTestQuota(
@@ -584,7 +588,11 @@ class EptRegistrationResource extends BaseResource
                                 ));
                             }
 
-                            static::ensureQuotaAvailableForGroups($groupAssignments, $record);
+                            static::ensureQuotaAvailableForGroups(
+                                $groupAssignments,
+                                $record,
+                                allowPastScheduledGroups: true,
+                            );
 
                             $record->update([
                                 'test_quota' => $testQuota,
@@ -705,8 +713,9 @@ class EptRegistrationResource extends BaseResource
     protected static function groupAssignmentForm(
         EptRegistration $record,
         ?EptRegistration $contextRecord = null,
+        bool $allowPastScheduledGroups = false,
     ): array {
-        $groupOptionMeta = static::buildGroupOptionMeta($contextRecord);
+        $groupOptionMeta = static::buildGroupOptionMeta($contextRecord, $allowPastScheduledGroups);
         $groupOptions = $groupOptionMeta['options'];
         $disabledGroupOptions = $groupOptionMeta['disabled'];
         $isGeneral = $record->isGeneralParticipant();
@@ -814,7 +823,10 @@ class EptRegistrationResource extends BaseResource
      *     disabled: array<int, bool>
      * }
      */
-    protected static function buildGroupOptionMeta(?EptRegistration $contextRecord = null): array
+    protected static function buildGroupOptionMeta(
+        ?EptRegistration $contextRecord = null,
+        bool $includePastScheduledGroups = false,
+    ): array
     {
         $currentGroupIds = array_values(array_filter([
             $contextRecord?->grup_1_id,
@@ -824,14 +836,16 @@ class EptRegistrationResource extends BaseResource
         ]));
 
         $groups = EptGroup::query()
-            ->select(['id', 'name', 'quota'])
-            ->where(function (Builder $query) use ($currentGroupIds): void {
-                $query->whereNull('jadwal')
-                    ->orWhere('jadwal', '>=', now());
+            ->select(['id', 'name', 'quota', 'jadwal'])
+            ->when(! $includePastScheduledGroups, function (Builder $query) use ($currentGroupIds): void {
+                $query->where(function (Builder $query) use ($currentGroupIds): void {
+                    $query->whereNull('jadwal')
+                        ->orWhere('jadwal', '>=', now());
 
-                if ($currentGroupIds !== []) {
-                    $query->orWhereIn('id', $currentGroupIds);
-                }
+                    if ($currentGroupIds !== []) {
+                        $query->orWhereIn('id', $currentGroupIds);
+                    }
+                });
             })
             ->withCount([
                 'registrationsAsGrup1',
@@ -859,7 +873,14 @@ class EptRegistrationResource extends BaseResource
             }
 
             $quota = max(1, (int) ($group->quota ?? 0));
-            $options[$group->id] = sprintf('%s (%d/%d)', $group->name, $participantCount, $quota);
+            $pastScheduleLabel = $group->jadwal?->isPast() ? ' - jadwal lewat' : '';
+            $options[$group->id] = sprintf(
+                '%s (%d/%d)%s',
+                $group->name,
+                $participantCount,
+                $quota,
+                $pastScheduleLabel,
+            );
 
             if ($participantCount >= $quota) {
                 $disabled[$group->id] = true;
@@ -875,7 +896,11 @@ class EptRegistrationResource extends BaseResource
     /**
      * Validasi server-side agar kuota tetap aman walau ada race condition.
      */
-    protected static function ensureQuotaAvailableForGroups(array $groupAssignments, ?EptRegistration $contextRecord = null): void
+    protected static function ensureQuotaAvailableForGroups(
+        array $groupAssignments,
+        ?EptRegistration $contextRecord = null,
+        bool $allowPastScheduledGroups = false,
+    ): void
     {
         $groupIds = array_values(array_unique(array_filter(
             array_map(
@@ -900,7 +925,12 @@ class EptRegistrationResource extends BaseResource
         ]));
 
         foreach ($groups as $group) {
-            if ($group->jadwal !== null && $group->jadwal->isPast() && ! in_array($group->id, $currentGroupIds, true)) {
+            if (
+                ! $allowPastScheduledGroups
+                && $group->jadwal !== null
+                && $group->jadwal->isPast()
+                && ! in_array($group->id, $currentGroupIds, true)
+            ) {
                 $message = sprintf(
                     'Grup "%s" jadwal tesnya sudah lewat dan tidak bisa dipilih lagi.',
                     $group->name,
