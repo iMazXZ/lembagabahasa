@@ -220,6 +220,11 @@ class PenerjemahanResource extends BaseResource
                 ->label('Status')
                 ->content(fn (Get $get) => $get('status') ?? '-'),
 
+            Forms\Components\Placeholder::make('rejection_reason_info')
+                ->label('Alasan Penolakan')
+                ->content(fn ($record) => $record?->rejection_reason ?: '-')
+                ->visible(fn ($record): bool => str_starts_with((string) $record?->status, 'Ditolak')),
+
             Forms\Components\Placeholder::make('translator_name')
                 ->label('Nama Penerjemah')
                 ->content(function (Get $get, $record) {
@@ -255,6 +260,13 @@ class PenerjemahanResource extends BaseResource
                     ->sortable()
                     ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
+                Tables\Columns\TextColumn::make('users.srn')
+                    ->label('NPM')
+                    ->searchable()
+                    ->copyable()
+                    ->copyMessage('NPM disalin')
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
+
                 Tables\Columns\TextColumn::make('bukti_pembayaran')
                     ->label('Bukti')
                     ->formatStateUsing(fn ($state) => $state ? 'Lihat' : '-')
@@ -287,6 +299,12 @@ class PenerjemahanResource extends BaseResource
                             : $state;
                     })
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('rejection_reason')
+                    ->label('Alasan Ditolak')
+                    ->wrap()
+                    ->limit(60)
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('submission_date')
                     ->label('Pengajuan')
@@ -410,7 +428,10 @@ class PenerjemahanResource extends BaseResource
                             !in_array($record->status, ['Disetujui', 'Diproses', 'Selesai'], true)
                         )
                         ->action(function ($record) {
-                            $record->update(['status' => 'Disetujui']);
+                            $record->update([
+                                'status' => 'Disetujui',
+                                'rejection_reason' => null,
+                            ]);
                             Notification::make()->title("Pembayaran disetujui untuk {$record->users?->name}")->success()->send();
                         }),
 
@@ -456,11 +477,18 @@ class PenerjemahanResource extends BaseResource
                         ->requiresConfirmation()
                         ->modalHeading('Tolak Pengajuan (Pembayaran Tidak Valid)')
                         ->modalDescription('Yakin menolak karena pembayaran tidak valid? Bukti pembayaran akan dihapus dan pemohon wajib upload ulang.')
+                        ->form([
+                            Forms\Components\Textarea::make('rejection_reason')
+                                ->label('Alasan Penolakan')
+                                ->required()
+                                ->rows(4)
+                                ->maxLength(1000),
+                        ])
                         ->visible(fn ($record) =>
                             auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
                             !in_array($record->status, ['Disetujui', 'Diproses', 'Selesai'], true)
                         )
-                        ->action(function ($record) {
+                        ->action(function ($record, array $data) {
                             // Hapus file bukti pembayaran dari storage
                             if ($record->bukti_pembayaran && Storage::disk('public')->exists($record->bukti_pembayaran)) {
                                 Storage::disk('public')->delete($record->bukti_pembayaran);
@@ -468,10 +496,14 @@ class PenerjemahanResource extends BaseResource
                             
                             $record->update([
                                 'status'            => 'Ditolak - Pembayaran Tidak Valid',
+                                'rejection_reason'  => $data['rejection_reason'],
                                 'translator_id'     => null,
                                 'bukti_pembayaran'  => null, // Clear the path in database
                             ]);
-                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Ditolak - Pembayaran Tidak Valid'));
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification(
+                                status: 'Ditolak - Pembayaran Tidak Valid',
+                                rejectionReason: $data['rejection_reason'],
+                            ));
                             Notification::make()->title('Ditolak, bukti pembayaran dihapus, dan notifikasi diproses.')->danger()->send();
                         }),
 
@@ -482,16 +514,27 @@ class PenerjemahanResource extends BaseResource
                         ->requiresConfirmation()
                         ->modalHeading('Tolak Pengajuan (Dokumen Tidak Valid)')
                         ->modalDescription('Yakin menolak karena dokumen tidak valid?')
+                        ->form([
+                            Forms\Components\Textarea::make('rejection_reason')
+                                ->label('Alasan Penolakan')
+                                ->required()
+                                ->rows(4)
+                                ->maxLength(1000),
+                        ])
                         ->visible(fn ($record) =>
                             auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi']) &&
                             !in_array($record->status, ['Diproses', 'Selesai'], true)
                         )
-                        ->action(function ($record) {
+                        ->action(function ($record, array $data) {
                             $record->update([
-                                'status'        => 'Ditolak - Dokumen Tidak Valid',
-                                'translator_id' => null,
+                                'status'           => 'Ditolak - Dokumen Tidak Valid',
+                                'rejection_reason' => $data['rejection_reason'],
+                                'translator_id'    => null,
                             ]);
-                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification('Ditolak - Dokumen Tidak Valid'));
+                            $record->users?->notify(new \App\Notifications\PenerjemahanStatusNotification(
+                                status: 'Ditolak - Dokumen Tidak Valid',
+                                rejectionReason: $data['rejection_reason'],
+                            ));
                             Notification::make()->title('Ditolak dan notifikasi diproses.')->danger()->send();
                         }),
 

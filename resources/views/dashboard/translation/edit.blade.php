@@ -46,7 +46,11 @@
                 Alasan Penolakan
             </h3>
             <p class="text-sm text-slate-600 leading-relaxed">
-                @if ($status === 'Ditolak - Dokumen Tidak Valid')
+                @if ($penerjemahan->rejection_reason)
+                    {{ $penerjemahan->rejection_reason }}
+                    <br>
+                    <span class="text-xs text-slate-500">Silakan perbaiki data yang relevan, lalu simpan ulang.</span>
+                @elseif ($status === 'Ditolak - Dokumen Tidak Valid')
                     Dokumen abstrak yang Anda ajukan dinilai <strong>tidak valid</strong>. Mohon periksa kembali konten abstrak Anda dan pastikan sesuai format, lalu simpan ulang.
                 @elseif ($status === 'Ditolak - Pembayaran Tidak Valid')
                     Bukti pembayaran Anda dinilai <strong>tidak valid</strong> atau tidak terbaca. Mohon unggah ulang foto/scan bukti pembayaran yang jelas.

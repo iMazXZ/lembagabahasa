@@ -74,12 +74,15 @@ class EptSubmissionResource extends BaseResource
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Nama')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->copyable()
+                    ->copyMessage('Nama disalin'),
                 Tables\Columns\TextColumn::make('user.srn')
                     ->label('NPM')
                     ->searchable()
                     ->toggleable()
-                    ->copyable(),
+                    ->copyable()
+                    ->copyMessage('NPM disalin'),
                 Tables\Columns\TextColumn::make('user.prody.name')
                     ->label('Prodi')
                     ->searchable()

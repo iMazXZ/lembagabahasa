@@ -209,6 +209,7 @@ class TranslationController extends Controller
 
         // Setelah diperbaiki, status bisa kamu kembalikan ke "Menunggu"
         $penerjemahan->status = 'Menunggu';
+        $penerjemahan->rejection_reason = null;
 
         $penerjemahan->save();
 

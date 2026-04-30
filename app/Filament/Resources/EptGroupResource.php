@@ -72,7 +72,7 @@ class EptGroupResource extends BaseResource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('jadwal')
                     ->label('Jadwal Tes')
-                    ->dateTime('d M Y, H:i')
+                    ->dateTime('l, d M Y, H:i')
                     ->placeholder('Belum ditetapkan')
                     ->sortable()
                     ->toggleable(),

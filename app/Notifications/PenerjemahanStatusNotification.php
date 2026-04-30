@@ -17,6 +17,7 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
     public function __construct(
         public string $status,
         public ?string $verificationUrl = null,
+        public ?string $rejectionReason = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -46,10 +47,14 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
      */
     public function toWhatsApp(object $notifiable): bool
     {
+        $reason = trim((string) $this->rejectionReason);
+
         $details = match (true) {
             $this->status === 'Diproses' => 'Dokumen Anda sedang dalam proses diterjemahkan oleh Tim Penerjemah.',
             $this->status === 'Selesai' => 'Dokumen sudah siap didownload di Menu Penerjemahan Dokumen Abstrak.',
-            str_contains($this->status, 'Ditolak') => 'Silakan upload kembali dokumen yang sesuai.',
+            str_contains($this->status, 'Ditolak') => $reason !== ''
+                ? "Alasan:\n{$reason}\n\nSilakan upload kembali dokumen yang sesuai."
+                : 'Silakan upload kembali dokumen yang sesuai.',
             default => '',
         };
         
@@ -76,6 +81,9 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
             ->greeting("Halo, {$notifiable->name}")
             ->line("Status Penerjemahan Dokumen Abstrak Anda")
             ->line("**{$this->status}**")
+            ->when(str_contains($this->status, 'Ditolak') && filled($this->rejectionReason), function ($message) {
+                return $message->line('Alasan penolakan: ' . $this->rejectionReason);
+            })
             ->when(in_array($this->status, ['Ditolak - Pembayaran Tidak Valid', 'Ditolak - Dokumen Tidak Valid']), function ($message) {
                 return $message->line('Silakan buka halaman Penerjemahan Dokumen Abstrak');
             })
@@ -108,6 +116,10 @@ class PenerjemahanStatusNotification extends Notification implements ShouldQueue
             str_contains($this->status, 'Dokumen') => 'Permohonan ditolak karena dokumen tidak valid.',
             default => 'Status penerjemahan diperbarui.',
         };
+
+        if (str_contains($this->status, 'Ditolak') && filled($this->rejectionReason)) {
+            $body .= ' Alasan: ' . $this->rejectionReason;
+        }
 
         return [
             'type' => 'penerjemahan_status',

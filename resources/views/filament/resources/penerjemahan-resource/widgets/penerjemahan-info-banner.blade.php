@@ -72,9 +72,9 @@
         <div class="text-sm text-rose-900 dark:text-rose-200">
             Status: <strong>{{ $status }}</strong>.
             Silakan perbaiki sesuai arahan admin, lalu ajukan kembali melalui formulir.
-            @if($latest?->catatan_admin)
+            @if($latest?->rejection_reason)
                 <br><br>
-                <span class="font-semibold">Catatan:</span> {{ $latest->catatan_admin }}
+                <span class="font-semibold">Alasan:</span> {{ $latest->rejection_reason }}
             @endif
         </div>
     </x-filament::section>

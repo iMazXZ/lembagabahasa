@@ -294,10 +294,14 @@ class EptRegistrationResource extends BaseResource
                     ->label('Nama')
                     ->searchable()
                     ->sortable()
+                    ->copyable()
+                    ->copyMessage('Nama disalin')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('user.srn')
                     ->label('NPM')
                     ->searchable()
+                    ->copyable()
+                    ->copyMessage('NPM disalin')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('user.prody.name')
                     ->label('Prodi')

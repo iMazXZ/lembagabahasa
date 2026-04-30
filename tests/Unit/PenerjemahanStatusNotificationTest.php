@@ -58,4 +58,20 @@ class PenerjemahanStatusNotificationTest extends TestCase
         $this->assertEquals(['mail', 'database'], $channels);
         $this->assertSame(['database' => 'sync'], $notification->viaConnections());
     }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_includes_rejection_reason_in_dashboard_notification(): void
+    {
+        $user = User::factory()->create();
+
+        $notification = new PenerjemahanStatusNotification(
+            status: 'Ditolak - Dokumen Tidak Valid',
+            rejectionReason: 'Abstrak belum sesuai format.',
+        );
+
+        $data = $notification->toArray($user);
+
+        $this->assertSame('Penerjemahan Ditolak', $data['title']);
+        $this->assertStringContainsString('Alasan: Abstrak belum sesuai format.', $data['body']);
+    }
 }

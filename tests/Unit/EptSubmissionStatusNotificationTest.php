@@ -4,7 +4,9 @@ namespace Tests\Unit;
 
 use App\Models\User;
 use App\Notifications\EptSubmissionStatusNotification;
+use App\Services\WhatsAppService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 
 class EptSubmissionStatusNotificationTest extends TestCase
@@ -41,5 +43,69 @@ class EptSubmissionStatusNotificationTest extends TestCase
 
         $this->assertEquals(['mail', 'database'], $channels);
         $this->assertSame(['database' => 'sync'], $notification->viaConnections());
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_uses_short_whatsapp_message_for_approved_submission(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Budi Santoso',
+            'whatsapp' => '628111111111',
+            'whatsapp_verified_at' => now(),
+        ]);
+
+        $expectedMessage = "*Surat Rekomendasi EPT Disetujui*\n\n"
+            . "Yth. *Budi Santoso*,\n\n"
+            . "Surat rekomendasi EPT Anda sudah dibuat.\n\n"
+            . "Catatan:\nSilakan legalisir bila diperlukan.\n\n"
+            . "Unduh, cetak, lalu bawa ke Kantor Lembaga Bahasa untuk cap basah:\n"
+            . 'https://example.test/surat-rekomendasi.pdf';
+
+        $this->mock(WhatsAppService::class, function ($mock) use ($expectedMessage) {
+            $mock->shouldReceive('queueMessage')
+                ->once()
+                ->with('628111111111', $expectedMessage, Mockery::any())
+                ->andReturn(true);
+        });
+
+        $notification = new EptSubmissionStatusNotification(
+            status: 'approved',
+            verificationUrl: 'https://example.test/verifikasi',
+            pdfUrl: 'https://example.test/surat-rekomendasi.pdf',
+            adminNote: 'Silakan legalisir bila diperlukan.',
+        );
+
+        $this->assertTrue($notification->toWhatsApp($user));
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_uses_short_whatsapp_message_for_rejected_submission(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Budi Santoso',
+            'whatsapp' => '628111111111',
+            'whatsapp_verified_at' => now(),
+        ]);
+
+        $expectedMessage = "*Surat Rekomendasi EPT Ditolak*\n\n"
+            . "Yth. *Budi Santoso*,\n\n"
+            . "Pengajuan Anda ditolak.\n\n"
+            . "Alasan:\nBukti nilai tidak terbaca.\n\n"
+            . "Perbaiki dan ajukan ulang di:\n"
+            . route('dashboard.ept');
+
+        $this->mock(WhatsAppService::class, function ($mock) use ($expectedMessage) {
+            $mock->shouldReceive('queueMessage')
+                ->once()
+                ->with('628111111111', $expectedMessage, Mockery::any())
+                ->andReturn(true);
+        });
+
+        $notification = new EptSubmissionStatusNotification(
+            status: 'rejected',
+            adminNote: 'Bukti nilai tidak terbaca.',
+        );
+
+        $this->assertTrue($notification->toWhatsApp($user));
     }
 }

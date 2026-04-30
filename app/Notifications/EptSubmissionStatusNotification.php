@@ -73,34 +73,42 @@ class EptSubmissionStatusNotification extends Notification implements ShouldQueu
      */
     public function toWhatsApp(object $notifiable): bool
     {
-        $details = match ($this->status) {
-            'approved' => "Pengajuan Anda telah DISETUJUI dan Berhasil Dibuat.",
-            'rejected' => "Pengajuan Anda DITOLAK.",
-            'pending' => "Pengajuan Anda saat ini MENUNGGU PROSES PENINJAUAN oleh admin.",
-            default => '',
-        };
-
-        if ($this->status === 'approved' && !empty($this->adminNote)) {
-            $details .= "\n\nCatatan Admin:\n" . $this->adminNote;
-            $details .= "\n\nSilakan unduh dokumen Surat Rekomendasi, kemudian cetak dan bawa ke Kantor Lembaga Bahasa untuk mendapatkan Cap Basah.";
-        } elseif ($this->status === 'approved') {
-            $details .= "\n\nSilakan unduh dokumen Surat Rekomendasi, kemudian cetak dan bawa ke Kantor Lembaga Bahasa untuk mendapatkan Cap Basah.";
-        }
+        $actionUrl = $this->verificationUrl ?? route('dashboard.ept');
 
         if ($this->status === 'rejected') {
-            if (!empty($this->adminNote)) {
-                $details .= "\n\nAlasan Penolakan:\n" . $this->adminNote;
-            }
-            $details .= "\n\nSilakan meninjau kembali persyaratan dan memperbaiki dokumen sesuai catatan admin.";
-        }
-        
-        $actionUrl = $this->verificationUrl ?? route('dashboard.ept');
-        $message = "*Status Surat Rekomendasi EPT*\n\n";
-        $message .= "Yth. *{$notifiable->name}*,\n\n";
-        $message .= $details;
+            $reason = trim((string) $this->adminNote);
 
-        if (filled($actionUrl)) {
-            $message .= "\n\nLihat detail di:\n{$actionUrl}";
+            $message = "*Surat Rekomendasi EPT Ditolak*\n\n";
+            $message .= "Yth. *{$notifiable->name}*,\n\n";
+            $message .= "Pengajuan Anda ditolak.\n\n";
+            $message .= "Alasan:\n" . ($reason !== '' ? $reason : '-') . "\n\n";
+            $message .= "Perbaiki dan ajukan ulang di:\n{$actionUrl}";
+        } elseif ($this->status === 'approved') {
+            $downloadUrl = $this->pdfUrl ?? $this->verificationUrl ?? route('dashboard.ept');
+            $adminNote = trim((string) $this->adminNote);
+
+            $message = "*Surat Rekomendasi EPT Disetujui*\n\n";
+            $message .= "Yth. *{$notifiable->name}*,\n\n";
+            $message .= "Surat rekomendasi EPT Anda sudah dibuat.\n\n";
+
+            if ($adminNote !== '') {
+                $message .= "Catatan:\n{$adminNote}\n\n";
+            }
+
+            $message .= "Unduh, cetak, lalu bawa ke Kantor Lembaga Bahasa untuk cap basah:\n{$downloadUrl}";
+        } else {
+            $details = match ($this->status) {
+                'pending' => "Pengajuan Anda saat ini MENUNGGU PROSES PENINJAUAN oleh admin.",
+                default => '',
+            };
+
+            $message = "*Status Surat Rekomendasi EPT*\n\n";
+            $message .= "Yth. *{$notifiable->name}*,\n\n";
+            $message .= $details;
+
+            if (filled($actionUrl)) {
+                $message .= "\n\nLihat detail di:\n{$actionUrl}";
+            }
         }
 
         $tracking = null;
