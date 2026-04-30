@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use App\Support\Verification;
 use Illuminate\Support\Str;
+use Illuminate\Support\Js;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 
@@ -180,7 +181,33 @@ class EptSubmissionResource extends BaseResource
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->label(' ')
-                    ->icon('heroicon-s-eye'),
+                    ->icon('heroicon-s-eye')
+                    ->extraModalFooterActions(function (Tables\Actions\ViewAction $action): array {
+                        $record = $action->getRecord();
+
+                        if (
+                            ! $record instanceof EptSubmission
+                            || $record->status !== 'pending'
+                            || ! auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi'])
+                        ) {
+                            return [];
+                        }
+
+                        $recordKey = Js::from((string) $record->getKey());
+
+                        return [
+                            $action->makeModalAction('approve_from_view')
+                                ->label('Approve')
+                                ->icon('heroicon-s-check-circle')
+                                ->color('success')
+                                ->action("replaceMountedTableAction('approve', {$recordKey})"),
+                            $action->makeModalAction('reject_from_view')
+                                ->label('Reject')
+                                ->icon('heroicon-s-x-circle')
+                                ->color('danger')
+                                ->action("replaceMountedTableAction('reject', {$recordKey})"),
+                        ];
+                    }),
 
                 Tables\Actions\ActionGroup::make([
                     Action::make('print')
@@ -522,10 +549,21 @@ class EptSubmissionResource extends BaseResource
         return $infolist->schema([
             Components\Section::make('Informasi Pendaftar')
                 ->schema([
-                    Components\TextEntry::make('user.name')->label('Nama Pendaftar'),
-                    Components\TextEntry::make('user.srn')->label('NPM'),
+                    Components\TextEntry::make('user.name')
+                        ->label('Nama Pendaftar')
+                        ->copyable()
+                        ->copyMessage('Nama disalin'),
+                    Components\TextEntry::make('user.srn')
+                        ->label('NPM')
+                        ->copyable()
+                        ->copyMessage('NPM disalin'),
                     Components\TextEntry::make('user.prody.name')->label('Prodi'),
-                    Components\TextEntry::make('user.whatsapp')->label('Nomor WA')->copyable()->badge()->color('success'),
+                    Components\TextEntry::make('user.whatsapp')
+                        ->label('Nomor WA')
+                        ->copyable()
+                        ->copyMessage('Nomor WA disalin')
+                        ->badge()
+                        ->color('success'),
                     Components\TextEntry::make('status')
                         ->label('Status')
                         ->badge()

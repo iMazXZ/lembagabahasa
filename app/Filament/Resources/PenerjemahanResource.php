@@ -258,6 +258,9 @@ class PenerjemahanResource extends BaseResource
                     ->label('Nama Pemohon')
                     ->searchable()
                     ->sortable()
+                    ->copyable()
+                    ->copyMessage('Nama disalin')
+                    ->toggleable()
                     ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
                 Tables\Columns\TextColumn::make('users.srn')
@@ -265,6 +268,15 @@ class PenerjemahanResource extends BaseResource
                     ->searchable()
                     ->copyable()
                     ->copyMessage('NPM disalin')
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
+
+                Tables\Columns\TextColumn::make('source_word_count')
+                    ->label('Jumlah Kata')
+                    ->numeric()
+                    ->alignCenter()
+                    ->sortable()
+                    ->toggleable()
                     ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
                 Tables\Columns\TextColumn::make('bukti_pembayaran')
@@ -275,6 +287,7 @@ class PenerjemahanResource extends BaseResource
                     ->icon('heroicon-o-photo')
                     ->color('info')
                     ->placeholder('-')
+                    ->toggleable()
                     ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Kepala Lembaga'])),
 
                 Tables\Columns\BadgeColumn::make('status')
@@ -298,7 +311,8 @@ class PenerjemahanResource extends BaseResource
                             ? str_replace(['Ditolak - ', ' Tidak Valid'], ['Ditolak: ', ' Invalid'], $state)
                             : $state;
                     })
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('rejection_reason')
                     ->label('Alasan Ditolak')
@@ -309,19 +323,22 @@ class PenerjemahanResource extends BaseResource
                 Tables\Columns\TextColumn::make('submission_date')
                     ->label('Pengajuan')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('translator.name')
                     ->label('Penerjemah')
                     ->placeholder('—')
                     ->sortable()
+                    ->toggleable()
                     ->visible(fn () => auth()->user()?->hasAnyRole(['Admin', 'Staf Administrasi', 'Penerjemah', 'Kepala Lembaga'])),
 
                 Tables\Columns\TextColumn::make('completion_date')
                     ->label('Selesai')
                     ->dateTime('d/m/Y H:i')
                     ->placeholder('—')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')

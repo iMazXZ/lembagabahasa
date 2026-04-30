@@ -303,6 +303,17 @@ class EptRegistrationResource extends BaseResource
                     ->copyable()
                     ->copyMessage('NPM disalin')
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('bukti_pembayaran')
+                    ->label('Bukti')
+                    ->formatStateUsing(fn ($state): string => filled($state) ? 'Lihat' : '-')
+                    ->url(fn (EptRegistration $record): ?string => filled($record->bukti_pembayaran)
+                        ? Storage::disk('public')->url($record->bukti_pembayaran)
+                        : null)
+                    ->openUrlInNewTab()
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->placeholder('-')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('user.prody.name')
                     ->label('Prodi')
                     ->limit(20)
